@@ -1,0 +1,5 @@
+# Backend-specific overrides
+# (All common rules are defined in root .gitignore)
+
+# Keep maven wrapper jar
+!.mvn/wrapper/maven-wrapper.jar

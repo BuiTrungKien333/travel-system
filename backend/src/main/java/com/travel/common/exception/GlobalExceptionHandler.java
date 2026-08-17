@@ -3,13 +3,17 @@ package com.travel.common.exception;
 import com.travel.common.response.ErrorResponse;
 import com.travel.common.util.Translator;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolationException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 @RestControllerAdvice
 @Slf4j
@@ -19,6 +23,53 @@ public class GlobalExceptionHandler {
     private final Translator translator;
 
     /*
+    * MethodArgumentNotValidException
+    * Xử lý vi phạm ràng buộc dữ liệu khi gửi request lên server (DTO)
+     */
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ErrorResponse> handleMethodArgumentNotValidException(MethodArgumentNotValidException exception, HttpServletRequest request) {
+        Map<String, String> errors = new LinkedHashMap<>();
+
+        exception.getBindingResult()
+                .getFieldErrors()
+                .forEach(fieldError -> errors.put(fieldError.getField(), fieldError.getDefaultMessage()));
+
+        ErrorResponse response = ErrorResponse.builder()
+                .success(false)
+                .code(ErrorCode.VALIDATION_ERROR.getCode())
+                .message(translator.toLocale(ErrorCode.VALIDATION_ERROR.getMessageKey()))
+                .errors(errors)
+                .timestamp(Instant.now())
+                .build();
+
+        return ResponseEntity
+                .status(ErrorCode.VALIDATION_ERROR.getHttpStatus())
+                .body(response);
+
+    }
+
+    /*
+   ConstraintViolationException
+     */
+    public ResponseEntity<ErrorResponse> handleConstraintViolationException(ConstraintViolationException exception) {
+        Map<String, String> errors = new LinkedHashMap<>();
+        exception.getConstraintViolations().forEach(violation -> errors.put(violation.getPropertyPath().toString(), violation.getMessage()));
+
+        ErrorResponse response = ErrorResponse.builder()
+                .success(false)
+                .code(ErrorCode.VALIDATION_ERROR.getCode())
+                .message(translator.toLocale(ErrorCode.VALIDATION_ERROR.getMessageKey()))
+                .errors(errors)
+                .timestamp(Instant.now())
+                .build();
+
+        return ResponseEntity
+                .status(ErrorCode.VALIDATION_ERROR.getHttpStatus())
+                .body(response);
+    }
+
+
+    /*
      * Business Exception
      */
     @ExceptionHandler(AppException.class)
@@ -26,7 +77,7 @@ public class GlobalExceptionHandler {
         ErrorCode errorCode = e.getErrorCode();
         log.error("AppException: Code {} - MessageKey {}", errorCode.getCode(), errorCode.getMessageKey());
 
-        return buildErrorResponse(errorCode, request.getRequestURI());
+        return buildErrorResponse(errorCode);
     }
 
     /*
@@ -35,16 +86,15 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleException(Exception e, HttpServletRequest request) {
         log.error("Uncategorized Error", e);
-        return buildErrorResponse(ErrorCode.UNCATEGORIZED_EXCEPTION, request.getRequestURI());
+        return buildErrorResponse(ErrorCode.UNCATEGORIZED_EXCEPTION);
     }
 
-    private ResponseEntity<ErrorResponse> buildErrorResponse(ErrorCode errorCode, String path) {
+    private ResponseEntity<ErrorResponse> buildErrorResponse(ErrorCode errorCode) {
         ErrorResponse response = ErrorResponse.builder()
                 .success(false)
                 .code(errorCode.getCode())
                 .message(translator.toLocale(errorCode.getMessageKey()))
-                .path(path)
-                .timestamp(LocalDateTime.now())
+                .timestamp(Instant.now())
                 .build();
 
         return ResponseEntity

@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -72,8 +73,14 @@ public class GlobalExceptionHandler {
 
 
     /*
-     * Security / Authorization Exception
+     * Security / Authentication & Authorization Exceptions
      */
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<ErrorResponse> handleAuthenticationException(AuthenticationException e, HttpServletRequest request) {
+        log.warn("Authentication required on uri: {} - {}", request.getRequestURI(), e.getMessage());
+        return buildErrorResponse(ErrorCode.UNAUTHORIZED);
+    }
+
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ErrorResponse> handleAccessDeniedException(AccessDeniedException e, HttpServletRequest request) {
         log.warn("Access denied on uri: {} - {}", request.getRequestURI(), e.getMessage());

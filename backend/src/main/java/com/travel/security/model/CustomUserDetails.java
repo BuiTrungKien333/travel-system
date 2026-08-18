@@ -8,6 +8,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Getter
 public class CustomUserDetails implements UserDetails {
@@ -46,6 +47,20 @@ public class CustomUserDetails implements UserDetails {
             }
         }
         this.authorities = Collections.unmodifiableList(authList);
+    }
+
+    public CustomUserDetails(UUID id, String email, Role role, Collection<? extends GrantedAuthority> authorities) {
+        this.id = id;
+        this.email = email;
+        this.password = "";
+        this.fullName = null;
+        this.role = role;
+        this.authorities = authorities != null ? Collections.unmodifiableCollection(authorities) : Collections.emptyList();
+        this.permissions = authorities != null ? authorities.stream()
+                .map(GrantedAuthority::getAuthority)
+                .filter(auth -> !auth.startsWith("ROLE_"))
+                .collect(Collectors.toUnmodifiableSet()) : Collections.emptySet();
+        this.isDeleted = false;
     }
 
     @Override

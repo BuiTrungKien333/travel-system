@@ -7,3 +7,13 @@ spring:
 
 server:
   port: ${SERVER_PORT:8080}
+
+app:
+  jwt:
+    secret-key: ${JWT_SECRET_KEY}
+    refresh-key: ${JWT_REFRESH_KEY}
+
+    access:
+      expiration: 1800000 # 30 phút
+    refresh:
+      expiration: 604800000 # 7 ngày

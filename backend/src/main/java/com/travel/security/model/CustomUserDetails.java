@@ -7,9 +7,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.UUID;
+import java.util.*;
 
 @Getter
 public class CustomUserDetails implements UserDetails {
@@ -19,19 +17,35 @@ public class CustomUserDetails implements UserDetails {
     private final String password;
     private final String fullName;
     private final Role role;
+    private final Set<String> permissions;
     private final Collection<? extends GrantedAuthority> authorities;
     private final boolean isDeleted;
 
     public CustomUserDetails(User user) {
+        this(user, Collections.emptySet());
+    }
+
+    public CustomUserDetails(User user, Collection<String> permissions) {
         this.id = user.getId();
         this.email = user.getEmail();
         this.password = user.getPasswordHash();
         this.fullName = user.getFullName();
         this.role = user.getRole();
-        this.authorities = Collections.singletonList(
-                new SimpleGrantedAuthority(user.getRole().getAuthority())
-        );
         this.isDeleted = user.isDeleted();
+        this.permissions = permissions != null ? Set.copyOf(permissions) : Collections.emptySet();
+
+        List<GrantedAuthority> authList = new ArrayList<>();
+        if (user.getRole() != null) {
+            authList.add(new SimpleGrantedAuthority(user.getRole().getAuthority()));
+        }
+        if (permissions != null) {
+            for (String perm : permissions) {
+                if (perm != null && !perm.isBlank()) {
+                    authList.add(new SimpleGrantedAuthority(perm));
+                }
+            }
+        }
+        this.authorities = Collections.unmodifiableList(authList);
     }
 
     @Override

@@ -10,7 +10,10 @@ public enum ErrorCode {
     INTERNAL_SERVER_ERROR("COMMON_002", "error.internal.server", HttpStatus.INTERNAL_SERVER_ERROR),
 
     VALIDATION_ERROR("COMMON_003", "error.validation.fail", HttpStatus.BAD_REQUEST),
-    RESOURCE_NOT_FOUND("COMMON_004", "error.validation.resource-not-found", HttpStatus.BAD_REQUEST);
+    RESOURCE_NOT_FOUND("COMMON_004", "error.validation.resource-not-found", HttpStatus.BAD_REQUEST),
+
+    UNAUTHORIZED("AUTH_001", "error.auth.unauthorized", HttpStatus.UNAUTHORIZED),
+    FORBIDDEN("AUTH_002", "error.auth.forbidden", HttpStatus.FORBIDDEN);
 
     private final String code;
     private final String messageKey;

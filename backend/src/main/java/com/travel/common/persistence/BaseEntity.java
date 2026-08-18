@@ -2,7 +2,7 @@ package com.travel.common.persistence;
 
 import jakarta.persistence.*;
 import lombok.Getter;
-import org.hibernate.proxy.HibernateProxy;
+import org.hibernate.Hibernate;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -13,7 +13,7 @@ import java.util.UUID;
 
 @Getter
 @MappedSuperclass
-@EntityListeners((AuditingEntityListener.class))
+@EntityListeners(AuditingEntityListener.class)
 public abstract class BaseEntity {
 
     @Id
@@ -32,28 +32,42 @@ public abstract class BaseEntity {
     @Column(name = "deleted_at")
     private Instant deletedAt;
 
+    public void softDelete() {
+        this.deletedAt = Instant.now();
+    }
+
+    public void restore() {
+        this.deletedAt = null;
+    }
+
+    public boolean isDeleted() {
+        return deletedAt != null;
+    }
+
     @Override
     public final boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null) return false;
+        if (this == o) {
+            return true;
+        }
 
-        Class<?> oEffectiveClass = o instanceof HibernateProxy proxy
-                ? proxy.getHibernateLazyInitializer().getPersistentClass()
-                : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy proxy
-                ? proxy.getHibernateLazyInitializer().getPersistentClass()
-                : this.getClass();
+        if (o == null) {
+            return false;
+        }
 
-        if (thisEffectiveClass != oEffectiveClass) return false;
+        Class<?> thisClass = Hibernate.getClass(this);
+        Class<?> otherClass = Hibernate.getClass(o);
+
+        if (thisClass != otherClass) {
+            return false;
+        }
 
         BaseEntity that = (BaseEntity) o;
-        return getId() != null && Objects.equals(getId(), that.getId());
+
+        return id != null && Objects.equals(id, that.id);
     }
 
     @Override
     public final int hashCode() {
-        return this instanceof HibernateProxy proxy
-                ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode()
-                : getClass().hashCode();
+        return Hibernate.getClass(this).hashCode();
     }
 }

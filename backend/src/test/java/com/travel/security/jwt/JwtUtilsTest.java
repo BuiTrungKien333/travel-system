@@ -38,6 +38,7 @@ class JwtUtilsTest {
         ReflectionTestUtils.setField(jwtUtils, "refreshKey", BASE64_REFRESH_SECRET);
         ReflectionTestUtils.setField(jwtUtils, "jwtExpiration", 1800000L); // 30 mins
         ReflectionTestUtils.setField(jwtUtils, "jwtRefreshExpiration", 604800000L); // 7 days
+        ReflectionTestUtils.invokeMethod(jwtUtils, "initKeys");
 
         userId = UUID.randomUUID();
         User user = User.builder()

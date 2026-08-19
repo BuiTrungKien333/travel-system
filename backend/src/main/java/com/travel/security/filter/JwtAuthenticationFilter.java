@@ -5,6 +5,7 @@ import com.travel.security.jwt.TokenType;
 import com.travel.security.model.CustomUserDetails;
 import com.travel.user.enums.Role;
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -21,12 +22,13 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
 @Slf4j(topic = "JWT_AUTHENTICATION_FILTER")
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
+
+    private static final WebAuthenticationDetailsSource DETAILS_SOURCE = new WebAuthenticationDetailsSource();
 
     private final JwtUtils jwtUtils;
 
@@ -50,8 +52,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             claims = jwtUtils.extractAllClaims(jwt, TokenType.ACCESS_TOKEN);
             log.debug("[JWT] Token parsed successfully. Username={}, URI={}", claims.getSubject(), requestUri);
-        } catch (RuntimeException e) {
-            log.warn("[JWT] Invalid or expired token. URI={}, reason={}", requestUri, e.getMessage());
+        } catch (JwtException | IllegalArgumentException e) {
+            log.warn("[JWT] Token parsing failed. URI={}, reason={}", requestUri, e.getMessage());
             filterChain.doFilter(request, response);
             return;
         }
@@ -70,24 +72,24 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             @SuppressWarnings("unchecked")
             List<String> authorityStrings = claims.get("authorities", List.class);
 
-            Set<GrantedAuthority> authorities = (authorityStrings != null)
-                    ? authorityStrings.stream()
-                    .filter(auth -> auth != null && !auth.isBlank())
-                    .map(SimpleGrantedAuthority::new)
-                    .collect(Collectors.toSet())
-                    : Collections.emptySet();
-
+            Set<GrantedAuthority> authorities;
             Role role = null;
+
             if (authorityStrings != null) {
+                authorities = new HashSet<>(authorityStrings.size());
                 for (String auth : authorityStrings) {
-                    if (auth != null && auth.startsWith("ROLE_")) {
+                    if (auth == null || auth.isBlank())
+                        continue;
+                    authorities.add(new SimpleGrantedAuthority(auth));
+                    if (role == null && auth.startsWith("ROLE_")) {
                         try {
                             role = Role.valueOf(auth.substring(5));
-                            break;
                         } catch (IllegalArgumentException ignored) {
                         }
                     }
                 }
+            } else {
+                authorities = Collections.emptySet();
             }
 
             CustomUserDetails userDetails = new CustomUserDetails(userId, username, role, authorities);
@@ -95,7 +97,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             UsernamePasswordAuthenticationToken authentication =
                     new UsernamePasswordAuthenticationToken(userDetails, null, authorities);
 
-            authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+            authentication.setDetails(DETAILS_SOURCE.buildDetails(request));
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
 

@@ -6,6 +6,7 @@ import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
+import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.GrantedAuthority;
@@ -34,6 +35,15 @@ public class JwtUtils {
 
     @Value("${app.jwt.refresh.expiration}")
     private long jwtRefreshExpiration;
+
+    private SecretKey accessSigningKey;
+    private SecretKey refreshSigningKey;
+
+    @PostConstruct
+    private void initKeys() {
+        this.accessSigningKey = Keys.hmacShaKeyFor(Decoders.BASE64.decode(secretKey));
+        this.refreshSigningKey = Keys.hmacShaKeyFor(Decoders.BASE64.decode(refreshKey));
+    }
 
     // --- GENERATE TOKEN ---
     public String generateAccessToken(UserDetails userDetails) {
@@ -100,12 +110,6 @@ public class JwtUtils {
 
     // --- GET KEY HELPER ---
     private SecretKey getSignInKey(TokenType type) {
-        String keyString = switch (type) {
-            case ACCESS_TOKEN -> secretKey;
-            case REFRESH_TOKEN -> refreshKey;
-        };
-
-        byte[] keyBytes = Decoders.BASE64.decode(keyString);
-        return Keys.hmacShaKeyFor(keyBytes);
+        return type == TokenType.REFRESH_TOKEN ? refreshSigningKey : accessSigningKey;
     }
 }

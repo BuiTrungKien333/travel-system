@@ -101,7 +101,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
 
-            log.info("[JWT] Authentication success. Username={}, URI={}", username, requestUri);
+            log.debug("[JWT] Authentication success. Username={}, URI={}", username, requestUri);
         } catch (RuntimeException e) {
             log.error("[JWT] Authentication process failed. URI={}", requestUri, e);
         }

@@ -27,3 +27,9 @@ logging:
   level:
     org.springframework.web: INFO
     org.hibernate.SQL: DEBUG
+
+####################
+application:
+  security:
+    cors:
+      allowed-origins: http://localhost:3000

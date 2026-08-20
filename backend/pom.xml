@@ -56,6 +56,13 @@
             <version>3.1.0</version>
         </dependency>
 
+        <!--        Dotenv for reading .env file-->
+<!--        <dependency>-->
+<!--            <groupId>io.github.cdimascio</groupId>-->
+<!--            <artifactId>dotenv-java</artifactId>-->
+<!--            <version>3.1.0</version>-->
+<!--        </dependency>-->
+
         <!--		JWT (JJWT)-->
         <dependency>
             <groupId>io.jsonwebtoken</groupId>

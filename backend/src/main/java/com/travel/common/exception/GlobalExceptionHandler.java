@@ -7,8 +7,11 @@ import jakarta.validation.ConstraintViolationException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -25,8 +28,8 @@ public class GlobalExceptionHandler {
     private final Translator translator;
 
     /*
-    * MethodArgumentNotValidException
-    * Xử lý vi phạm ràng buộc dữ liệu khi gửi request lên server (DTO)
+     * MethodArgumentNotValidException
+     * Xử lý vi phạm ràng buộc dữ liệu khi gửi request lên server (DTO)
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleMethodArgumentNotValidException(MethodArgumentNotValidException exception, HttpServletRequest request) {
@@ -47,11 +50,10 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(ErrorCode.VALIDATION_ERROR.getHttpStatus())
                 .body(response);
-
     }
 
     /*
-   ConstraintViolationException
+     * ConstraintViolationException
      */
     @ExceptionHandler(ConstraintViolationException.class)
     public ResponseEntity<ErrorResponse> handleConstraintViolationException(ConstraintViolationException exception) {
@@ -71,6 +73,29 @@ public class GlobalExceptionHandler {
                 .body(response);
     }
 
+    /*
+     * HTTP / Web Protocol Exceptions (Media Type, Malformed Body, Method Not Allowed)
+     */
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ErrorResponse> handleHttpMediaTypeNotSupportedException(
+            HttpMediaTypeNotSupportedException e, HttpServletRequest request) {
+        log.warn("Unsupported Media Type on uri: {} - Content-Type '{}' not supported", request.getRequestURI(), e.getContentType());
+        return buildErrorResponse(ErrorCode.UNSUPPORTED_MEDIA_TYPE);
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponse> handleHttpMessageNotReadableException(
+            HttpMessageNotReadableException e, HttpServletRequest request) {
+        log.warn("Malformed request body on uri: {} - {}", request.getRequestURI(), e.getMessage());
+        return buildErrorResponse(ErrorCode.MALFORMED_REQUEST_BODY);
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ErrorResponse> handleHttpRequestMethodNotSupportedException(
+            HttpRequestMethodNotSupportedException e, HttpServletRequest request) {
+        log.warn("Method not allowed on uri: {} - Method '{}' not supported", request.getRequestURI(), e.getMethod());
+        return buildErrorResponse(ErrorCode.METHOD_NOT_ALLOWED);
+    }
 
     /*
      * Security / Authentication & Authorization Exceptions
@@ -120,4 +145,3 @@ public class GlobalExceptionHandler {
                 .body(response);
     }
 }
-

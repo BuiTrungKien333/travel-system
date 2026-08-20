@@ -6,13 +6,18 @@ import com.travel.auth.dto.request.RegisterRequest;
 import com.travel.auth.dto.response.AuthResponse;
 import com.travel.auth.service.AuthService;
 import com.travel.common.response.ApiResponse;
+import com.travel.common.response.ErrorResponse;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -40,11 +45,27 @@ public class AuthController {
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "400",
-                    description = "Validation failure on input fields"
+                    description = "Validation failure on input fields",
+                    content = @Content(
+                            mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ErrorResponse.class),
+                            examples = @ExampleObject(
+                                    name = "Validation Error",
+                                    value = "{\"success\": false, \"code\": \"COMMON_003\", \"message\": \"Validation failed\", \"errors\": {\"email\": \"Invalid email format\", \"password\": \"Password must be between 6 and 50 characters\"}, \"timestamp\": \"2026-08-20T12:00:00Z\"}"
+                            )
+                    )
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "409",
-                    description = "Email is already registered in the system"
+                    description = "Email is already registered in the system",
+                    content = @Content(
+                            mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ErrorResponse.class),
+                            examples = @ExampleObject(
+                                    name = "Conflict Error",
+                                    value = "{\"success\": false, \"code\": \"AUTH_003\", \"message\": \"Email already exists\", \"timestamp\": \"2026-08-20T12:00:00Z\"}"
+                            )
+                    )
             )
     })
     @PostMapping("/register")
@@ -66,15 +87,39 @@ public class AuthController {
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "400",
-                    description = "Validation failure on input fields"
+                    description = "Validation failure on input fields",
+                    content = @Content(
+                            mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ErrorResponse.class),
+                            examples = @ExampleObject(
+                                    name = "Validation Error",
+                                    value = "{\"success\": false, \"code\": \"COMMON_003\", \"message\": \"Validation failed\", \"errors\": {\"email\": \"Email is required\", \"password\": \"Password is required\"}, \"timestamp\": \"2026-08-20T12:00:00Z\"}"
+                            )
+                    )
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "401",
-                    description = "Invalid email or password"
+                    description = "Invalid email or password",
+                    content = @Content(
+                            mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ErrorResponse.class),
+                            examples = @ExampleObject(
+                                    name = "Unauthorized Error",
+                                    value = "{\"success\": false, \"code\": \"AUTH_004\", \"message\": \"Invalid email or password\", \"timestamp\": \"2026-08-20T12:00:00Z\"}"
+                            )
+                    )
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "403",
-                    description = "Account is locked or deactivated"
+                    description = "Account is locked or deactivated",
+                    content = @Content(
+                            mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ErrorResponse.class),
+                            examples = @ExampleObject(
+                                    name = "Forbidden Error",
+                                    value = "{\"success\": false, \"code\": \"AUTH_007\", \"message\": \"Account has been locked or deactivated\", \"timestamp\": \"2026-08-20T12:00:00Z\"}"
+                            )
+                    )
             )
     })
     @PostMapping("/login")
@@ -95,15 +140,39 @@ public class AuthController {
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "400",
-                    description = "Validation failure on input fields"
+                    description = "Validation failure on input fields",
+                    content = @Content(
+                            mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ErrorResponse.class),
+                            examples = @ExampleObject(
+                                    name = "Validation Error",
+                                    value = "{\"success\": false, \"code\": \"COMMON_003\", \"message\": \"Validation failed\", \"errors\": {\"refreshToken\": \"Refresh token is required\"}, \"timestamp\": \"2026-08-20T12:00:00Z\"}"
+                            )
+                    )
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "401",
-                    description = "Invalid or expired refresh token"
+                    description = "Invalid or expired refresh token",
+                    content = @Content(
+                            mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ErrorResponse.class),
+                            examples = @ExampleObject(
+                                    name = "Unauthorized Error",
+                                    value = "{\"success\": false, \"code\": \"AUTH_005\", \"message\": \"Invalid or expired refresh token\", \"timestamp\": \"2026-08-20T12:00:00Z\"}"
+                            )
+                    )
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "403",
-                    description = "Account is locked or deactivated"
+                    description = "Account is locked or deactivated",
+                    content = @Content(
+                            mediaType = MediaType.APPLICATION_JSON_VALUE,
+                            schema = @Schema(implementation = ErrorResponse.class),
+                            examples = @ExampleObject(
+                                    name = "Forbidden Error",
+                                    value = "{\"success\": false, \"code\": \"AUTH_007\", \"message\": \"Account has been locked or deactivated\", \"timestamp\": \"2026-08-20T12:00:00Z\"}"
+                            )
+                    )
             )
     })
     @PostMapping("/refresh")

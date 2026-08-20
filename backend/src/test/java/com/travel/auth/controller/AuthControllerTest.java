@@ -291,5 +291,27 @@ class AuthControllerTest {
                     .andExpect(jsonPath("$.code").value("COMMON_003"))
                     .andExpect(jsonPath("$.errors.refreshToken").exists());
         }
+
+        @Test
+        @DisplayName("POST /api/v1/auth/refresh with text/plain Content-Type should return 415 Unsupported Media Type")
+        void refresh_unsupportedMediaType_returns415UnsupportedMediaType() throws Exception {
+            mockMvc.perform(post("/api/v1/auth/refresh")
+                            .contentType(MediaType.TEXT_PLAIN)
+                            .content("{\"refreshToken\":\"sample.token\"}"))
+                    .andExpect(status().isUnsupportedMediaType())
+                    .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.code").value("COMMON_005"));
+        }
+
+        @Test
+        @DisplayName("POST /api/v1/auth/refresh with malformed JSON should return 400 Bad Request")
+        void refresh_malformedJson_returns400BadRequest() throws Exception {
+            mockMvc.perform(post("/api/v1/auth/refresh")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"refreshToken\": invalid_json_syntax"))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.success").value(false))
+                    .andExpect(jsonPath("$.code").value("COMMON_006"));
+        }
     }
 }

@@ -43,7 +43,7 @@ public class SecurityConfig {
             "/error"
     };
 
-    @Value("${application.security.cors.allowed-origins}")
+    @Value("${application.security.cors.allowed-origins:http://localhost:3000,http://localhost:5173}")
     private String[] allowedOrigins;
 
     @Bean

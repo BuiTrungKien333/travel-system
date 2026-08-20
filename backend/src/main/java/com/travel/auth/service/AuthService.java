@@ -1,9 +1,9 @@
-package com.travel.user.service;
+package com.travel.auth.service;
 
-import com.travel.user.dto.request.LoginRequest;
-import com.travel.user.dto.request.RefreshTokenRequest;
-import com.travel.user.dto.request.RegisterRequest;
-import com.travel.user.dto.response.AuthResponse;
+import com.travel.auth.dto.request.LoginRequest;
+import com.travel.auth.dto.request.RefreshTokenRequest;
+import com.travel.auth.dto.request.RegisterRequest;
+import com.travel.auth.dto.response.AuthResponse;
 
 public interface AuthService {
 

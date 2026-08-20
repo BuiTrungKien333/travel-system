@@ -36,6 +36,10 @@ public class JwtUtils {
     @Value("${app.jwt.refresh.expiration}")
     private long jwtRefreshExpiration;
 
+    public long getJwtExpiration() {
+        return jwtExpiration;
+    }
+
     private SecretKey accessSigningKey;
     private SecretKey refreshSigningKey;
 

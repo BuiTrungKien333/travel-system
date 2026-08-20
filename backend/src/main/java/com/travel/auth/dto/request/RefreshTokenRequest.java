@@ -1,4 +1,4 @@
-package com.travel.user.dto.request;
+package com.travel.auth.dto.request;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;

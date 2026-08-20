@@ -39,7 +39,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         final String authHeader = request.getHeader("Authorization");
 
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            log.debug("[JWT] No Bearer token found, skip authentication. URI={}", requestUri);
+            log.trace("[JWT] No Bearer token found, skip authentication. URI={}", requestUri);
             filterChain.doFilter(request, response);
             return;
         }

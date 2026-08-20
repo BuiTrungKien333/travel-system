@@ -93,17 +93,17 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AppException.class)
     public ResponseEntity<ErrorResponse> handleAppException(AppException e, HttpServletRequest request) {
         ErrorCode errorCode = e.getErrorCode();
-        log.error("AppException: Code {} - MessageKey {}", errorCode.getCode(), errorCode.getMessageKey());
+        log.warn("Business exception [{}]: uri={}, messageKey={}", errorCode.getCode(), request.getRequestURI(), errorCode.getMessageKey());
 
         return buildErrorResponse(errorCode);
     }
 
     /*
-     * Fallback Exception
+     * Fallback Exception (500 Internal Server Error)
      */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleException(Exception e, HttpServletRequest request) {
-        log.error("Uncategorized Error", e);
+        log.error("Unhandled internal exception on uri: {}", request.getRequestURI(), e);
         return buildErrorResponse(ErrorCode.UNCATEGORIZED_EXCEPTION);
     }
 

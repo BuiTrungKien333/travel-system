@@ -1,5 +1,6 @@
-package com.travel.user.dto.response;
+package com.travel.auth.dto.response;
 
+import com.travel.user.dto.response.UserSummaryResponse;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.*;
 import lombok.experimental.FieldDefaults;

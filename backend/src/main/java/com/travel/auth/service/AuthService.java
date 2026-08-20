@@ -8,26 +8,26 @@ import com.travel.auth.dto.response.AuthResponse;
 public interface AuthService {
 
     /**
-     * Đăng ký tài khoản người dùng mới
+     * Registers a new user account.
      *
-     * @param request thông tin đăng ký (fullName, email, password)
-     * @return AuthResponse chứa access/refresh token và user summary
+     * @param request registration information (fullName, email, password)
+     * @return AuthResponse containing access/refresh tokens and user summary
      */
     AuthResponse register(RegisterRequest request);
 
     /**
-     * Đăng nhập người dùng bằng email và mật khẩu
+     * Logs in a user using email and password.
      *
-     * @param request thông tin đăng nhập (email, password)
-     * @return AuthResponse chứa access/refresh token và user summary
+     * @param request login information (email, password)
+     * @return AuthResponse containing access/refresh tokens and user summary
      */
     AuthResponse login(LoginRequest request);
 
     /**
-     * Cấp phát Access Token mới từ Refresh Token hợp lệ
+     * Issues a new access token using a valid refresh token.
      *
-     * @param request thông tin refresh token
-     * @return AuthResponse chứa access/refresh token và user summary
+     * @param request refresh token information
+     * @return AuthResponse containing access/refresh tokens and user summary
      */
     AuthResponse refreshToken(RefreshTokenRequest request);
 }

@@ -10,3 +10,4 @@ export * from './mock-memories';
 export * from './mock-journey';
 export * from './mock-guides';
 export * from './mock-marketing';
+export * from './mock-memories-locket';

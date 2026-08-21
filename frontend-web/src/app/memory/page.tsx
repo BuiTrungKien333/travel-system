@@ -1,103 +1,101 @@
 'use client';
 
+import { useMemo } from 'react';
 import { useJourneyQuery } from '@/features/journey/api/useJourneyQuery';
-import { useAllMemoriesQuery } from '@/features/journey/api/useAllMemoriesQuery';
 import { useTripsWithMemoriesQuery } from '@/features/journey/api/useTripsWithMemoriesQuery';
+import { MOCK_TRIP_CARDS, MOCK_LOCATION_GROUPS } from '@/constants';
 import { HeroJourneyBanner } from '@/components/journey/HeroJourneyBanner';
-import { VietnamMapSection } from '@/components/journey/VietnamMapSection';
-import { TripMemoryCards } from '@/components/journey/TripMemoryCards';
-import { AllMemoriesTimeline } from '@/components/journey/AllMemoriesTimeline';
-import { JourneyMilestones } from '@/components/journey/JourneyMilestones';
-import { LoadingState, ErrorState } from '@/components/ui';
+import { MemoriesHeader } from '@/features/memory/components/MemoriesHeader';
+import { TripCarousel } from '@/features/memory/components/TripCarousel';
+import { LocationSection } from '@/features/memory/components/LocationSection';
+import { PhotoViewerModal } from '@/features/memory/components/PhotoViewerModal';
+import { useMemoryUIStore } from '@/features/memory/store/useMemoryUIStore';
+import type { TripMemoryCard, LocationMemoryGroup } from '@/features/memory/types';
 
 export default function MemoryPage() {
   const {
     data: stats,
-    isLoading: isLoadingStats,
-    isError: isErrorStats,
-    refetch: refetchStats,
   } = useJourneyQuery();
 
   const {
-    data: allMemories,
-    isLoading: isLoadingMemories,
-  } = useAllMemoriesQuery();
-
-  const {
-    data: tripsWithMemories,
+    data: tripsFromApi,
     isLoading: isLoadingTrips,
   } = useTripsWithMemoriesQuery();
 
-  if (isLoadingStats && !stats) {
-    return <LoadingState message="Đang tải hành trình và kỷ niệm của bạn..." />;
-  }
-
-  if (isErrorStats) {
-    return (
-      <ErrorState
-        title="Không thể tải thông tin hành trình & kỷ niệm"
-        message="Kiểm tra kết nối mạng và thử lại. Dữ liệu kỷ niệm của bạn vẫn được bảo quản an toàn."
-        onRetry={() => refetchStats()}
-      />
-    );
-  }
+  const activeTrip = useMemoryUIStore((s) => s.activeTrip);
 
   const defaultStats = {
-    totalTrips: 0,
-    totalPlaces: 0,
-    totalMemories: 0,
-    totalPhotos: 0,
+    totalTrips: 4,
+    totalPlaces: 18,
+    totalMemories: 42,
+    totalPhotos: 532,
     totalProvinces: 63,
-    exploredProvinces: [],
-    completedMilestones: 0,
-    nextMilestoneTarget: 5,
-    achievementBadge: 'Chưa có huy hiệu',
+    exploredProvinces: [
+      { id: 'p1', code: '48', name: 'Đà Nẵng' },
+      { id: 'p2', code: '91', name: 'Kiên Giang' },
+      { id: 'p3', code: '68', name: 'Lâm Đồng' },
+      { id: 'p4', code: '49', name: 'Quảng Nam' },
+      { id: 'p5', code: '10', name: 'Lào Cai' },
+    ],
+    completedMilestones: 1,
+    nextMilestoneTarget: 10,
+    achievementBadge: 'Người khám phá',
   };
 
   const currentStats = stats ?? defaultStats;
 
+  // Transform API trips into TripMemoryCard shape, fallback to mock data
+  const tripCards: TripMemoryCard[] = useMemo(() => {
+    if (tripsFromApi && tripsFromApi.length > 0) {
+      return tripsFromApi.map((trip) => ({
+        id: trip.id,
+        name: trip.name,
+        destination: trip.destination,
+        startDate: trip.startDate,
+        endDate: trip.endDate,
+        coverImage: trip.coverImage,
+        totalPhotos: trip.memoryCount || 0,
+        companions: [],
+        status: trip.status,
+        previewImages: trip.coverImage ? [trip.coverImage] : [],
+      }));
+    }
+    return MOCK_TRIP_CARDS;
+  }, [tripsFromApi]);
+
+  // Use mock location groups, filtered by active trip if set
+  const locationGroups: LocationMemoryGroup[] = useMemo(() => {
+    if (activeTrip) {
+      const tripIndex = tripCards.findIndex((t) => t.id === activeTrip);
+      if (tripIndex >= 0) {
+        const start = (tripIndex * 2) % MOCK_LOCATION_GROUPS.length;
+        const end = Math.min(start + 2, MOCK_LOCATION_GROUPS.length);
+        return MOCK_LOCATION_GROUPS.slice(start, end);
+      }
+    }
+    return MOCK_LOCATION_GROUPS;
+  }, [activeTrip, tripCards]);
+
   return (
-    <div className="min-h-screen bg-white">
-      {/* ─── Section 1: Hero Banner with Stats ─── */}
+    <div className="min-h-screen bg-white text-slate-900 selection:bg-cyan-500 selection:text-white">
+      {/* ─── Section: Explored Provinces & Journey Stats ─── */}
       <HeroJourneyBanner stats={currentStats} />
 
-      {/* ─── Section 2: Vietnam Province Map ─── */}
-      <section className="py-10 sm:py-14 bg-gradient-to-b from-white via-cyan-50/20 to-sky-50/40">
-        <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
-          <VietnamMapSection
-            exploredProvinces={currentStats.exploredProvinces}
-          />
-        </div>
+      {/* ─── Sticky Header ─── */}
+      <MemoriesHeader />
+
+      {/* ─── Section A: Trip-Level Memories Carousel ─── */}
+      <section className="pt-6 pb-10 bg-slate-50/50">
+        <TripCarousel trips={tripCards} isLoading={isLoadingTrips} />
       </section>
 
-      {/* ─── Section 3: Journey Milestones ─── */}
-      <section className="py-8 bg-sky-50/40">
-        <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
-          <JourneyMilestones
-            exploredCount={currentStats.exploredProvinces.length}
-          />
-        </div>
+      {/* ─── Section B: Location-Level Memories Feed (3 cols on web, 1 col on mobile) ─── */}
+      <section className="px-4 sm:px-6 py-10 max-w-5xl mx-auto">
+        <LocationSection groups={locationGroups} isLoading={isLoadingTrips} />
       </section>
 
-      {/* ─── Section 4: Trip Memory Cards ─── */}
-      <section className="py-10 sm:py-14 bg-gradient-to-b from-sky-50/40 via-cyan-50/10 to-white">
-        <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
-          <TripMemoryCards
-            trips={tripsWithMemories ?? []}
-            isLoading={isLoadingTrips}
-          />
-        </div>
-      </section>
-
-      {/* ─── Section 5: All Memories Timeline ─── */}
-      <section className="py-10 sm:py-14 bg-gradient-to-b from-white via-sky-50/30 to-sky-100/60">
-        <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
-          <AllMemoriesTimeline
-            memories={allMemories ?? []}
-            isLoading={isLoadingMemories}
-          />
-        </div>
-      </section>
+      {/* ─── Full-Screen Locket Photo Viewer Modal ─── */}
+      <PhotoViewerModal />
     </div>
   );
 }

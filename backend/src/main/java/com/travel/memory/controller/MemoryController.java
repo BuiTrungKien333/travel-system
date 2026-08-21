@@ -16,24 +16,12 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
-/**
- * REST Controller cho Memory CRUD.
- *
- * <p>Tạm thời nhận {@code X-User-Id} header để xác định user đang thực hiện request.
- * Sau khi JWT được triển khai, sẽ refactor để extract userId từ SecurityContextHolder.</p>
- *
- * <p>Base path: {@code /api/v1/memories}</p>
- */
 @RestController
 @RequestMapping("/api/v1/memories")
 @RequiredArgsConstructor
 public class MemoryController {
 
     private final MemoryService memoryService;
-
-    // -------------------------------------------------------------------------
-    // POST /api/v1/memories
-    // -------------------------------------------------------------------------
 
     /**
      * Tạo mới một Memory.

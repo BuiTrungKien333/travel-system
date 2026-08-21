@@ -42,9 +42,6 @@ public class Memory {
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
-    // -------------------------------------------------------------------------
-    // Factory
-    // -------------------------------------------------------------------------
 
     public static Memory create(UUID userId, UUID tripId, UUID placeId,
                                 String content, LocalDateTime visitedAt) {
@@ -56,39 +53,25 @@ public class Memory {
         memory.visitedAt = visitedAt;
         return memory;
     }
-
-    // -------------------------------------------------------------------------
-    // Business mutations
-    // -------------------------------------------------------------------------
-
     public void updateContent(String content) {
         if (content != null && !content.isBlank()) {
             this.content = content;
         }
     }
-
     public void updateVisitedAt(LocalDateTime visitedAt) {
         if (visitedAt != null) {
             this.visitedAt = visitedAt;
         }
     }
-
-    /** Soft delete: đặt deletedAt = now. */
     public void softDelete() {
         this.deletedAt = LocalDateTime.now();
     }
-
-    // -------------------------------------------------------------------------
-    // JPA lifecycle hooks
-    // -------------------------------------------------------------------------
-
     @PrePersist
     protected void onCreate() {
         LocalDateTime now = LocalDateTime.now();
         this.createdAt = now;
         this.updatedAt = now;
     }
-
     @PreUpdate
     protected void onUpdate() {
         this.updatedAt = LocalDateTime.now();

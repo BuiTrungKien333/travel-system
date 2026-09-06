@@ -1,79 +1,90 @@
 package com.travel.memory.entity;
 
+import com.travel.common.persistence.BaseEntity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
-@Table(name = "memory")
+@Table(name = "memories")
 @Getter
 @NoArgsConstructor
-public class Memory {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "id", nullable = false, updatable = false)
-    private UUID id;
+public class Memory extends BaseEntity {
 
     @Column(name = "user_id", nullable = false)
     private UUID userId;
 
-    @Column(name = "trip_id", nullable = false)
+    @Column(name = "trip_id")
     private UUID tripId;
 
-    @Column(name = "place_id", nullable = false)
+    @Column(name = "place_id")
     private UUID placeId;
 
-    @Column(name = "content", nullable = false, columnDefinition = "TEXT")
-    private String content;
+    @Column(name = "note", length = 2000)
+    private String note;
 
-    @Column(name = "visited_at", nullable = false)
-    private LocalDateTime visitedAt;
+    @Column(name = "experienced_at")
+    private Instant experiencedAt;
 
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
+    @OneToMany(mappedBy = "memory", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("displayOrder ASC")
+    private List<Media> media = new ArrayList<>();
 
-    @Column(name = "updated_at", nullable = false)
-    private LocalDateTime updatedAt;
-
-    @Column(name = "deleted_at")
-    private LocalDateTime deletedAt;
-
-
-    public static Memory create(UUID userId, UUID tripId, UUID placeId,
-                                String content, LocalDateTime visitedAt) {
+    /**
+     * Factory method to create a new Memory instance.
+     */
+    public static Memory create(UUID userId, UUID tripId, UUID placeId, String note, Instant experiencedAt) {
         Memory memory = new Memory();
-        memory.userId    = userId;
-        memory.tripId    = tripId;
-        memory.placeId   = placeId;
-        memory.content   = content;
-        memory.visitedAt = visitedAt;
+        memory.userId = userId;
+        memory.tripId = tripId;
+        memory.placeId = placeId;
+        memory.note = note;
+        memory.experiencedAt = experiencedAt != null ? experiencedAt : Instant.now();
         return memory;
     }
-    public void updateContent(String content) {
-        if (content != null && !content.isBlank()) {
-            this.content = content;
+
+    /**
+     * Helper method to add a media item and set bidirectional association.
+     */
+    public void addMedia(Media mediaItem) {
+        if (mediaItem != null) {
+            this.media.add(mediaItem);
+            mediaItem.setMemory(this);
         }
     }
-    public void updateVisitedAt(LocalDateTime visitedAt) {
-        if (visitedAt != null) {
-            this.visitedAt = visitedAt;
+
+    /**
+     * Helper method to remove a media item and dissociate.
+     */
+    public void removeMedia(Media mediaItem) {
+        if (mediaItem != null) {
+            this.media.remove(mediaItem);
+            mediaItem.setMemory(null);
         }
     }
-    public void softDelete() {
-        this.deletedAt = LocalDateTime.now();
+
+    /**
+     * Helper method to clear all media items.
+     */
+    public void clearMedia() {
+        for (Media item : this.media) {
+            item.setMemory(null);
+        }
+        this.media.clear();
     }
-    @PrePersist
-    protected void onCreate() {
-        LocalDateTime now = LocalDateTime.now();
-        this.createdAt = now;
-        this.updatedAt = now;
+
+    public void updateNote(String note) {
+        this.note = note;
     }
-    @PreUpdate
-    protected void onUpdate() {
-        this.updatedAt = LocalDateTime.now();
+
+    public void updateExperiencedAt(Instant experiencedAt) {
+        if (experiencedAt != null) {
+            this.experiencedAt = experiencedAt;
+        }
     }
 }

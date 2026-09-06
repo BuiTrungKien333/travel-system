@@ -1,33 +1,104 @@
 package com.travel.memory.mapper;
 
+import com.travel.memory.dto.request.CreateMediaRequest;
 import com.travel.memory.dto.request.CreateMemoryRequest;
+import com.travel.memory.dto.response.MediaResponse;
 import com.travel.memory.dto.response.MemoryResponse;
+import com.travel.memory.entity.Media;
 import com.travel.memory.entity.Memory;
 import org.springframework.stereotype.Component;
+
+import java.util.Collections;
+import java.util.List;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Component
 public class MemoryMapper {
 
-    public Memory toEntity(CreateMemoryRequest request) {
-        return Memory.create(
-                request.getUserId(),
+    /**
+     * Map CreateMemoryRequest to Memory entity with bidirectional Media mapping.
+     */
+    public Memory toEntity(UUID userId, CreateMemoryRequest request) {
+        Memory memory = Memory.create(
+                userId,
                 request.getTripId(),
                 request.getPlaceId(),
-                request.getContent(),
-                request.getVisitedAt()
+                request.getNote(),
+                request.getExperiencedAt()
+        );
+
+        if (request.getMedia() != null && !request.getMedia().isEmpty()) {
+            for (CreateMediaRequest mediaReq : request.getMedia()) {
+                Media media = toMediaEntity(mediaReq);
+                memory.addMedia(media);
+            }
+        }
+
+        return memory;
+    }
+
+    /**
+     * Map CreateMediaRequest to Media entity.
+     */
+    public Media toMediaEntity(CreateMediaRequest request) {
+        return Media.create(
+                request.getUrl(),
+                request.getMimeType(),
+                request.getFileSize(),
+                request.getWidth(),
+                request.getHeight(),
+                request.getDisplayOrder()
         );
     }
 
+    /**
+     * Map Memory entity to MemoryResponse DTO.
+     */
     public MemoryResponse toResponse(Memory memory) {
+        if (memory == null) {
+            return null;
+        }
+
+        List<MediaResponse> mediaResponses = (memory.getMedia() != null)
+                ? memory.getMedia().stream()
+                .map(this::toMediaResponse)
+                .collect(Collectors.toList())
+                : Collections.emptyList();
+
+        String coverImageUrl = !mediaResponses.isEmpty() ? mediaResponses.getFirst().getUrl() : null;
+
         return MemoryResponse.builder()
                 .id(memory.getId())
                 .userId(memory.getUserId())
                 .tripId(memory.getTripId())
                 .placeId(memory.getPlaceId())
-                .content(memory.getContent())
-                .visitedAt(memory.getVisitedAt())
+                .note(memory.getNote())
+                .experiencedAt(memory.getExperiencedAt())
+                .coverImageUrl(coverImageUrl)
+                .mediaCount(mediaResponses.size())
+                .media(mediaResponses)
                 .createdAt(memory.getCreatedAt())
                 .updatedAt(memory.getUpdatedAt())
+                .build();
+    }
+
+    /**
+     * Map Media entity to MediaResponse DTO.
+     */
+    public MediaResponse toMediaResponse(Media media) {
+        if (media == null) {
+            return null;
+        }
+        return MediaResponse.builder()
+                .id(media.getId())
+                .url(media.getUrl())
+                .mimeType(media.getMimeType())
+                .fileSize(media.getFileSize())
+                .width(media.getWidth())
+                .height(media.getHeight())
+                .displayOrder(media.getDisplayOrder())
+                .createdAt(media.getCreatedAt())
                 .build();
     }
 }

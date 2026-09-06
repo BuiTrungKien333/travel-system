@@ -123,6 +123,12 @@ public class GlobalExceptionHandler {
         return buildErrorResponse(errorCode);
     }
 
+    @ExceptionHandler({org.springframework.dao.InvalidDataAccessApiUsageException.class, IllegalArgumentException.class})
+    public ResponseEntity<ErrorResponse> handleInvalidDataAccessApiUsageException(Exception e, HttpServletRequest request) {
+        log.warn("Invalid API parameter/data usage on uri: {} - {}", request.getRequestURI(), e.getMessage());
+        return buildErrorResponse(ErrorCode.VALIDATION_ERROR);
+    }
+
     /*
      * Fallback Exception (500 Internal Server Error)
      */

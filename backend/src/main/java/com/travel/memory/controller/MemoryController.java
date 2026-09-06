@@ -2,143 +2,101 @@ package com.travel.memory.controller;
 
 import com.travel.common.response.ApiResponse;
 import com.travel.memory.dto.request.CreateMemoryRequest;
-import com.travel.memory.dto.request.UpdateMemoryRequest;
 import com.travel.memory.dto.response.MemoryResponse;
 import com.travel.memory.service.MemoryService;
+import com.travel.security.model.CustomUserDetails;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/v1/memories")
+@RequestMapping("/api/v1/journal/memories")
 @RequiredArgsConstructor
+@Slf4j(topic = "MEMORY_CONTROLLER")
+@Tag(name = "Journal Memory Management", description = "Endpoints for managing personal travel memories and journals")
 public class MemoryController {
 
     private final MemoryService memoryService;
 
     /**
-     * Tạo mới một Memory.
-     *
-     * @param request body chứa dữ liệu memory
-     * @return 201 Created với memory vừa tạo
+     * Create a new travel memory with optional attached media.
+     * POST /api/v1/journal/memories
      */
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
+    @Operation(summary = "Create new memory", description = "Creates a new travel memory with optional attached media for the authenticated user")
     public ApiResponse<MemoryResponse> createMemory(
+            @AuthenticationPrincipal CustomUserDetails currentUser,
             @Valid @RequestBody CreateMemoryRequest request
     ) {
-        MemoryResponse response = memoryService.createMemory(request);
+        UUID currentUserId = currentUser.getId();
+        log.info("User [{}] is creating memory for trip [{}]", currentUserId, request.getTripId());
+
+        MemoryResponse response = memoryService.createMemory(currentUserId, request);
         return ApiResponse.success("Memory created successfully", response);
     }
 
-    // -------------------------------------------------------------------------
-    // GET /api/v1/memories/{id}
-    // -------------------------------------------------------------------------
-
     /**
-     * Lấy chi tiết một Memory theo id. Yêu cầu ownership.
-     *
-     * @param id        UUID của memory
-     * @param userId    UUID của user đang request (tạm dùng header)
-     * @return 200 OK với memory tương ứng
+     * Retrieve detailed memory information by ID via query parameter.
+     * GET /api/v1/journal/memories/detail?id=...
      */
-    @GetMapping("/{id}")
+    @GetMapping("/detail")
+    @Operation(summary = "Get memory details", description = "Retrieves detailed information of a specific memory by its ID query parameter")
     public ApiResponse<MemoryResponse> getMemoryById(
-            @PathVariable UUID id,
-            @RequestHeader("X-User-Id") UUID userId
+            @RequestParam("memoryId") UUID id,
+            @AuthenticationPrincipal CustomUserDetails currentUser
     ) {
-        MemoryResponse response = memoryService.getMemoryById(id, userId);
+        UUID currentUserId = currentUser.getId();
+        MemoryResponse response = memoryService.getMemoryById(id, currentUserId);
         return ApiResponse.success(response);
     }
 
-    // -------------------------------------------------------------------------
-    // GET /api/v1/memories/user/{userId}
-    // -------------------------------------------------------------------------
-
     /**
-     * Lấy danh sách Memory của một user (phân trang).
-     *
-     * @param userId   UUID của user cần lấy memories
-     * @param pageable thông số phân trang (page, size, sort)
-     * @return 200 OK với page memories
+     * Retrieve paginated list of memories for the authenticated user.
+     * Optionally filter by trip: GET /api/v1/journal/memories?tripId=...
      */
-    @GetMapping("/user/{userId}")
-    public ApiResponse<Page<MemoryResponse>> getMemoriesByUser(
-            @PathVariable UUID userId,
-            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
+    @GetMapping
+    @Operation(summary = "List memories", description = "Retrieves a paginated list of memories for the authenticated user, optionally filtered by tripId")
+    public ApiResponse<Page<MemoryResponse>> getMemories(
+            @RequestParam(value = "tripId", required = false) UUID tripId,
+            @AuthenticationPrincipal CustomUserDetails currentUser,
+            @ParameterObject @PageableDefault(size = 20, sort = "experiencedAt", direction = Sort.Direction.DESC) Pageable pageable
     ) {
-        Page<MemoryResponse> responses = memoryService.getMemoriesByUser(userId, pageable);
+        UUID currentUserId = currentUser.getId();
+        Page<MemoryResponse> responses;
+        if (tripId != null) {
+            responses = memoryService.getMemoriesByTrip(tripId, currentUserId, pageable);
+        } else {
+            responses = memoryService.getMemoriesByUser(currentUserId, pageable);
+        }
         return ApiResponse.success(responses);
     }
 
-    // -------------------------------------------------------------------------
-    // GET /api/v1/memories/trip/{tripId}
-    // -------------------------------------------------------------------------
-
     /**
-     * Lấy danh sách Memory của user hiện tại trong một trip (phân trang).
-     *
-     * @param tripId   UUID của trip
-     * @param userId   UUID của user đang request (tạm dùng header)
-     * @param pageable thông số phân trang (page, size, sort)
-     * @return 200 OK với page memories
+     * Soft delete a memory (and all its associated media items).
+     * DELETE /api/v1/journal/memories?id=... (alias: /delete-memory)
      */
-    @GetMapping("/trip/{tripId}")
-    public ApiResponse<Page<MemoryResponse>> getMemoriesByTrip(
-            @PathVariable UUID tripId,
-            @RequestHeader("X-User-Id") UUID userId,
-            @PageableDefault(size = 20, sort = "visitedAt", direction = Sort.Direction.DESC) Pageable pageable
-    ) {
-        Page<MemoryResponse> responses = memoryService.getMemoriesByTrip(tripId, userId, pageable);
-        return ApiResponse.success(responses);
-    }
-
-    // -------------------------------------------------------------------------
-    // PATCH /api/v1/memories/{id}
-    // -------------------------------------------------------------------------
-
-    /**
-     * Cập nhật một Memory (partial update). Yêu cầu ownership.
-     *
-     * @param id      UUID của memory
-     * @param userId  UUID của user đang request (tạm dùng header)
-     * @param request body chứa fields cần cập nhật (null = giữ nguyên)
-     * @return 200 OK với memory sau khi cập nhật
-     */
-    @PatchMapping("/{id}")
-    public ApiResponse<MemoryResponse> updateMemory(
-            @PathVariable UUID id,
-            @RequestHeader("X-User-Id") UUID userId,
-            @Valid @RequestBody UpdateMemoryRequest request
-    ) {
-        MemoryResponse response = memoryService.updateMemory(id, request, userId);
-        return ApiResponse.success("Memory updated successfully", response);
-    }
-
-    // -------------------------------------------------------------------------
-    // DELETE /api/v1/memories/{id}
-    // -------------------------------------------------------------------------
-
-    /**
-     * Xoá mềm một Memory. Yêu cầu ownership.
-     *
-     * @param id     UUID của memory
-     * @param userId UUID của user đang request (tạm dùng header)
-     * @return 204 No Content
-     */
-    @DeleteMapping("/{id}")
+    @DeleteMapping(value = {"", "/delete-memory"})
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Operation(summary = "Delete memory", description = "Soft deletes a memory by its ID query parameter. Requires ownership.")
     public void deleteMemory(
-            @PathVariable UUID id,
-            @RequestHeader("X-User-Id") UUID userId
+            @RequestParam("id") UUID id,
+            @AuthenticationPrincipal CustomUserDetails currentUser
     ) {
-        memoryService.deleteMemory(id, userId);
+        UUID currentUserId = currentUser.getId();
+        log.info("User [{}] is deleting memory [{}]", currentUserId, id);
+        memoryService.deleteMemory(id, currentUserId);
     }
 }

@@ -1,31 +1,37 @@
 package com.travel.memory.dto.request;
 
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.PastOrPresent;
 import jakarta.validation.constraints.Size;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Getter
+@Setter
+@Builder
 @NoArgsConstructor
+@AllArgsConstructor
 public class CreateMemoryRequest {
 
-    @NotNull(message = "userId is required")
-    private UUID userId;
-
-    @NotNull(message = "tripId is required")
     private UUID tripId;
 
-    @NotNull(message = "placeId is required")
     private UUID placeId;
 
-    @NotBlank(message = "content must not be blank")
-    @Size(max = 10000, message = "content must not exceed 10000 characters")
-    private String content;
+    @Size(max = 2000, message = "note must not exceed 2000 characters")
+    private String note;
 
-    @NotNull(message = "visitedAt is required")
-    private LocalDateTime visitedAt;
+    @PastOrPresent(message = "experiencedAt cannot be in the future")
+    private Instant experiencedAt;
+
+    @Valid
+    @Builder.Default
+    private List<CreateMediaRequest> media = new ArrayList<>();
 }

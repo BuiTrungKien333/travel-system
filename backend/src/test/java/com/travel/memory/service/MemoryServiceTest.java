@@ -2,13 +2,12 @@ package com.travel.memory.service;
 
 import com.travel.common.exception.AppException;
 import com.travel.common.exception.ErrorCode;
-import com.travel.memory.dto.request.CreateMediaRequest;
+import com.travel.media.dto.CreateMediaRequest;
+import com.travel.media.entity.Media;
 import com.travel.memory.dto.request.CreateMemoryRequest;
 import com.travel.memory.dto.response.MemoryResponse;
-import com.travel.memory.entity.Media;
 import com.travel.memory.entity.Memory;
 import com.travel.memory.mapper.MemoryMapper;
-import com.travel.memory.repository.MediaRepository;
 import com.travel.memory.repository.MemoryRepository;
 import com.travel.memory.service.impl.MemoryServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,9 +38,6 @@ class MemoryServiceTest {
 
     @Mock
     private MemoryRepository memoryRepository;
-
-    @Mock
-    private MediaRepository mediaRepository;
 
     @Spy
     private MemoryMapper memoryMapper = new MemoryMapper();
@@ -155,48 +151,5 @@ class MemoryServiceTest {
 
         assertThat(memory.isDeleted()).isTrue();
         verify(memoryRepository, times(1)).save(memory);
-    }
-
-    @Test
-    @DisplayName("Delete media succeeds when owned by user")
-    void deleteMedia_Success() {
-        Memory memory = Memory.create(userId, tripId, placeId, "Memory with media", Instant.now());
-        Media media = Media.create("https://cdn.travel.com/image.jpg", "image/jpeg", 1024L, 800, 600, 0);
-        memory.addMedia(media);
-
-        UUID mediaId = UUID.randomUUID();
-        when(mediaRepository.findById(mediaId)).thenReturn(Optional.of(media));
-
-        memoryService.deleteMedia(mediaId, userId);
-
-        assertThat(memory.getMedia()).isEmpty();
-        verify(mediaRepository, times(1)).delete(media);
-    }
-
-    @Test
-    @DisplayName("Delete media throws exception when media does not exist")
-    void deleteMedia_NotFound() {
-        UUID mediaId = UUID.randomUUID();
-        when(mediaRepository.findById(mediaId)).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> memoryService.deleteMedia(mediaId, userId))
-                .isInstanceOf(AppException.class)
-                .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(ErrorCode.MEDIA_NOT_FOUND));
-    }
-
-    @Test
-    @DisplayName("Delete media throws exception when user does not own memory")
-    void deleteMedia_AccessDenied() {
-        Memory memory = Memory.create(userId, tripId, placeId, "Memory with media", Instant.now());
-        Media media = Media.create("https://cdn.travel.com/image.jpg", "image/jpeg", 1024L, 800, 600, 0);
-        memory.addMedia(media);
-
-        UUID mediaId = UUID.randomUUID();
-        UUID otherUserId = UUID.randomUUID();
-        when(mediaRepository.findById(mediaId)).thenReturn(Optional.of(media));
-
-        assertThatThrownBy(() -> memoryService.deleteMedia(mediaId, otherUserId))
-                .isInstanceOf(AppException.class)
-                .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(ErrorCode.MEMORY_ACCESS_DENIED));
     }
 }

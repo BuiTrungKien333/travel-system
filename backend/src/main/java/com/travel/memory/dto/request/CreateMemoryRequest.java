@@ -1,5 +1,6 @@
 package com.travel.memory.dto.request;
 
+import com.travel.media.dto.CreateMediaRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.PastOrPresent;
 import jakarta.validation.constraints.Size;

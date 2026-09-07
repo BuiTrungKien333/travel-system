@@ -5,6 +5,11 @@ spring:
   profiles:
     default: dev
 
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 50MB
+
 server:
   port: ${SERVER_PORT:8080}
 
@@ -20,6 +25,12 @@ app:
 
   openapi:
     dev-url: ${OPENAPI_DEV_URL:http://localhost:${SERVER_PORT:8080}}
+
+  cloudinary:
+    cloud-name: ${CLOUDINARY_CLOUD_NAME:demo}
+    api-key: ${CLOUDINARY_API_KEY:000000000000000}
+    api-secret: ${CLOUDINARY_API_SECRET:default-secret}
+    folder: travel-system/memories
 
 application:
   security:

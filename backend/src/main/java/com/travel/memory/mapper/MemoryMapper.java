@@ -1,10 +1,10 @@
 package com.travel.memory.mapper;
 
-import com.travel.memory.dto.request.CreateMediaRequest;
+import com.travel.media.dto.CreateMediaRequest;
+import com.travel.media.dto.MediaResponse;
+import com.travel.media.entity.Media;
 import com.travel.memory.dto.request.CreateMemoryRequest;
-import com.travel.memory.dto.response.MediaResponse;
 import com.travel.memory.dto.response.MemoryResponse;
-import com.travel.memory.entity.Media;
 import com.travel.memory.entity.Memory;
 import org.springframework.stereotype.Component;
 

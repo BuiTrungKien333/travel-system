@@ -53,12 +53,4 @@ public interface MemoryService {
      * @param requestUserId the ID of the requesting user
      */
     void deleteMemory(UUID id, UUID requestUserId);
-
-    /**
-     * Delete a specific Media item from a memory. Validates ownership.
-     *
-     * @param mediaId       the media ID
-     * @param requestUserId the ID of the requesting user
-     */
-    void deleteMedia(UUID mediaId, UUID requestUserId);
 }

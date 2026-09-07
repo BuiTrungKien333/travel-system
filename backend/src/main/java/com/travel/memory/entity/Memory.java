@@ -1,6 +1,7 @@
 package com.travel.memory.entity;
 
 import com.travel.common.persistence.BaseEntity;
+import com.travel.media.entity.Media;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;

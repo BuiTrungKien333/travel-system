@@ -1,5 +1,6 @@
-package com.travel.memory.entity;
+package com.travel.media.entity;
 
+import com.travel.memory.entity.Memory;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Getter;

@@ -4,10 +4,8 @@ import com.travel.common.exception.AppException;
 import com.travel.common.exception.ErrorCode;
 import com.travel.memory.dto.request.CreateMemoryRequest;
 import com.travel.memory.dto.response.MemoryResponse;
-import com.travel.memory.entity.Media;
 import com.travel.memory.entity.Memory;
 import com.travel.memory.mapper.MemoryMapper;
-import com.travel.memory.repository.MediaRepository;
 import com.travel.memory.repository.MemoryRepository;
 import com.travel.memory.service.MemoryService;
 import lombok.RequiredArgsConstructor;
@@ -27,7 +25,6 @@ import java.util.UUID;
 public class MemoryServiceImpl implements MemoryService {
 
     private final MemoryRepository memoryRepository;
-    private final MediaRepository mediaRepository;
     private final MemoryMapper memoryMapper;
 
     @Override
@@ -118,22 +115,6 @@ public class MemoryServiceImpl implements MemoryService {
         memory.softDelete();
         memoryRepository.save(memory);
         log.info("Memory soft-deleted: id={}, userId={}", id, requestUserId);
-    }
-
-    @Override
-    @Transactional
-    public void deleteMedia(UUID mediaId, UUID requestUserId) {
-        Media media = mediaRepository.findById(mediaId)
-                .orElseThrow(() -> new AppException(ErrorCode.MEDIA_NOT_FOUND));
-
-        Memory memory = media.getMemory();
-        if (memory == null || memory.isDeleted() || !memory.getUserId().equals(requestUserId)) {
-            throw new AppException(ErrorCode.MEMORY_ACCESS_DENIED);
-        }
-
-        memory.removeMedia(media);
-        mediaRepository.delete(media);
-        log.info("Media deleted: mediaId={}, memoryId={}, userId={}", mediaId, memory.getId(), requestUserId);
     }
 
     private Memory findActiveMemoryById(UUID id) {

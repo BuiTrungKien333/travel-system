@@ -26,7 +26,14 @@ public enum ErrorCode {
 
     MEMORY_NOT_FOUND("MEMORY_001", "error.memory.not-found", HttpStatus.NOT_FOUND),
     MEMORY_ACCESS_DENIED("MEMORY_002", "error.memory.access-denied", HttpStatus.FORBIDDEN),
-    MEDIA_NOT_FOUND("MEDIA_001", "error.media.not-found", HttpStatus.NOT_FOUND);
+    MEDIA_NOT_FOUND("MEDIA_001", "error.media.not-found", HttpStatus.NOT_FOUND),
+
+    // --- UPLOAD ---
+    UPLOAD_FILE_EMPTY("UPLOAD_001", "error.upload.file-empty", HttpStatus.BAD_REQUEST),
+    UPLOAD_FILE_TOO_LARGE("UPLOAD_002", "error.upload.file-too-large", HttpStatus.BAD_REQUEST),
+    UPLOAD_INVALID_FILE_TYPE("UPLOAD_003", "error.upload.invalid-file-type", HttpStatus.BAD_REQUEST),
+    UPLOAD_FAILED("UPLOAD_004", "error.upload.failed", HttpStatus.INTERNAL_SERVER_ERROR),
+    UPLOAD_TOO_MANY_FILES("UPLOAD_005", "error.upload.too-many-files", HttpStatus.BAD_REQUEST);
 
     private final String code;
     private final String messageKey;

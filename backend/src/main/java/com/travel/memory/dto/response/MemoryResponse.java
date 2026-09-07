@@ -1,5 +1,6 @@
 package com.travel.memory.dto.response;
 
+import com.travel.media.dto.MediaResponse;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;

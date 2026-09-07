@@ -1,4 +1,4 @@
-package com.travel.memory.dto.request;
+package com.travel.media.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;

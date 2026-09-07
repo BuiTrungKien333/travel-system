@@ -3,6 +3,7 @@ package com.travel.user.service;
 import com.travel.common.exception.AppException;
 import com.travel.common.exception.ErrorCode;
 import com.travel.security.model.CustomUserDetails;
+import com.travel.user.dto.request.UpdateProfileRequest;
 import com.travel.user.dto.response.UserProfileResponse;
 import com.travel.user.entity.User;
 import com.travel.user.enums.Role;
@@ -115,5 +116,101 @@ class UserServiceTest {
                 .isEqualTo(ErrorCode.UNAUTHORIZED);
 
         verify(userRepository, never()).findById(any());
+    }
+
+    @Test
+    @DisplayName("updateProfile should update user fields and return updated profile")
+    void updateProfile_success_updatesFieldsAndReturnsResponse() {
+        UpdateProfileRequest request = UpdateProfileRequest.builder()
+                .fullName("  Nguyen Van B  ")
+                .avatarUrl("  https://example.com/new-avatar.jpg  ")
+                .build();
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        UserProfileResponse response = userService.updateProfile(request);
+
+        assertThat(response).isNotNull();
+        assertThat(response.getFullName()).isEqualTo("Nguyen Van B");
+        assertThat(response.getAvatarUrl()).isEqualTo("https://example.com/new-avatar.jpg");
+        assertThat(mockUser.getFullName()).isEqualTo("Nguyen Van B");
+        assertThat(mockUser.getAvatarUrl()).isEqualTo("https://example.com/new-avatar.jpg");
+
+        verify(userRepository, times(1)).findById(userId);
+        verify(userRepository, times(1)).save(mockUser);
+    }
+
+    @Test
+    @DisplayName("updateProfile with null avatarUrl should set avatarUrl to null")
+    void updateProfile_nullAvatar_setsAvatarToNull() {
+        UpdateProfileRequest request = UpdateProfileRequest.builder()
+                .fullName("Nguyen Van B")
+                .avatarUrl(null)
+                .build();
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        UserProfileResponse response = userService.updateProfile(request);
+
+        assertThat(response.getAvatarUrl()).isNull();
+        assertThat(mockUser.getAvatarUrl()).isNull();
+
+        verify(userRepository, times(1)).save(mockUser);
+    }
+
+    @Test
+    @DisplayName("updateProfile should throw USER_NOT_FOUND when user does not exist in DB")
+    void updateProfile_userNotFound_throwsAppException() {
+        UpdateProfileRequest request = UpdateProfileRequest.builder()
+                .fullName("Nguyen Van B")
+                .build();
+
+        when(userRepository.findById(userId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userService.updateProfile(request))
+                .isInstanceOf(AppException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.USER_NOT_FOUND);
+
+        verify(userRepository, times(1)).findById(userId);
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("updateProfile should throw ACCOUNT_LOCKED_OR_DELETED when user is soft deleted")
+    void updateProfile_userDeleted_throwsAppException() {
+        mockUser.softDelete();
+        UpdateProfileRequest request = UpdateProfileRequest.builder()
+                .fullName("Nguyen Van B")
+                .build();
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
+
+        assertThatThrownBy(() -> userService.updateProfile(request))
+                .isInstanceOf(AppException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.ACCOUNT_LOCKED_OR_DELETED);
+
+        verify(userRepository, times(1)).findById(userId);
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("updateProfile should throw UNAUTHORIZED when no user is logged in")
+    void updateProfile_unauthenticated_throwsAppException() {
+        SecurityContextHolder.clearContext();
+        UpdateProfileRequest request = UpdateProfileRequest.builder()
+                .fullName("Nguyen Van B")
+                .build();
+
+        assertThatThrownBy(() -> userService.updateProfile(request))
+                .isInstanceOf(AppException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.UNAUTHORIZED);
+
+        verify(userRepository, never()).findById(any());
+        verify(userRepository, never()).save(any());
     }
 }

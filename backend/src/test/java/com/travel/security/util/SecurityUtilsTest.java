@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 
-import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -36,7 +36,7 @@ class SecurityUtilsTest {
     @Test
     @DisplayName("getCurrentUserDetails should return CustomUserDetails when authenticated")
     void getCurrentUserDetails_authenticated_returnsUserDetails() {
-        CustomUserDetails userDetails = new CustomUserDetails(testUserId, testEmail, Role.USER, Collections.emptyList());
+        CustomUserDetails userDetails = new CustomUserDetails(testUserId, testEmail, Role.USER, List.of());
         UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
         SecurityContextHolder.getContext().setAuthentication(auth);
 
@@ -57,7 +57,7 @@ class SecurityUtilsTest {
     @Test
     @DisplayName("getCurrentUserId should return UUID when authenticated")
     void getCurrentUserId_authenticated_returnsUserId() {
-        CustomUserDetails userDetails = new CustomUserDetails(testUserId, testEmail, Role.USER, Collections.emptyList());
+        CustomUserDetails userDetails = new CustomUserDetails(testUserId, testEmail, Role.USER, List.of());
         UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
         SecurityContextHolder.getContext().setAuthentication(auth);
 
@@ -78,7 +78,7 @@ class SecurityUtilsTest {
     @Test
     @DisplayName("getCurrentUserEmail should return email when authenticated")
     void getCurrentUserEmail_authenticated_returnsEmail() {
-        CustomUserDetails userDetails = new CustomUserDetails(testUserId, testEmail, Role.USER, Collections.emptyList());
+        CustomUserDetails userDetails = new CustomUserDetails(testUserId, testEmail, Role.USER, List.of());
         UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
         SecurityContextHolder.getContext().setAuthentication(auth);
 

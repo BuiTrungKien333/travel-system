@@ -2,18 +2,15 @@ package com.travel.planning.algorithm.model;
 
 import com.travel.place.entity.Place;
 import lombok.*;
-import lombok.experimental.FieldDefaults;
 
 @Getter
 @Setter
-@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@FieldDefaults(level = AccessLevel.PRIVATE)
+@Builder
 public class RouteLeg {
-
-    Place fromPlace;
-    Place toPlace;
-    double distanceMeters;
-    long durationSeconds;
+    private Place fromPlace;
+    private Place toPlace;
+    private double distanceMeters;
+    private long durationSeconds;
 }

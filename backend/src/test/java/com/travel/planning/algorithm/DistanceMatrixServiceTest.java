@@ -24,7 +24,7 @@ class DistanceMatrixServiceTest {
     @Test
     @DisplayName("calculateMatrix should handle empty places list gracefully")
     void calculateMatrix_emptyList_returnsEmptyMatrix() {
-        DistanceMatrix matrix = distanceMatrixService.calculateMatrix(Collections.emptyList());
+        DistanceMatrix matrix = distanceMatrixService.calculateMatrix(List.of());
 
         assertThat(matrix.size()).isEqualTo(0);
         assertThat(matrix.getMatrix()).isEmpty();

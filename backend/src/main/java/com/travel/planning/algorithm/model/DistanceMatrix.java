@@ -9,18 +9,22 @@ import java.util.*;
 public class DistanceMatrix {
 
     private final List<Place> places;
-    private final double[][] matrix;
+
+    // map cái uuid của từng phần tử trong places sang dạng index trong places (abc-xyz -> 2) để truy xuất cho nhanh
+    // Map UUID -> Integer để lookup index nhanh từ PlaceId.
     private final Map<UUID, Integer> placeIndexMap;
 
+    private final double[][] matrix;
+
     public DistanceMatrix(List<Place> places, double[][] matrix) {
-        this.places = Collections.unmodifiableList(new ArrayList<>(places));
+        this.places = List.copyOf(places);
         this.matrix = matrix;
 
         Map<UUID, Integer> indexMap = new HashMap<>(places.size());
         for (int i = 0; i < places.size(); i++) {
             indexMap.put(places.get(i).getId(), i);
         }
-        this.placeIndexMap = Collections.unmodifiableMap(indexMap);
+        this.placeIndexMap = Map.copyOf(indexMap);
     }
 
     public int size() {
@@ -36,7 +40,10 @@ public class DistanceMatrix {
     }
 
     public Optional<Integer> indexOf(UUID placeId) {
-        if (placeId == null) return Optional.empty();
+        if (placeId == null)
+            return Optional.empty();
+
         return Optional.ofNullable(placeIndexMap.get(placeId));
     }
+
 }

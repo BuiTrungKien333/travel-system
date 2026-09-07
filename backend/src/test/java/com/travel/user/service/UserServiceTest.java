@@ -21,6 +21,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -52,7 +53,7 @@ class UserServiceTest {
                 .build();
 
         // Giả lập user đã đăng nhập trong SecurityContext
-        CustomUserDetails userDetails = new CustomUserDetails(userId, "user@travel.com", Role.USER, Collections.emptyList());
+        CustomUserDetails userDetails = new CustomUserDetails(userId, "user@travel.com", Role.USER, List.of());
         UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
         SecurityContextHolder.getContext().setAuthentication(auth);
     }

@@ -2,28 +2,27 @@ package com.travel.planning.algorithm.model;
 
 import com.travel.place.entity.Place;
 import lombok.*;
-import lombok.experimental.FieldDefaults;
 
 import java.util.Collections;
 import java.util.List;
 
 @Getter
 @Setter
-@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@FieldDefaults(level = AccessLevel.PRIVATE)
+@Builder
 public class TspResult {
 
     @Builder.Default
-    List<Place> orderedPlaces = Collections.emptyList();
+    private List<Place> orderedPlaces = List.of();
 
-    double totalDistanceMeters;
+    private double totalDistanceMeters;
 
-    long totalDurationSeconds;
+    private long totalDurationSeconds;
 
     @Builder.Default
-    List<RouteLeg> legs = Collections.emptyList();
+    private List<RouteLeg> legs = List.of();
 
-    boolean roundTrip;
+    private boolean roundTrip;
+
 }

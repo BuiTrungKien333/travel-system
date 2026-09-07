@@ -2,7 +2,10 @@ package com.travel.planning.algorithm;
 
 public final class DistanceCalculator {
 
+    // bán kính trung bình trái đất
     private static final double EARTH_RADIUS_METERS = 6371000.0;
+
+    // tốc độ di chuyển trung bình 35km/h
     public static final double DEFAULT_SPEED_KM_PER_HOUR = 35.0;
 
     private DistanceCalculator() {
@@ -23,6 +26,7 @@ public final class DistanceCalculator {
             return 0.0;
         }
 
+        // Chuyển đổi đơn vị (Degrees sang Radians)
         double phi1 = Math.toRadians(lat1);
         double phi2 = Math.toRadians(lat2);
         double deltaPhi = Math.toRadians(lat2 - lat1);

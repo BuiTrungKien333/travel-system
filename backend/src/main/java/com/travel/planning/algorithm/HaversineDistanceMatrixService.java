@@ -5,7 +5,6 @@ import com.travel.planning.algorithm.model.DistanceMatrix;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.util.Collections;
 import java.util.List;
 
 @Service
@@ -15,7 +14,7 @@ public class HaversineDistanceMatrixService implements DistanceMatrixService {
     @Override
     public DistanceMatrix calculateMatrix(List<Place> places) {
         if (places == null || places.isEmpty()) {
-            return new DistanceMatrix(Collections.emptyList(), new double[0][0]);
+            return new DistanceMatrix(List.of(), new double[0][0]);
         }
 
         int n = places.size();

@@ -2,7 +2,6 @@ package com.travel.planning.algorithm.model;
 
 import com.travel.place.entity.Place;
 import lombok.*;
-import lombok.experimental.FieldDefaults;
 
 import java.util.Collections;
 import java.util.List;
@@ -10,19 +9,19 @@ import java.util.UUID;
 
 @Getter
 @Setter
-@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@FieldDefaults(level = AccessLevel.PRIVATE)
+@Builder
 public class TspRequest {
 
     @Builder.Default
-    List<Place> places = Collections.emptyList();
+    private List<Place> places = List.of();
 
     @Builder.Default
-    boolean roundTrip = true;
+    private boolean roundTrip = true;
 
-    UUID startPlaceId;
+    private UUID startPlaceId;
 
-    UUID endPlaceId;
+    private UUID endPlaceId;
+
 }

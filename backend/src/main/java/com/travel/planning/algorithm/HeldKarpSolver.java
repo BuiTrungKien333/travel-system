@@ -248,7 +248,7 @@ public class HeldKarpSolver {
                 .toPlace(place)
                 .distanceMeters(0.0)
                 .durationSeconds(0L)
-                .build()) : Collections.emptyList();
+                .build()) : List.of();
 
         return TspResult.builder()
                 .orderedPlaces(ordered)

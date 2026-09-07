@@ -99,7 +99,10 @@ export function Header() {
             {/* Desktop Navigation Links */}
             <nav className="hidden md:flex items-center gap-1 lg:gap-2">
               {navLinks.map((item) => {
-                const isActive = pathname === item.href;
+                const isActive =
+                  pathname === item.href ||
+                  (item.href === ROUTES.journal &&
+                    (pathname === '/journal' || pathname.startsWith('/journal/')));
                 return (
                   <Link
                     key={item.name}
@@ -183,6 +186,15 @@ export function Header() {
                       >
                         <Luggage className="h-4 w-4 text-slate-400" />
                         <span>Chuyến đi đã tạo</span>
+                      </Link>
+
+                      <Link
+                        href={ROUTES.journal}
+                        onClick={() => setIsUserMenuOpen(false)}
+                        className="flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-slate-700 rounded-xl hover:bg-cyan-50 hover:text-cyan-700 transition"
+                      >
+                        <Compass className="h-4 w-4 text-slate-400" />
+                        <span>Nhật ký hành trình (Journal)</span>
                       </Link>
 
                       <Link

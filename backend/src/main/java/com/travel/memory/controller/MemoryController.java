@@ -16,7 +16,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -71,10 +73,16 @@ public class MemoryController {
     @Operation(summary = "List memories", description = "Retrieves a paginated list of memories for the authenticated user, optionally filtered by tripId")
     public ApiResponse<Page<MemoryResponse>> getMemories(
             @RequestParam(value = "tripId", required = false) UUID tripId,
-            @AuthenticationPrincipal CustomUserDetails currentUser,
             @ParameterObject @PageableDefault(size = 20, sort = "experiencedAt", direction = Sort.Direction.DESC) Pageable pageable
     ) {
-        UUID currentUserId = currentUser.getId();
+        // Lấy thông tin Authentication từ SecurityContextHolder
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+
+        // Ép kiểu Principal về lớp CustomUserDetails
+        CustomUserDetails customUser = (CustomUserDetails) authentication.getPrincipal();
+
+        UUID currentUserId = customUser.getId();
+
         Page<MemoryResponse> responses;
         if (tripId != null) {
             responses = memoryService.getMemoriesByTrip(tripId, currentUserId, pageable);
@@ -83,6 +91,22 @@ public class MemoryController {
         }
         return ApiResponse.success(responses);
     }
+//    @GetMapping
+//    @Operation(summary = "List memories", description = "Retrieves a paginated list of memories for the authenticated user, optionally filtered by tripId")
+//    public ApiResponse<Page<MemoryResponse>> getMemories1(
+//            @RequestParam(value = "tripId", required = false) UUID tripId,
+//            @AuthenticationPrincipal CustomUserDetails currentUser,
+//            @ParameterObject @PageableDefault(size = 20, sort = "experiencedAt", direction = Sort.Direction.DESC) Pageable pageable
+//    ) {
+//        UUID currentUserId = currentUser.getId();
+//        Page<MemoryResponse> responses;
+//        if (tripId != null) {
+//            responses = memoryService.getMemoriesByTrip(tripId, currentUserId, pageable);
+//        } else {
+//            responses = memoryService.getMemoriesByUser(currentUserId, pageable);
+//        }
+//        return ApiResponse.success(responses);
+//    }
 
     /**
      * Soft delete a memory (and all its associated media items).

@@ -9,7 +9,30 @@ import java.util.UUID;
 public interface MediaService {
 
     /**
-     * Upload a single image file to Cloudinary.
+     * Upload a single image file to Cloudinary into organized folder:
+     * travel-system/users/{userId}/trips/{tripId}/{memoryId}/
+     *
+     * @param file     the multipart file from client
+     * @param userId   the user ID
+     * @param tripId   the trip ID (used for folder organization)
+     * @param memoryId the memory ID (used for folder organization)
+     * @return UploadResponse containing the secure URL and metadata
+     */
+    UploadResponse uploadImage(MultipartFile file, UUID userId, UUID tripId, UUID memoryId);
+
+    /**
+     * Upload multiple image files to Cloudinary (up to 5) into organized folder.
+     *
+     * @param files    the list of multipart files
+     * @param userId   the user ID
+     * @param tripId   the trip ID
+     * @param memoryId the memory ID
+     * @return list of UploadResponse
+     */
+    List<UploadResponse> uploadImages(List<MultipartFile> files, UUID userId, UUID tripId, UUID memoryId);
+
+    /**
+     * Upload a single image file to Cloudinary (misc folder — backward compatible).
      *
      * @param file   the multipart file from client
      * @param userId the user ID (used for folder organization on Cloudinary)
@@ -18,7 +41,7 @@ public interface MediaService {
     UploadResponse uploadImage(MultipartFile file, UUID userId);
 
     /**
-     * Upload multiple image files to Cloudinary (up to 5).
+     * Upload multiple image files to Cloudinary (up to 5, misc folder — backward compatible).
      *
      * @param files  the list of multipart files
      * @param userId the user ID

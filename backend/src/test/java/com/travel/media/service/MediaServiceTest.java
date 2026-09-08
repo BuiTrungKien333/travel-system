@@ -54,7 +54,6 @@ class MediaServiceTest {
         userId = UUID.randomUUID();
         tripId = UUID.randomUUID();
         placeId = UUID.randomUUID();
-        ReflectionTestUtils.setField(mediaService, "baseFolder", "travel-system/memories");
     }
 
     @Test

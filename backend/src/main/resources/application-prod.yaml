@@ -6,13 +6,20 @@ spring:
 
   jpa:
     open-in-view: false
-
     hibernate:
       ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: false
+        show_sql: false
 
 server:
   port: ${SERVER_PORT:8080}
 
 logging:
   level:
-    root: INFO
+    root: WARN
+    com.travel: INFO
+    org.springframework.web: WARN
+    org.springframework.security: WARN
+    org.hibernate: WARN

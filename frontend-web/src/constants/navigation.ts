@@ -7,9 +7,9 @@ export const HEADER_NAV_LINKS = [
     href: ROUTES.travelGuides,
   },
   {
-    name: 'Memory',
-    label: 'Hành trình & Kỷ niệm',
-    href: ROUTES.memory,
+    name: 'Journal',
+    label: 'Nhật ký hành trình',
+    href: ROUTES.journal,
   },
   {
     name: 'About Us',

@@ -188,6 +188,22 @@ Không tối ưu sớm khi chưa có bằng chứng về bottleneck.
 
 ---
 
+## 1.6. Chống over-engineering — KISS & YAGNI (bắt buộc)
+
+> Đây là quy tắc riêng để trị bệnh AI hay "suy nghĩ quá mức": lo cho những trường hợp xác suất cực thấp rồi đánh đổi sự đơn giản, dễ đọc, dễ maintain — trong khi task thực tế không cần tới mức đó.
+
+- **Làm đúng scope của task, không tự mở rộng.** Nếu task là "thêm API tạo user", agent chỉ làm đúng việc đó — không tự ý thêm cache layer, retry mechanism, event bus, hay abstraction "phòng khi sau này cần" nếu không ai yêu cầu (nếu có hãy ghi chú đề xuất cho user).
+- **YAGNI (You Aren't Gonna Need It):** Không tạo interface cho class chỉ có 1 implementation "để sau dễ mở rộng", không tạo generic/abstract layer cho use-case chưa tồn tại. Chỉ trừu tượng hóa khi đã có ≥2 use-case thật cần dùng chung.
+- **KISS (Keep It Simple):** Giữa 2 cách giải quyết cho cùng kết quả, luôn ưu tiên cách đơn giản, ít tầng gián tiếp hơn, dễ đọc hơn — trừ khi có lý do nghiệp vụ rõ ràng bắt buộc phải phức tạp hơn.
+- **Không tự thêm design pattern chỉ để "cho chuẩn".** Factory, Strategy, Builder, Observer... chỉ dùng khi thực sự giải quyết một vấn đề cụ thể đang tồn tại trong task, không dùng để thể hiện kỹ thuật hoặc vì "best practice sách vở nói vậy" (nếu có hãy ghi chú đề xuất cho user).
+- **Đánh giá rủi ro theo đúng tỷ lệ (proportional engineering):** Với case xác suất xảy ra cực thấp và hậu quả nhỏ (không ảnh hưởng bảo mật/tiền/dữ liệu), agent xử lý ở mức tối thiểu hợp lý (validate cơ bản, log lại) thay vì viết thêm nhiều lớp xử lý/try-catch/fallback phức tạp cho nó. Mức độ phòng thủ phải tương xứng với mức độ rủi ro thật, không phải rủi ro lý thuyết.
+    - Ngoại lệ: **không áp dụng nguyên tắc "đơn giản hóa" này cho bảo mật, tính toàn vẹn dữ liệu, và luồng tiền/thanh toán** — những phần đó luôn phải xử lý chặt chẽ dù xác suất thấp, vì Bảo mật và Database & Transaction luôn được ưu tiên cao hơn.
+- **Không tự ý refactor ngoài phạm vi task.** Nếu agent thấy code khác "chưa tối ưu" nhưng không liên quan tới task đang làm, chỉ ghi chú lại trong phần tóm tắt, không tự sửa — tránh PR phình to, khó review, dễ phá vỡ thứ đang chạy tốt.
+- **Giải thích được lý do độ phức tạp.** Nếu một giải pháp cần nhiều hơn 1 class/tầng để giải quyết, agent phải nêu rõ trong tóm tắt: vì sao cần mức phức tạp đó, không phải mặc định chọn cách "an toàn nhất về mặt kỹ thuật".
+- **Ưu tiên code dễ đọc hơn code "khôn khéo".** Không viết một dòng xử lý 5 việc bằng stream/lambda lồng nhau khó đọc chỉ để ngắn gọn — thà chia làm vài dòng rõ ràng, dễ debug (nếu có hãy ghi chú đề xuất cho user).
+- **Khi không chắc mức độ cần làm kỹ tới đâu, hỏi thay vì tự quyết định làm nhiều hơn yêu cầu.** Agent không nên tự cho rằng "làm nhiều hơn luôn an toàn hơn" — code thừa cũng là nợ kỹ thuật, không phải chất lượng.
+- **Hãy luôn cập nhật những kiến thức mới, hiện đại nhất để thực hiện coding trong dự án này bởi vì dự án này sử dụng rất nhiều thư viện, công cụ version mới.**
+
 # 2. KIẾN TRÚC BACKEND
 
 ## 2.1. Kiến trúc tổng thể

@@ -1,10 +1,10 @@
 import Link from 'next/link';
 import Image from 'next/image';
-import { CalendarDays, MapPin, Image as ImageIcon } from 'lucide-react';
+import { Image as ImageIcon } from 'lucide-react';
 import type { TripSummary } from '../types';
-import { TripStatusBadge } from './TripStatusBadge';
-import { ROUTES } from '@/lib/constants';
+import { ROUTES } from '@/constants';
 import { formatDateRange, daysBetween } from '@/lib/utils';
+import { TripStatusBadge } from './TripStatusBadge';
 
 interface TripCardProps {
   trip: TripSummary;
@@ -16,50 +16,42 @@ export function TripCard({ trip }: TripCardProps) {
   return (
     <Link
       href={ROUTES.trip(trip.id)}
-      className="group block rounded-xl border bg-card overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+      className="group flex flex-col rounded-xl overflow-hidden bg-card border border-border/80 hover:border-border transition-all duration-200"
     >
-      <div className="relative h-40 w-full bg-muted">
+      {/* Photo Container */}
+      <div className="relative aspect-[16/10] w-full bg-muted overflow-hidden">
         {trip.coverImage ? (
           <Image
             src={trip.coverImage}
-            alt={`Ảnh bìa chuyến đi ${trip.name}`}
+            alt={trip.name}
             fill
-            className="object-cover"
+            className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.02]"
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
           />
         ) : (
-          <div className="flex h-full items-center justify-center">
-            <ImageIcon className="h-10 w-10 text-muted-foreground/40" />
+          <div className="flex h-full items-center justify-center bg-muted text-muted-foreground/40">
+            <ImageIcon className="h-10 w-10" />
           </div>
         )}
-        <div className="absolute top-2 right-2">
-          <TripStatusBadge status={trip.status} />
+        <div className="absolute top-3 right-3">
+          <TripStatusBadge status={trip.status} className="bg-background/90 backdrop-blur-sm shadow-xs" />
         </div>
       </div>
 
-      <div className="p-4 space-y-2">
-        <h3 className="font-semibold text-base leading-tight line-clamp-1">
-          {trip.name}
-        </h3>
-
-        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-          <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
-          <span className="truncate">{trip.destination}</span>
+      {/* Content Section */}
+      <div className="p-4 flex flex-col flex-1 justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold text-primary uppercase tracking-wider">
+            {trip.destination}
+          </p>
+          <h3 className="font-semibold text-base text-foreground mt-1 line-clamp-1 group-hover:text-primary transition-colors">
+            {trip.name}
+          </h3>
         </div>
 
-        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-          <CalendarDays className="h-3.5 w-3.5 flex-shrink-0" />
-          <span>
-            {formatDateRange(trip.startDate, trip.endDate)}
-            {' '}·{' '}
-            {days} ngày
-          </span>
-        </div>
-
-        <div className="flex items-center gap-3 pt-1 text-xs text-muted-foreground">
+        <div className="pt-2 border-t border-border/40 flex items-center justify-between text-xs text-muted-foreground">
+          <span>{formatDateRange(trip.startDate, trip.endDate)} ({days} ngày)</span>
           <span>{trip.placeCount} địa điểm</span>
-          <span>·</span>
-          <span>{trip.memoryCount} kỷ niệm</span>
         </div>
       </div>
     </Link>

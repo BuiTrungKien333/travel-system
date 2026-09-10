@@ -2,11 +2,12 @@ import { ROUTES } from './routes';
 
 export const HEADER_NAV_LINKS = [
   {
-    name: 'Travel Guides',
-    label: 'Cẩm nang',
-    href: ROUTES.travelGuides,
+    name: 'Chuyến đi',
+    label: 'Chuyến đi của tôi',
+    href: ROUTES.trips,
   },
   {
+<<<<<<< HEAD
     name: 'Journal',
     label: 'Nhật ký hành trình',
     href: ROUTES.journal,
@@ -20,14 +21,17 @@ export const HEADER_NAV_LINKS = [
     name: 'Contact',
     label: 'Liên hệ',
     href: '/#contact',
+=======
+    name: 'Hành trình',
+    label: 'Hành trình Việt Nam',
+    href: ROUTES.journey,
+>>>>>>> 93f4980 (fix ui)
   },
 ];
 
 export const FOOTER_PRODUCT_LINKS = [
   { label: 'Lập lịch trình AI', href: '/#features' },
-  { label: 'Tối ưu lộ trình Held-Karp', href: '/#showcase' },
-  { label: 'Quản lý đặt phòng & vé', href: '/#showcase' },
-  { label: 'Cộng tác nhóm trực tiếp', href: '/#showcase' },
-  { label: 'Chế độ ngoại tuyến & PDF', href: '/#showcase' },
-  { label: 'Bản đồ 63 tỉnh thành', href: ROUTES.memory },
+  { label: 'Bản đồ tương tác', href: '/#showcase' },
+  { label: 'Kỷ niệm hành trình', href: '/#showcase' },
+  { label: 'Hành trình 63 tỉnh thành', href: ROUTES.journey },
 ];

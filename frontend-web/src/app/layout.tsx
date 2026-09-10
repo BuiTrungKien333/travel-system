@@ -11,12 +11,12 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: "Tripzy — Lập kế hoạch hành trình du lịch cá nhân",
-    template: "%s | Tripzy",
+    default: "WnGo — Lập kế hoạch thông minh · Trải nghiệm trọn vẹn",
+    template: "%s | WnGo",
   },
   description:
-    "Lập kế hoạch, trải nghiệm và lưu giữ hành trình du lịch cá nhân với AI hỗ trợ lịch trình và thời tiết.",
-  keywords: ["du lịch", "lập kế hoạch", "hành trình", "AI", "Việt Nam"],
+    "Hệ thống hỗ trợ lập kế hoạch và quản lý hành trình du lịch cá nhân tích hợp bản đồ tương tác và nhật ký trải nghiệm.",
+  keywords: ["du lịch", "lập kế hoạch", "hành trình", "WnGo", "Việt Nam", "travel planner"],
 };
 
 export default function RootLayout({
@@ -26,7 +26,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="vi" suppressHydrationWarning>
-      <body className={`${inter.className} min-h-screen flex flex-col bg-background text-foreground`}>
+      <body className={`${inter.className} min-h-screen flex flex-col bg-background text-foreground antialiased`}>
         <Providers>
           <Header />
           <div className="flex-1 flex flex-col">

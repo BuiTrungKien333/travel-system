@@ -30,6 +30,7 @@ export function UserAvatar({
       className={`relative inline-flex shrink-0 items-center justify-center rounded-full bg-[#e6f8fa] text-[#14b8c6] border border-[#b2ebf2] overflow-hidden ${sizeMap[size]} ${className}`}
     >
       {src ? (
+        /* eslint-disable-next-line @next/next/no-img-element */
         <img
           src={src}
           alt={alt}

@@ -5,47 +5,35 @@
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 222 47% 11%;
+    --foreground: 240 10% 3.9%;
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 240 10% 3.9%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    --primary: 187 79% 44%; /* Turquoise / Cyan #18B5C7 */
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 187 79% 44%; /* WnGo Cyan #18B5C7 */
     --primary-foreground: 0 0% 100%;
-    --secondary: 195 50% 96%;
-    --secondary-foreground: 187 79% 30%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
     --accent: 187 60% 95%;
     --accent-foreground: 187 79% 30%;
-    --destructive: 0 84.2% 60.2%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
     --ring: 187 79% 44%;
     --radius: 0.75rem;
-  }
 
-  .dark {
-    --background: 222 47% 11%;
-    --foreground: 210 40% 98%;
-    --card: 222 47% 11%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222 47% 11%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 187 79% 44%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 187 79% 44%;
+    /* Semantic status tokens */
+    --status-planning: 240 4.8% 95.9%;
+    --status-planning-text: 240 3.8% 40%;
+    --status-ready: 152 76% 96%;
+    --status-ready-text: 152 70% 25%;
+    --status-active: 187 79% 95%;
+    --status-active-text: 187 79% 30%;
+    --status-completed: 262 83% 96%;
+    --status-completed-text: 262 83% 38%;
   }
 }
 
@@ -54,19 +42,13 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased selection:bg-primary/10 selection:text-primary;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
 
 @layer utilities {
-  /* Locket-style dark background for memory page */
-  .locket-dark-bg {
-    background-color: #0a0a0f;
-    color: #f5f5f7;
-  }
-
-  /* Scroll snap for carousel */
+  /* Scroll snap for galleries */
   .scroll-snap-x {
     scroll-snap-type: x mandatory;
     -webkit-overflow-scrolling: touch;
@@ -75,18 +57,12 @@
     scroll-snap-align: start;
   }
 
-  /* Hide scrollbar */
+  /* Clean scrollbar */
   .hide-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
   .hide-scrollbar::-webkit-scrollbar {
     display: none;
-  }
-
-  /* Shimmer gradient for skeleton loaders */
-  .shimmer-bg {
-    background: linear-gradient(90deg, #1a1a2e 25%, #2a2a3e 50%, #1a1a2e 75%);
-    background-size: 200% 100%;
   }
 }

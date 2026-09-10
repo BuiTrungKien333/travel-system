@@ -12,7 +12,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ROUTES } from "@/lib/constants";
+import { ROUTES } from "@/constants";
 import { useTripUIStore } from "@/features/trip/store/useTripUIStore";
 
 interface TripSidebarProps {
@@ -58,24 +58,18 @@ export function TripSidebar({ tripId }: TripSidebarProps) {
   const setSidebarCollapsed = useTripUIStore((s) => s.setSidebarCollapsed);
 
   return (
-    <aside
-      className={cn(
-        "flex flex-col border-r bg-card transition-all duration-200",
-        sidebarCollapsed ? "w-14" : "w-56"
-      )}
-      aria-label="Trip navigation"
-    >
+    <div className="h-full flex flex-col bg-card w-full border-r border-border/60">
       {/* Collapse toggle */}
-      <div className="flex justify-end p-2 border-b">
+      <div className="hidden sm:flex justify-end p-2.5 border-b border-border/40">
         <button
           onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-          className="rounded p-1.5 hover:bg-muted transition-colors"
-          aria-label={sidebarCollapsed ? "Mở rộng sidebar" : "Thu gọn sidebar"}
+          className="rounded-md p-1.5 hover:bg-muted/70 transition-colors text-muted-foreground hover:text-foreground"
+          aria-label={sidebarCollapsed ? "Mở rộng thanh điều hướng" : "Thu gọn thanh điều hướng"}
         >
           {sidebarCollapsed ? (
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            <ChevronRight className="h-4 w-4" />
           ) : (
-            <ChevronLeft className="h-4 w-4 text-muted-foreground" />
+            <ChevronLeft className="h-4 w-4" />
           )}
         </button>
       </div>
@@ -93,10 +87,10 @@ export function TripSidebar({ tripId }: TripSidebarProps) {
               key={href}
               href={href}
               className={cn(
-                "flex items-center gap-3 rounded-md px-2.5 py-2 text-sm transition-colors",
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-xs font-medium transition-colors",
                 isActive
-                  ? "bg-primary text-primary-foreground font-medium"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  ? "bg-primary/10 text-primary font-semibold"
+                  : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
               )}
               aria-current={isActive ? "page" : undefined}
               title={sidebarCollapsed ? item.label : undefined}
@@ -109,6 +103,6 @@ export function TripSidebar({ tripId }: TripSidebarProps) {
           );
         })}
       </nav>
-    </aside>
+    </div>
   );
 }

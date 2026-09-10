@@ -34,8 +34,8 @@ export function LoginForm() {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
       {loginMutation.error && (
-        <div className="rounded-xl bg-red-50 border border-red-200 p-3 text-xs text-red-700 flex items-start gap-2 animate-fade-in">
-          <AlertCircle className="h-4 w-4 shrink-0 text-red-500 mt-0.5" />
+        <div className="rounded-lg bg-destructive/10 border border-destructive/20 p-3 text-xs text-destructive flex items-start gap-2">
+          <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
           <span>{loginMutation.error.message || 'Đăng nhập không thành công. Vui lòng kiểm tra lại.'}</span>
         </div>
       )}
@@ -67,7 +67,7 @@ export function LoginForm() {
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="text-slate-400 hover:text-slate-600 focus:outline-none"
+            className="text-muted-foreground hover:text-foreground focus:outline-none"
             title={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
           >
             {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -79,15 +79,15 @@ export function LoginForm() {
       <button
         type="submit"
         disabled={loginMutation.isPending}
-        className="w-full rounded-xl bg-cyan-500 px-4 py-3 text-sm font-bold text-white shadow-md shadow-cyan-500/25 hover:bg-cyan-600 active:scale-[0.99] disabled:opacity-60 transition-all flex items-center justify-center gap-2 mt-2"
+        className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center justify-center gap-2 mt-3 shadow-xs"
       >
         {loginMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
         <span>{loginMutation.isPending ? 'Đang đăng nhập...' : 'Đăng nhập'}</span>
       </button>
 
-      <p className="text-center text-xs text-slate-500 pt-2">
+      <p className="text-center text-xs text-muted-foreground pt-3">
         Chưa có tài khoản?{' '}
-        <Link href={ROUTES.register} className="font-bold text-cyan-600 hover:text-cyan-700 hover:underline">
+        <Link href={ROUTES.register} className="font-semibold text-primary hover:underline">
           Đăng ký miễn phí
         </Link>
       </p>

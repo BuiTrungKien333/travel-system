@@ -20,10 +20,10 @@ import { useItineraryUIStore } from '@/features/itinerary/store/useItineraryUISt
 import { DayContainer } from '@/features/itinerary/components/DayContainer';
 import { PlaceCard } from '@/features/itinerary/components/PlaceCard';
 import { PlanningResultPreview } from '@/features/itinerary/components/PlanningResultPreview';
-import { MapView } from '@/features/map/components/MapView';
 import { AI_LOADING_MESSAGES } from '@/lib/constants';
 import type { ItineraryItem } from '@/features/itinerary/types';
 import type { MapMarker } from '@/features/map/types';
+import { MapboxView } from '@/features/map/components/MapBoxView';
 
 export default function ItineraryPage({
   params,
@@ -170,9 +170,9 @@ export default function ItineraryPage({
         </DndContext>
       </div>
 
-      {/* Right panel: Google Map View */}
+      {/* Right panel: Mapbox View */}
       <div className="hidden lg:block w-[45%] xl:w-[50%] border-l border-border/60 h-full relative bg-muted/20">
-        <MapView markers={markers} />
+        <MapboxView markers={markers} className="w-full h-full" />
       </div>
     </div>
   );

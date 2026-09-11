@@ -14,16 +14,11 @@ export const ROUTES = {
   tripMemories: (tripId: string) => `/trips/${tripId}/memories`,
   tripSettings: (tripId: string) => `/trips/${tripId}/settings`,
 
-<<<<<<< HEAD
   // Journey & Memory
   journal: '/journal',
   journey: '/journey',
   memory: '/journal',
   memoryDetail: (memoryId: string) => `/memories/${memoryId}`,
-=======
-  // Journey
-  journey: '/journey',
->>>>>>> 93f4980 (fix ui)
 
   // Account
   account: '/account',

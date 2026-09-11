@@ -7,7 +7,11 @@ export const HEADER_NAV_LINKS = [
     href: ROUTES.trips,
   },
   {
-<<<<<<< HEAD
+    name: 'Hành trình',
+    label: 'Hành trình Việt Nam',
+    href: ROUTES.journey,
+  },
+  {
     name: 'Journal',
     label: 'Nhật ký hành trình',
     href: ROUTES.journal,
@@ -21,11 +25,6 @@ export const HEADER_NAV_LINKS = [
     name: 'Contact',
     label: 'Liên hệ',
     href: '/#contact',
-=======
-    name: 'Hành trình',
-    label: 'Hành trình Việt Nam',
-    href: ROUTES.journey,
->>>>>>> 93f4980 (fix ui)
   },
 ];
 

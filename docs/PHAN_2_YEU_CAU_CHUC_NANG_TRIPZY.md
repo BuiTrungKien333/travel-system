@@ -45,6 +45,7 @@ Tài liệu chỉ mô tả hành vi nghiệp vụ của hệ thống, không quy
 | ACT-04 | Dịch vụ thời tiết | Cung cấp thông tin dự báo thời tiết theo vị trí và thời gian. |
 | ACT-05 | Dịch vụ AI | Phân tích ngữ cảnh, đưa ra đề xuất và giải thích lịch trình. |
 | ACT-06 | Dịch vụ lưu trữ hình ảnh | Lưu trữ và cung cấp đường dẫn truy cập hình ảnh của Memory. |
+| ACT-07 | Admin | Người có vai trò quản trị, được phép quản lý trạng thái tài khoản, dữ liệu danh mục dùng chung và xem thông tin vận hành tổng hợp trong phạm vi được cấp quyền. |
 
 ## 2.4. Phân rã chức năng
 
@@ -61,6 +62,7 @@ Tài liệu chỉ mô tả hành vi nghiệp vụ của hệ thống, không quy
 | FR-JOURNEY | Thực hiện chuyến đi | Hỗ trợ GPS, check-in và theo dõi tiến độ. |
 | FR-MEMORY | Lưu giữ trải nghiệm | Quản lý hình ảnh, ghi chú và nhật ký hành trình. |
 | FR-EXPLORE | Hồ sơ khám phá | Thống kê và trực quan hóa tiến trình khám phá. |
+| FR-ADMIN | Quản trị hệ thống | Quản lý tài khoản, danh mục dùng chung và thông tin tổng quan của hệ thống. |
 
 ## 2.5. Yêu cầu chức năng chi tiết
 
@@ -237,6 +239,20 @@ Tài liệu chỉ mô tả hành vi nghiệp vụ của hệ thống, không quy
 | FR-EXPLORE-07 | Xem lại địa điểm đã đến | Hệ thống phải cho phép mở chi tiết chuyến đi hoặc Memory liên quan từ danh sách địa điểm đã khám phá. | Web/Mobile | Must |
 | FR-EXPLORE-08 | Cập nhật số liệu | Số liệu hồ sơ phải được cập nhật sau khi chuyến đi, trạng thái địa điểm hoặc Memory thay đổi. | Backend | Must |
 
+### 2.5.12. Quản trị hệ thống
+
+| Mã | Yêu cầu chức năng | Mô tả | Kênh | Ưu tiên |
+|---|---|---|---|---|
+| FR-ADMIN-01 | Xác thực quyền quản trị | Hệ thống phải xác thực tài khoản và vai trò Admin trước khi cho phép truy cập chức năng quản trị. | Backend/Web | Must |
+| FR-ADMIN-02 | Tra cứu tài khoản người dùng | Hệ thống phải cho phép Admin xem danh sách, tìm kiếm và xem thông tin quản trị cần thiết của tài khoản người dùng. | Web | Must |
+| FR-ADMIN-03 | Khóa tài khoản | Hệ thống phải cho phép Admin khóa tài khoản người dùng có lý do và ngăn tài khoản tiếp tục truy cập sau khi quyết định có hiệu lực. | Web/Backend | Must |
+| FR-ADMIN-04 | Mở khóa tài khoản | Hệ thống phải cho phép Admin mở khóa tài khoản khi nguyên nhân hạn chế đã được xử lý. | Web/Backend | Must |
+| FR-ADMIN-05 | Quản lý danh mục dùng chung | Hệ thống nên cho phép Admin thêm, cập nhật hoặc vô hiệu hóa các danh mục như sở thích và loại địa điểm do Tripzy quản lý. | Web | Should |
+| FR-ADMIN-06 | Xem thống kê tổng hợp | Hệ thống nên cho phép Admin xem số liệu tổng hợp về tài khoản, chuyến đi và mức sử dụng chức năng mà không hiển thị nội dung riêng tư không cần thiết. | Web | Should |
+| FR-ADMIN-07 | Xem trạng thái tích hợp | Hệ thống nên cho phép Admin xem trạng thái khả dụng tổng quan của các dịch vụ bản đồ, thời tiết, AI và lưu trữ hình ảnh. | Web | Should |
+| FR-ADMIN-08 | Ghi nhận thao tác quản trị | Hệ thống phải ghi nhận Admin, thời điểm, loại thao tác, đối tượng bị tác động và lý do đối với các hành động quản trị quan trọng. | Backend | Must |
+| FR-ADMIN-09 | Bảo vệ dữ liệu riêng tư | Hệ thống phải ngăn Admin truy cập nội dung chuyến đi, vị trí và Memory riêng tư nếu không có nghiệp vụ và quyền truy cập được quy định riêng. | Backend | Must |
+
 ## 2.6. Quy tắc nghiệp vụ
 
 | Mã | Quy tắc |
@@ -285,6 +301,7 @@ Tài liệu chỉ mô tả hành vi nghiệp vụ của hệ thống, không quy
 | Theo dõi thực hiện chuyến đi | FR-JOURNEY |
 | Lưu giữ trải nghiệm | FR-MEMORY |
 | Xây dựng hồ sơ khám phá | FR-EXPLORE |
+| Quản trị hệ thống | FR-ADMIN |
 
 ## 2.9. Phạm vi không bao gồm trong MVP
 

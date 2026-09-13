@@ -87,6 +87,8 @@ Thời gian xử lý nội bộ không bao gồm thời gian chờ từ dịch v
 | NFR-SEC-10 | Log không được chứa dữ liệu xác thực nhạy cảm. | Không ghi mật khẩu, access token, refresh token, khóa API hoặc nội dung bí mật vào log. | Must |
 | NFR-SEC-11 | Hệ thống phải phòng tránh các nhóm lỗ hổng web phổ biến. | Thực hiện kiểm tra tối thiểu đối với Broken Access Control, Injection, XSS, CSRF theo kiến trúc xác thực và tải tệp không an toàn trước nghiệm thu. | Must |
 | NFR-SEC-12 | Các thư viện phụ thuộc phải được quản lý. | Không phát hành bản nghiệm thu khi công cụ quét phát hiện lỗ hổng mức nghiêm trọng hoặc rất nghiêm trọng chưa có biện pháp xử lý được ghi nhận. | Should |
+| NFR-SEC-13 | Quyền quản trị phải tuân theo nguyên tắc đặc quyền tối thiểu. | Tài khoản thông thường không thể truy cập API quản trị; Admin chỉ nhận các quyền cần thiết cho nghiệp vụ đã được xác định. | Must |
+| NFR-SEC-14 | Tài khoản quản trị phải được bảo vệ tăng cường. | Mật khẩu Admin tuân thủ chính sách mạnh hơn và hệ thống nên hỗ trợ xác thực đa yếu tố khi triển khai ngoài môi trường nội bộ. | Should |
 
 ### 3.4.4. Quyền riêng tư và bảo vệ dữ liệu cá nhân
 
@@ -239,4 +241,3 @@ Phần yêu cầu phi chức năng của MVP được xem là đạt khi đáp �
 - Chế độ hoạt động ngoại tuyến đầy đủ chưa thuộc phạm vi MVP; ứng dụng chỉ cần xử lý mất mạng an toàn và thông báo rõ ràng.
 - iOS chỉ được xem là nền tảng được hỗ trợ sau khi có thiết bị hoặc môi trường kiểm thử phù hợp.
 - Chất lượng dữ liệu bản đồ, thời tiết và AI phụ thuộc một phần vào nhà cung cấp; Tripzy chịu trách nhiệm kiểm tra, thông báo và cung cấp phương án dự phòng trong phạm vi có thể kiểm soát.
-

@@ -186,4 +186,75 @@ class HeldKarpSolverTest {
         assertThat(result.getOrderedPlaces()).hasSize(n + 1);
         assertThat(elapsed).isLessThan(500); // 12 đỉnh thường chạy < 50ms
     }
+
+    @Test
+    @DisplayName("Kịch bản thực tế: Tối ưu lịch trình du lịch Đà Nẵng 5 địa điểm (Khứ hồi)")
+    void solve_realWorldScenario_daNangTour() {
+        // Tọa độ thực tế tại Đà Nẵng
+        Place startHotel = Place.builder()
+                .id(UUID.randomUUID())
+                .name("Khách sạn Mỹ Khê")
+                .latitude(16.0592)
+                .longitude(108.2464)
+                .build();
+
+        Place cauRong = Place.builder()
+                .id(UUID.randomUUID())
+                .name("Cầu Rồng")
+                .latitude(16.0610)
+                .longitude(108.2272)
+                .build();
+
+        Place chuaLinhUng = Place.builder()
+                .id(UUID.randomUUID())
+                .name("Chùa Linh Ứng (Sơn Trà)")
+                .latitude(16.1002)
+                .longitude(108.2758)
+                .build();
+
+        Place nguHanhSon = Place.builder()
+                .id(UUID.randomUUID())
+                .name("Ngũ Hành Sơn")
+                .latitude(16.0042)
+                .longitude(108.2631)
+                .build();
+
+        Place baNaHills = Place.builder()
+                .id(UUID.randomUUID())
+                .name("Bà Nà Hills")
+                .latitude(15.9988)
+                .longitude(107.9959)
+                .build();
+
+        // Danh sách địa điểm đưa vào bị xáo trộn thứ tự
+        List<Place> places = List.of(startHotel, baNaHills, chuaLinhUng, nguHanhSon, cauRong);
+
+        TspRequest request = TspRequest.builder()
+                .places(places)
+                .startPlaceId(startHotel.getId())
+                .roundTrip(true)
+                .build();
+
+        TspResult result = solver.solve(request);
+
+        assertThat(result.getOrderedPlaces()).hasSize(6); // 5 địa điểm + 1 điểm quay về xuất phát
+        assertThat(result.getOrderedPlaces().get(0)).isEqualTo(startHotel);
+        assertThat(result.getOrderedPlaces().get(5)).isEqualTo(startHotel);
+
+        // In kết quả trực quan ra console để kiểm tra
+        System.out.println("\n=== KẾT QUẢ TỐI ƯU LỘ TRÌNH ĐÀ NẴNG (HELD-KARP TSP) ===");
+        System.out.printf("Tổng quãng đường: %.2f km\n", result.getTotalDistanceMeters() / 1000.0);
+        System.out.printf("Tổng thời gian di chuyển ước tính: %d phút (%.1f giờ)\n",
+                result.getTotalDurationSeconds() / 60,
+                result.getTotalDurationSeconds() / 3600.0);
+        System.out.println("---------------------------------------------------------");
+        for (int i = 0; i < result.getLegs().size(); i++) {
+            RouteLeg leg = result.getLegs().get(i);
+            System.out.printf("Chặng %d: [%s] ➔ [%s]\n",
+                    i + 1, leg.getFromPlace().getName(), leg.getToPlace().getName());
+            System.out.printf("   ↳ Khoảng cách: %.2f km | Thời gian: %d phút\n",
+                    leg.getDistanceMeters() / 1000.0, leg.getDurationSeconds() / 60);
+        }
+        System.out.println("=========================================================\n");
+    }
 }

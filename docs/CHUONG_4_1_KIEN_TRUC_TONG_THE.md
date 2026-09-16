@@ -18,12 +18,12 @@ Hệ thống bao gồm các thành phần chính:
 
 ```mermaid
 flowchart TB
-    Web["Ứng dụng web<br/>Next.js"]
-    Mobile["Ứng dụng di động<br/>Expo và React Native"]
-    Backend["Backend<br/>Spring Boot"]
+    Web["Ứng dụng web - Next.js"]
+    Mobile["Ứng dụng di động - Expo và React Native"]
+    Backend["Backend - Spring Boot"]
     PostgreSQL[("PostgreSQL")]
     Redis[("Redis")]
-    External["Dịch vụ bên ngoài<br/>Bản đồ · Thời tiết · AI · Cloudinary"]
+    External["Dịch vụ bản đồ, thời tiết, AI và Cloudinary"]
 
     Web -->|"HTTPS / REST API"| Backend
     Mobile -->|"HTTPS / REST API"| Backend
@@ -86,16 +86,50 @@ Trong mỗi package nghiệp vụ, các lớp được tổ chức theo trách n
 | `entity` | Biểu diễn thực thể được ánh xạ với cơ sở dữ liệu |
 | `enums` | Định nghĩa các trạng thái hoặc kiểu dữ liệu cố định của chức năng |
 
-Luồng xử lý phổ biến trong backend được thực hiện theo thứ tự:
+Luồng xử lý một yêu cầu trong backend được thực hiện qua tầng Spring Security trước khi đi vào các lớp xử lý nghiệp vụ:
 
 ```mermaid
-flowchart LR
-    Request["HTTP Request"] --> Controller
-    Controller --> Service
-    Service --> Repository
+flowchart TB
+    Client["Web hoặc Mobile"] --> Request["HTTP Request"]
+    Request --> SecurityChain["Spring SecurityFilterChain"]
+
+    subgraph Security["Tầng Spring Security"]
+        SecurityChain --> JwtFilter["JWT Authentication Filter"]
+        JwtFilter --> Authentication{"Token hợp lệ hoặc API công khai?"}
+        Authentication -->|"Không"| Unauthorized["401 Unauthorized"]
+        Authentication -->|"Có"| Authorization{"Đủ quyền truy cập?"}
+        Authorization -->|"Không"| Forbidden["403 Forbidden"]
+    end
+
+    Authorization -->|"Có"| Dispatcher["DispatcherServlet và kiểm tra DTO"]
+
+    subgraph Application["Tầng xử lý nghiệp vụ"]
+        Dispatcher --> Controller
+        Controller --> Service
+        Service --> Repository
+    end
+
     Repository --> Database[("PostgreSQL")]
-    Service --> Integration["Redis hoặc API bên ngoài"]
+    Service <-->|"Đọc và ghi cache"| Redis[("Redis")]
+    Service --> External["API bản đồ, thời tiết, AI và Cloudinary"]
+
+    Controller --> Response["HTTP Response"]
+    Dispatcher -.->|"Ngoại lệ"| ExceptionHandler["Global Exception Handler"]
+    Service -.->|"Ngoại lệ"| ExceptionHandler
+    ExceptionHandler --> Response
+    Unauthorized --> Response
+    Forbidden --> Response
+    Response --> Client
 ```
+
+Luồng xử lý trên được mô tả như sau:
+
+1. Frontend gửi HTTP request đến backend.
+2. Request đi qua `SecurityFilterChain` của Spring Security. Bộ lọc JWT đọc access token, kiểm tra tính hợp lệ và thiết lập thông tin xác thực cho request. Các API công khai như đăng ký và đăng nhập được cấu hình cho phép truy cập mà không yêu cầu access token.
+3. Spring Security kiểm tra quyền truy cập. Token không hợp lệ dẫn đến phản hồi `401 Unauthorized`; người dùng đã được xác thực nhưng không có quyền thực hiện thao tác nhận phản hồi `403 Forbidden`.
+4. Request hợp lệ được `DispatcherServlet` ánh xạ đến controller tương ứng. Dữ liệu đầu vào được chuyển đổi thành DTO và kiểm tra các ràng buộc hợp lệ.
+5. Controller gọi service để xử lý nghiệp vụ. Service có thể sử dụng repository để truy cập PostgreSQL, làm việc với Redis hoặc gọi các API bên ngoài.
+6. Kết quả được controller chuyển thành HTTP response và trả về frontend. Các ngoại lệ phát sinh trong quá trình xử lý được chuẩn hóa bởi `Global Exception Handler` trước khi trả về.
 
 Việc tổ chức theo package chức năng giúp các thành phần liên quan đến cùng một nghiệp vụ được đặt gần nhau, dễ tìm kiếm và bảo trì. Phân lớp bên trong package giúp tách biệt trách nhiệm giữa tiếp nhận yêu cầu, xử lý nghiệp vụ và truy cập dữ liệu.
 

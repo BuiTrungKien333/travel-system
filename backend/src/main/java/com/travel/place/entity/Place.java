@@ -1,11 +1,13 @@
 package com.travel.place.entity;
 
+import com.travel.place.enums.PlaceType;
 import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.Instant;
+import java.time.LocalTime;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -42,6 +44,17 @@ public class Place {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "province_id")
     private Province province;
+
+    @Column(name = "opening_time")
+    private LocalTime openingTime;
+
+    @Column(name = "closing_time")
+    private LocalTime closingTime;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "place_type", nullable = false, length = 20)
+    @Builder.Default
+    private PlaceType placeType = PlaceType.UNSPECIFIED;
 
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)

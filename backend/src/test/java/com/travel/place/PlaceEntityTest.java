@@ -64,5 +64,23 @@ class PlaceEntityTest {
         assertThat(place.getLongitude()).isEqualTo(107.9961);
         assertThat(place.getProvince()).isEqualTo(province);
         assertThat(place.getCreatedAt()).isEqualTo(now);
+        assertThat(place.getPlaceType()).isEqualTo(com.travel.place.enums.PlaceType.UNSPECIFIED);
+    }
+
+    @Test
+    @DisplayName("Place entity should hold opening_time, closing_time and place_type correctly")
+    void placeEntity_shouldHoldContextFields() {
+        Place place = Place.builder()
+                .name("Bảo tàng Điêu khắc Chăm")
+                .latitude(16.0601)
+                .longitude(108.2235)
+                .openingTime(java.time.LocalTime.of(7, 30))
+                .closingTime(java.time.LocalTime.of(17, 0))
+                .placeType(com.travel.place.enums.PlaceType.INDOOR)
+                .build();
+
+        assertThat(place.getOpeningTime()).isEqualTo(java.time.LocalTime.of(7, 30));
+        assertThat(place.getClosingTime()).isEqualTo(java.time.LocalTime.of(17, 0));
+        assertThat(place.getPlaceType()).isEqualTo(com.travel.place.enums.PlaceType.INDOOR);
     }
 }

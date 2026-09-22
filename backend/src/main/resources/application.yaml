@@ -34,6 +34,12 @@ application:
       timeout-seconds: 30
       temperature: 0.4
       max-output-tokens: 4096
+  weather:
+    active-provider: ${WEATHER_PROVIDER:open-meteo}
+    open-meteo:
+      base-url: ${OPEN_METEO_BASE_URL:https://api.open-meteo.com/v1}
+      timeout-seconds: 10
+      default-timezone: Asia/Ho_Chi_Minh
 
 springdoc:
   api-docs:

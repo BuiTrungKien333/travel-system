@@ -2,6 +2,7 @@ package com.travel.weather.provider;
 
 import com.travel.weather.enums.WeatherCondition;
 import com.travel.weather.enums.WeatherRiskLevel;
+import com.travel.weather.model.CurrentWeather;
 import com.travel.weather.model.DailyWeatherSummary;
 import com.travel.weather.model.HourlyWeather;
 import com.travel.weather.model.WeatherForecastResult;
@@ -64,6 +65,38 @@ public class MockWeatherProvider implements WeatherProvider {
                 "Asia/Ho_Chi_Minh",
                 dailySummaries,
                 "mock"
+        );
+    }
+
+    @Override
+    public CurrentWeather fetchCurrentWeather(double latitude, double longitude) {
+        log.info("[MOCK_WEATHER] Generating mock current weather for ({}, {})", latitude, longitude);
+        LocalDateTime now = LocalDateTime.now();
+        int hour = now.getHour();
+        boolean isDay = hour >= 6 && hour <= 18;
+        double temp = 28.5;
+        double apparentTemp = 32.0;
+        int humidity = 75;
+        double rainMm = 0.0;
+        double windSpeed = 12.0;
+        int code = 1;
+        WeatherCondition condition = WeatherCondition.PARTLY_CLOUDY;
+        WeatherRiskLevel risk = WeatherRiskLevel.SAFE;
+
+        return new CurrentWeather(
+                latitude,
+                longitude,
+                now,
+                temp,
+                apparentTemp,
+                humidity,
+                rainMm,
+                windSpeed,
+                isDay,
+                code,
+                condition,
+                risk,
+                null
         );
     }
 

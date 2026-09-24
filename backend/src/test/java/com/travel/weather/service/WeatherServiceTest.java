@@ -103,4 +103,23 @@ class WeatherServiceTest {
 
         assertThat(result).isEmpty();
     }
+
+    @Test
+    @DisplayName("getCurrentWeather should delegate to current WeatherProvider")
+    void getCurrentWeather_delegatesToProvider() {
+        when(providerFactory.getProvider()).thenReturn(weatherProvider);
+
+        com.travel.weather.model.CurrentWeather mockCurrent = new com.travel.weather.model.CurrentWeather(
+                16.05, 108.24, LocalDateTime.now(), 29.0, 33.0, 75, 0.0, 10.0, true, 1,
+                WeatherCondition.PARTLY_CLOUDY, WeatherRiskLevel.SAFE, null
+        );
+
+        when(weatherProvider.fetchCurrentWeather(16.05, 108.24)).thenReturn(mockCurrent);
+
+        var result = weatherService.getCurrentWeather(16.05, 108.24);
+
+        assertThat(result).isNotNull();
+        assertThat(result.temperature()).isEqualTo(29.0);
+        assertThat(result.condition()).isEqualTo(WeatherCondition.PARTLY_CLOUDY);
+    }
 }

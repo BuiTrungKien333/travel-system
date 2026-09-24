@@ -55,4 +55,18 @@ public enum WeatherCondition {
     public boolean isSevere() {
         return this == HEAVY_RAIN || this == THUNDERSTORM;
     }
+
+    public String getDescription() {
+        return switch (this) {
+            case CLEAR_SKY -> "Trời quang đãng, nắng đẹp";
+            case PARTLY_CLOUDY -> "Có mây, nắng nhẹ";
+            case CLOUDY -> "Nhiều mây, âm u";
+            case FOGGY -> "Sương mù";
+            case LIGHT_RAIN -> "Mưa phùn, mưa nhỏ";
+            case RAINY -> "Mưa rào, mưa vừa";
+            case HEAVY_RAIN -> "Mưa to, mưa lớn diện rộng";
+            case THUNDERSTORM -> "Dông bão, sấm chớp nguy hiểm";
+            case UNKNOWN -> "Thời tiết không xác định";
+        };
+    }
 }

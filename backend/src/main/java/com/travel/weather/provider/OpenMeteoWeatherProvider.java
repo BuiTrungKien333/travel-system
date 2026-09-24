@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.travel.weather.config.WeatherConfigProperties;
 import com.travel.weather.enums.WeatherCondition;
 import com.travel.weather.enums.WeatherRiskLevel;
+import com.travel.weather.model.CurrentWeather;
 import com.travel.weather.model.DailyWeatherSummary;
 import com.travel.weather.model.HourlyWeather;
 import com.travel.weather.model.WeatherForecastResult;
@@ -91,6 +92,41 @@ public class OpenMeteoWeatherProvider implements WeatherProvider {
         } catch (Exception ex) {
             log.error("[OPEN_METEO] Failed to call Open-Meteo API: {}. Activating mock fallback.", ex.getMessage());
             return fallbackProvider.fetchForecast(latitude, longitude, start, end);
+        }
+    }
+
+    @Override
+    public CurrentWeather fetchCurrentWeather(double latitude, double longitude) {
+        String baseUrl = weatherConfig.getOpenMeteo().getBaseUrl();
+        String timezone = weatherConfig.getOpenMeteo().getDefaultTimezone();
+
+        String uri = UriComponentsBuilder.fromUriString(baseUrl + "/forecast")
+                .queryParam("latitude", latitude)
+                .queryParam("longitude", longitude)
+                .queryParam("current", "temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,rain,weather_code,wind_speed_10m")
+                .queryParam("timezone", timezone)
+                .build()
+                .toUriString();
+
+        log.info("[OPEN_METEO] Requesting current weather for ({}, {})", latitude, longitude);
+
+        try {
+            OpenMeteoApiResponse response = restClient.get()
+                    .uri(uri)
+                    .accept(MediaType.APPLICATION_JSON)
+                    .retrieve()
+                    .body(OpenMeteoApiResponse.class);
+
+            if (response == null || response.current() == null) {
+                log.warn("[OPEN_METEO] Null or empty current weather received. Using mock fallback.");
+                return fallbackProvider.fetchCurrentWeather(latitude, longitude);
+            }
+
+            return mapToCurrentWeather(latitude, longitude, response.current());
+
+        } catch (Exception ex) {
+            log.error("[OPEN_METEO] Failed to call Open-Meteo current weather API: {}. Activating mock fallback.", ex.getMessage());
+            return fallbackProvider.fetchCurrentWeather(latitude, longitude);
         }
     }
 
@@ -183,6 +219,37 @@ public class OpenMeteoWeatherProvider implements WeatherProvider {
         );
     }
 
+    private CurrentWeather mapToCurrentWeather(double latitude, double longitude, OpenMeteoCurrentDto dto) {
+        LocalDateTime time = dto.time() != null
+                ? LocalDateTime.parse(dto.time(), DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+                : LocalDateTime.now();
+        double temp = dto.temperature2m() != null ? roundOneDecimal(dto.temperature2m()) : 25.0;
+        double apparentTemp = dto.apparentTemperature() != null ? roundOneDecimal(dto.apparentTemperature()) : temp;
+        int humidity = dto.relativeHumidity2m() != null ? dto.relativeHumidity2m() : 70;
+        double rain = dto.rain() != null ? roundOneDecimal(dto.rain()) : (dto.precipitation() != null ? roundOneDecimal(dto.precipitation()) : 0.0);
+        double wind = dto.windSpeed10m() != null ? roundOneDecimal(dto.windSpeed10m()) : 10.0;
+        boolean isDay = dto.isDay() != null && dto.isDay() == 1;
+        int code = dto.weatherCode() != null ? dto.weatherCode() : 0;
+        WeatherCondition condition = WeatherCondition.fromWmoCode(code);
+        WeatherRiskLevel risk = WeatherRiskLevel.evaluate(condition, temp, rain > 0 ? 80 : 10);
+
+        return new CurrentWeather(
+                latitude,
+                longitude,
+                time,
+                temp,
+                apparentTemp,
+                humidity,
+                rain,
+                wind,
+                isDay,
+                code,
+                condition,
+                risk,
+                null
+        );
+    }
+
     private double roundOneDecimal(double val) {
         return Math.round(val * 10.0) / 10.0;
     }
@@ -192,7 +259,8 @@ public class OpenMeteoWeatherProvider implements WeatherProvider {
             Double latitude,
             Double longitude,
             String timezone,
-            OpenMeteoHourlyDto hourly
+            OpenMeteoHourlyDto hourly,
+            OpenMeteoCurrentDto current
     ) {
     }
 
@@ -206,6 +274,26 @@ public class OpenMeteoWeatherProvider implements WeatherProvider {
             List<Double> rain,
             @JsonProperty("weather_code")
             List<Integer> weatherCode
+    ) {
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    public record OpenMeteoCurrentDto(
+            String time,
+            @JsonProperty("temperature_2m")
+            Double temperature2m,
+            @JsonProperty("relative_humidity_2m")
+            Integer relativeHumidity2m,
+            @JsonProperty("apparent_temperature")
+            Double apparentTemperature,
+            @JsonProperty("is_day")
+            Integer isDay,
+            Double precipitation,
+            Double rain,
+            @JsonProperty("weather_code")
+            Integer weatherCode,
+            @JsonProperty("wind_speed_10m")
+            Double windSpeed10m
     ) {
     }
 }

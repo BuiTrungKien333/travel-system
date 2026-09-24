@@ -1,6 +1,7 @@
 package com.travel.weather.service;
 
 import com.travel.weather.enums.WeatherRiskLevel;
+import com.travel.weather.model.CurrentWeather;
 import com.travel.weather.model.HourlyWeather;
 import com.travel.weather.model.WeatherForecastResult;
 import com.travel.weather.provider.WeatherProvider;
@@ -44,5 +45,11 @@ public class WeatherServiceImpl implements WeatherService {
         }
         HourlyWeather hourly = hourlyOpt.get();
         return hourly.riskLevel() == WeatherRiskLevel.HAZARDOUS;
+    }
+
+    @Override
+    public CurrentWeather getCurrentWeather(double latitude, double longitude) {
+        WeatherProvider provider = providerFactory.getProvider();
+        return provider.fetchCurrentWeather(latitude, longitude);
     }
 }

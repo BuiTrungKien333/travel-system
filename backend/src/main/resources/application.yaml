@@ -25,6 +25,7 @@ application:
   security:
     cors:
       allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
+
   ai:
     active-provider: ${AI_PROVIDER:gemini}
     gemini:
@@ -34,6 +35,7 @@ application:
       timeout-seconds: 30
       temperature: 0.4
       max-output-tokens: 4096
+
   weather:
     active-provider: ${WEATHER_PROVIDER:open-meteo}
     open-meteo:

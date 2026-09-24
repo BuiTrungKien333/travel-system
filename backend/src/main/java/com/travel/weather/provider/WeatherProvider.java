@@ -1,5 +1,6 @@
 package com.travel.weather.provider;
 
+import com.travel.weather.model.CurrentWeather;
 import com.travel.weather.model.WeatherForecastResult;
 
 import java.time.LocalDate;
@@ -19,6 +20,15 @@ public interface WeatherProvider {
      * @return Kết quả dự báo chi tiết theo ngày và giờ
      */
     WeatherForecastResult fetchForecast(double latitude, double longitude, LocalDate startDate, LocalDate endDate);
+
+    /**
+     * Lấy thông tin thời tiết thực tế tại tọa độ và thời điểm hiện tại
+     *
+     * @param latitude Vĩ độ
+     * @param longitude Kinh độ
+     * @return Thông tin thời tiết hiện tại (nhiệt độ, độ ẩm, gió, mưa, rủi ro)
+     */
+    CurrentWeather fetchCurrentWeather(double latitude, double longitude);
 
     /**
      * Kiểm tra xem provider có sẵn sàng hoạt động hay không

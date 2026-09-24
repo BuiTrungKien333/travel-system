@@ -93,4 +93,60 @@ class OpenMeteoWeatherProviderTest {
 
         mockServer.verify();
     }
+
+    @Test
+    @DisplayName("fetchCurrentWeather with successful Open-Meteo response should parse current weather correctly")
+    void fetchCurrentWeather_successResponse_parsesCorrectly() {
+        String mockJson = """
+                {
+                  "latitude": 16.06,
+                  "longitude": 108.25,
+                  "timezone": "Asia/Ho_Chi_Minh",
+                  "current": {
+                    "time": "2026-09-23T16:30",
+                    "temperature_2m": 29.5,
+                    "relative_humidity_2m": 78,
+                    "apparent_temperature": 33.8,
+                    "is_day": 1,
+                    "precipitation": 0.0,
+                    "rain": 0.0,
+                    "weather_code": 1,
+                    "wind_speed_10m": 12.5
+                  }
+                }
+                """;
+
+        mockServer.expect(requestTo(containsString("/forecast")))
+                .andRespond(withSuccess(mockJson, MediaType.APPLICATION_JSON));
+
+        var current = provider.fetchCurrentWeather(16.06, 108.25);
+
+        assertThat(current).isNotNull();
+        assertThat(current.temperature()).isEqualTo(29.5);
+        assertThat(current.apparentTemperature()).isEqualTo(33.8);
+        assertThat(current.humidity()).isEqualTo(78);
+        assertThat(current.rainMm()).isEqualTo(0.0);
+        assertThat(current.windSpeedKmH()).isEqualTo(12.5);
+        assertThat(current.isDay()).isTrue();
+        assertThat(current.condition()).isEqualTo(WeatherCondition.PARTLY_CLOUDY);
+        assertThat(current.riskLevel()).isNotNull();
+        assertThat(current.summary()).contains("29.5°C");
+
+        mockServer.verify();
+    }
+
+    @Test
+    @DisplayName("fetchCurrentWeather on API error should activate mock fallback without throwing exception")
+    void fetchCurrentWeather_apiError_activatesFallback() {
+        mockServer.expect(requestTo(containsString("/forecast")))
+                .andRespond(withStatus(HttpStatus.INTERNAL_SERVER_ERROR));
+
+        var current = provider.fetchCurrentWeather(16.06, 108.25);
+
+        assertThat(current).isNotNull();
+        assertThat(current.temperature()).isEqualTo(28.5);
+        assertThat(current.condition()).isEqualTo(WeatherCondition.PARTLY_CLOUDY);
+
+        mockServer.verify();
+    }
 }

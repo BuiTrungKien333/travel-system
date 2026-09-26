@@ -36,7 +36,7 @@
           }
         },
         {
-          "name": "1.2 Lấy dự báo thời tiết 3 ngày - Đà Nẵng",
+          "name": "1.2 Lấy dự báo thời tiết 3 ngày (Gọn nhẹ mặc định - Không kèm giờ)",
           "request": {
             "method": "GET",
             "header": [],
@@ -48,10 +48,31 @@
                 { "key": "latitude", "value": "16.0592" },
                 { "key": "longitude", "value": "108.2464" },
                 { "key": "startDate", "value": "2026-10-01", "description": "Ngày bắt đầu (yyyy-MM-dd)" },
-                { "key": "endDate", "value": "2026-10-03", "description": "Ngày kết thúc (yyyy-MM-dd)" }
+                { "key": "endDate", "value": "2026-10-03", "description": "Ngày kết thúc (yyyy-MM-dd)" },
+                { "key": "includeHourly", "value": "false", "disabled": true, "description": "Mặc định false: trả về tổng quan ngày (~30 dòng)" }
               ]
             },
-            "description": "Mục đích: Xem danh sách dự báo thời tiết chi tiết theo ngày và từng khung giờ (nhiệt độ max/min, khả năng mưa, lượng mưa mm)."
+            "description": "Mục đích: Bản dự báo thời tiết tối ưu hóa (~30 dòng), chỉ gồm tóm tắt từng ngày (nhiệt độ min/max, xác suất mưa, mức rủi ro, thời tiết chủ đạo), không bị phình to bởi 24 giờ."
+          }
+        },
+        {
+          "name": "1.2b Lấy dự báo thời tiết 3 ngày (Chi tiết 24 giờ từng ngày)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/weather/forecast?latitude=16.0592&longitude=108.2464&startDate=2026-10-01&endDate=2026-10-03&includeHourly=true",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "public", "weather", "forecast"],
+              "query": [
+                { "key": "latitude", "value": "16.0592" },
+                { "key": "longitude", "value": "108.2464" },
+                { "key": "startDate", "value": "2026-10-01", "description": "Ngày bắt đầu (yyyy-MM-dd)" },
+                { "key": "endDate", "value": "2026-10-03", "description": "Ngày kết thúc (yyyy-MM-dd)" },
+                { "key": "includeHourly", "value": "true", "description": "Truyền true để lấy toàn bộ danh sách 24 khung giờ từng ngày" }
+              ]
+            },
+            "description": "Mục đích: Khi client thực sự cần vẽ biểu đồ nhiệt độ hoặc lượng mưa theo từng khung giờ trong ngày."
           }
         },
         {

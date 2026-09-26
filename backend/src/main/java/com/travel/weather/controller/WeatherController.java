@@ -54,8 +54,8 @@ public class WeatherController {
     }
 
     @GetMapping("/forecast")
-    @Operation(summary = "Lấy dự báo thời tiết chi tiết theo ngày và giờ",
-               description = "Dự báo thời tiết cho chuyến đi theo khoảng ngày, bao gồm nhiệt độ, khả năng mưa, lượng mưa từng giờ")
+    @Operation(summary = "Lấy dự báo thời tiết theo ngày (tùy chọn chi tiết từng giờ)",
+               description = "Dự báo thời tiết cho chuyến đi theo khoảng ngày. Mặc định trả về bản tóm tắt theo ngày gọn nhẹ (~30 dòng). Truyền includeHourly=true để lấy chi tiết 24 giờ từng ngày.")
     public ResponseEntity<ApiResponse<WeatherForecastResult>> getWeatherForecast(
             @Parameter(description = "Vĩ độ GPS [-90.0, 90.0]", example = "16.0592")
             @RequestParam("latitude")
@@ -73,16 +73,20 @@ public class WeatherController {
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
             @Parameter(description = "Ngày kết thúc (mặc định bằng startDate)", example = "2026-10-03")
             @RequestParam(value = "endDate", required = false)
-            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @Parameter(description = "Có bao gồm chi tiết thời tiết 24 giờ từng ngày không (mặc định false)", example = "false")
+            @RequestParam(value = "includeHourly", required = false, defaultValue = "false")
+            boolean includeHourly
     ) {
         validateCoordinates(latitude, longitude);
         LocalDate start = startDate != null ? startDate : LocalDate.now();
         LocalDate end = endDate != null ? endDate : start;
 
-        log.info("[WEATHER_CONTROLLER] Fetching weather forecast for coordinates: ({}, {}) from {} to {}",
-                latitude, longitude, start, end);
+        log.info("[WEATHER_CONTROLLER] Fetching weather forecast for coordinates: ({}, {}) from {} to {}, includeHourly={}",
+                latitude, longitude, start, end, includeHourly);
         WeatherForecastResult forecast = weatherService.getForecast(latitude, longitude, start, end);
-        return ResponseEntity.ok(ApiResponse.success(forecast));
+        WeatherForecastResult responseData = includeHourly ? forecast : forecast.withoutHourlyDetails();
+        return ResponseEntity.ok(ApiResponse.success(responseData));
     }
 
     private void validateCoordinates(double latitude, double longitude) {

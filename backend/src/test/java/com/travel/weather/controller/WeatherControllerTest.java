@@ -4,6 +4,7 @@ import com.travel.weather.enums.WeatherCondition;
 import com.travel.weather.enums.WeatherRiskLevel;
 import com.travel.weather.model.CurrentWeather;
 import com.travel.weather.model.DailyWeatherSummary;
+import com.travel.weather.model.HourlyWeather;
 import com.travel.weather.model.WeatherForecastResult;
 import com.travel.weather.service.WeatherService;
 import org.junit.jupiter.api.BeforeEach;
@@ -86,9 +87,18 @@ class WeatherControllerTest {
     }
 
     @Test
-    @DisplayName("GET /api/v1/public/weather/forecast should return 200 and forecast summaries")
-    void getWeatherForecast_success_returns200() throws Exception {
+    @DisplayName("GET /api/v1/public/weather/forecast default should return compact daily summary without hourly forecasts")
+    void getWeatherForecast_defaultCompact_omitsHourlyForecasts() throws Exception {
         LocalDate today = LocalDate.of(2026, 10, 1);
+        HourlyWeather hourly = new HourlyWeather(
+                today.atTime(10, 0),
+                28.0,
+                10,
+                0.0,
+                0,
+                WeatherCondition.CLEAR_SKY,
+                WeatherRiskLevel.SAFE
+        );
         DailyWeatherSummary summary = new DailyWeatherSummary(
                 today,
                 24.0,
@@ -97,7 +107,7 @@ class WeatherControllerTest {
                 0.0,
                 WeatherCondition.CLEAR_SKY,
                 WeatherRiskLevel.SAFE,
-                List.of()
+                List.of(hourly)
         );
 
         WeatherForecastResult forecastResult = new WeatherForecastResult(
@@ -121,7 +131,59 @@ class WeatherControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.providerName").value("open-meteo"))
                 .andExpect(jsonPath("$.data.dailySummaries").isArray())
-                .andExpect(jsonPath("$.data.dailySummaries[0].dominantCondition").value("CLEAR_SKY"));
+                .andExpect(jsonPath("$.data.dailySummaries[0].dominantCondition").value("CLEAR_SKY"))
+                .andExpect(jsonPath("$.data.dailySummaries[0].hourlyForecasts").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/public/weather/forecast with includeHourly=true should include hourly forecasts")
+    void getWeatherForecast_withIncludeHourlyTrue_returnsHourlyForecasts() throws Exception {
+        LocalDate today = LocalDate.of(2026, 10, 1);
+        HourlyWeather hourly = new HourlyWeather(
+                today.atTime(10, 0),
+                28.0,
+                10,
+                0.0,
+                0,
+                WeatherCondition.CLEAR_SKY,
+                WeatherRiskLevel.SAFE
+        );
+        DailyWeatherSummary summary = new DailyWeatherSummary(
+                today,
+                24.0,
+                32.0,
+                20,
+                0.0,
+                WeatherCondition.CLEAR_SKY,
+                WeatherRiskLevel.SAFE,
+                List.of(hourly)
+        );
+
+        WeatherForecastResult forecastResult = new WeatherForecastResult(
+                16.0592,
+                108.2464,
+                "Asia/Ho_Chi_Minh",
+                List.of(summary),
+                "open-meteo"
+        );
+
+        when(weatherService.getForecast(eq(16.0592), eq(108.2464), any(LocalDate.class), any(LocalDate.class)))
+                .thenReturn(forecastResult);
+
+        mockMvc.perform(get("/api/v1/public/weather/forecast")
+                        .param("latitude", "16.0592")
+                        .param("longitude", "108.2464")
+                        .param("startDate", "2026-10-01")
+                        .param("endDate", "2026-10-01")
+                        .param("includeHourly", "true")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.providerName").value("open-meteo"))
+                .andExpect(jsonPath("$.data.dailySummaries").isArray())
+                .andExpect(jsonPath("$.data.dailySummaries[0].dominantCondition").value("CLEAR_SKY"))
+                .andExpect(jsonPath("$.data.dailySummaries[0].hourlyForecasts").isArray())
+                .andExpect(jsonPath("$.data.dailySummaries[0].hourlyForecasts[0].temperature").value(28.0));
     }
 
     @Test

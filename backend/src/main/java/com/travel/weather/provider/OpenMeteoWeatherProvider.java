@@ -10,6 +10,7 @@ import com.travel.weather.model.DailyWeatherSummary;
 import com.travel.weather.model.HourlyWeather;
 import com.travel.weather.model.WeatherForecastResult;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
@@ -31,6 +32,7 @@ public class OpenMeteoWeatherProvider implements WeatherProvider {
     private final MockWeatherProvider fallbackProvider;
     private final RestClient restClient;
 
+    @Autowired
     public OpenMeteoWeatherProvider(WeatherConfigProperties weatherConfig, MockWeatherProvider fallbackProvider) {
         this.weatherConfig = weatherConfig;
         this.fallbackProvider = fallbackProvider;

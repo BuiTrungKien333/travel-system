@@ -28,6 +28,21 @@ public record TspLocationRequest(
         @DecimalMin(value = "-180.0", message = "Kinh độ phải nằm trong khoảng [-180.0, 180.0]")
         @DecimalMax(value = "180.0", message = "Kinh độ phải nằm trong khoảng [-180.0, 180.0]")
         @Schema(description = "Kinh độ GPS", example = "108.2272")
-        Double longitude
+        Double longitude,
+
+        @Schema(description = "Phân loại không gian (INDOOR, OUTDOOR, HYBRID, UNSPECIFIED)")
+        com.travel.place.enums.PlaceType placeType,
+
+        @Schema(description = "Giờ mở cửa hàng ngày", example = "08:00:00")
+        java.time.LocalTime openingTime,
+
+        @Schema(description = "Giờ đóng cửa hàng ngày", example = "17:00:00")
+        java.time.LocalTime closingTime,
+
+        @Schema(description = "Thời gian tham quan dự kiến (phút)", example = "60")
+        Integer durationMinutes
 ) {
+    public TspLocationRequest(UUID id, String name, Double latitude, Double longitude) {
+        this(id, name, latitude, longitude, null, null, null, null);
+    }
 }

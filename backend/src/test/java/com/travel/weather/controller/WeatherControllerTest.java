@@ -22,6 +22,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -36,12 +37,17 @@ class WeatherControllerTest {
     @Mock
     private WeatherService weatherService;
 
+    @Mock
+    private com.travel.common.util.Translator translator;
+
     @InjectMocks
     private WeatherController weatherController;
 
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(weatherController).build();
+        mockMvc = MockMvcBuilders.standaloneSetup(weatherController)
+                .setControllerAdvice(new com.travel.common.exception.GlobalExceptionHandler(translator))
+                .build();
     }
 
     @Test
@@ -116,5 +122,54 @@ class WeatherControllerTest {
                 .andExpect(jsonPath("$.data.providerName").value("open-meteo"))
                 .andExpect(jsonPath("$.data.dailySummaries").isArray())
                 .andExpect(jsonPath("$.data.dailySummaries[0].dominantCondition").value("CLEAR_SKY"));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/public/weather/current with invalid longitude type (e.g. 'a') returns 400 with formatted error response")
+    void getCurrentWeather_invalidLongitudeType_returns400FormattedError() throws Exception {
+        when(translator.toLocale(anyString())).thenReturn("Tham số không đúng định dạng hoặc kiểu dữ liệu yêu cầu");
+
+        mockMvc.perform(get("/api/v1/public/weather/current")
+                        .param("latitude", "16.0592")
+                        .param("longitude", "a")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("COMMON_008"))
+                .andExpect(jsonPath("$.message").value("Tham số không đúng định dạng hoặc kiểu dữ liệu yêu cầu"))
+                .andExpect(jsonPath("$.errors.longitude").exists())
+                .andExpect(jsonPath("$.errors.longitude").value(org.hamcrest.Matchers.containsString("longitude")))
+                .andExpect(jsonPath("$.errors.longitude").value(org.hamcrest.Matchers.containsString("double")));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/public/weather/current with missing latitude returns 400 with formatted error response")
+    void getCurrentWeather_missingLatitude_returns400FormattedError() throws Exception {
+        when(translator.toLocale(anyString())).thenReturn("Thiếu tham số bắt buộc trong yêu cầu");
+
+        mockMvc.perform(get("/api/v1/public/weather/current")
+                        .param("longitude", "108.2464")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("COMMON_009"))
+                .andExpect(jsonPath("$.message").value("Thiếu tham số bắt buộc trong yêu cầu"))
+                .andExpect(jsonPath("$.errors.latitude").exists());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/public/weather/current with out-of-range latitude (> 90.0) returns 400 validation error")
+    void getCurrentWeather_outOfRangeLatitude_returns400ValidationError() throws Exception {
+        when(translator.toLocale(anyString())).thenReturn("Tham số hoặc trạng thái yêu cầu không hợp lệ");
+
+        mockMvc.perform(get("/api/v1/public/weather/current")
+                        .param("latitude", "120.0")
+                        .param("longitude", "108.2464")
+                        .accept(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("COMMON_011"))
+                .andExpect(jsonPath("$.errors.error").exists())
+                .andExpect(jsonPath("$.errors.error").value(org.hamcrest.Matchers.containsString("90.0")));
     }
 }

@@ -30,9 +30,9 @@ public class AiConfigProperties {
         private String apiKey;
 
         /**
-         * Model name (Mặc định: gemini-2.0-flash, thế hệ mới nhất của Google)
+         * Model name (Mặc định: gemini-3.8-flash, thế hệ mới nhất của Google)
          */
-        private String model = "gemini-2.0-flash";
+        private String model = "gemini-3.8-flash";
 
         /**
          * URL gốc của Gemini REST API

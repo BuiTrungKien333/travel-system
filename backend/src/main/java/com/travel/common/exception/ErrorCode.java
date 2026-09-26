@@ -14,6 +14,10 @@ public enum ErrorCode {
     UNSUPPORTED_MEDIA_TYPE("COMMON_005", "error.unsupported.media-type", HttpStatus.UNSUPPORTED_MEDIA_TYPE),
     MALFORMED_REQUEST_BODY("COMMON_006", "error.malformed.request-body", HttpStatus.BAD_REQUEST),
     METHOD_NOT_ALLOWED("COMMON_007", "error.method.not-allowed", HttpStatus.METHOD_NOT_ALLOWED),
+    INVALID_PARAMETER_TYPE("COMMON_008", "error.param.type-mismatch", HttpStatus.BAD_REQUEST),
+    MISSING_REQUIRED_PARAMETER("COMMON_009", "error.param.missing", HttpStatus.BAD_REQUEST),
+    MISSING_PATH_VARIABLE("COMMON_010", "error.path.missing", HttpStatus.BAD_REQUEST),
+    INVALID_ARGUMENT("COMMON_011", "error.argument.invalid", HttpStatus.BAD_REQUEST),
 
     // --- AUTH & PERMISSION CODES ---
     UNAUTHORIZED("AUTH_001", "error.auth.unauthorized", HttpStatus.UNAUTHORIZED),

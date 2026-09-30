@@ -3,6 +3,7 @@ package com.travel.user.service.impl;
 import com.travel.common.exception.AppException;
 import com.travel.common.exception.ErrorCode;
 import com.travel.security.util.SecurityUtils;
+import com.travel.user.dto.request.UpdateProfileRequest;
 import com.travel.user.dto.response.UserProfileResponse;
 import com.travel.user.entity.User;
 import com.travel.user.repository.UserRepository;
@@ -27,19 +28,47 @@ public class UserServiceImpl implements UserService {
         UUID currentUserId = SecurityUtils.getCurrentUserId();
         log.debug("[USER] Fetching profile for current user: userId={}", currentUserId);
 
-        User user = userRepository.findById(currentUserId)
+        User user = getUserOrThrow(currentUserId, "Profile fetch");
+
+        log.info("[USER] Profile retrieved successfully: userId={}, email={}, role={}", user.getId(), user.getEmail(), user.getRole());
+
+        return mapToUserProfileResponse(user);
+    }
+
+    @Override
+    @Transactional
+    public UserProfileResponse updateProfile(UpdateProfileRequest request) {
+        UUID currentUserId = SecurityUtils.getCurrentUserId();
+        log.debug("[USER] Updating profile for current user: userId={}", currentUserId);
+
+        User user = getUserOrThrow(currentUserId, "Profile update");
+
+        user.setFullName(request.getFullName().trim());
+        user.setAvatarUrl(request.getAvatarUrl() != null ? request.getAvatarUrl().trim() : null);
+
+        User updatedUser = userRepository.save(user);
+
+        log.info("[USER] Profile updated successfully: userId={}, email={}", updatedUser.getId(), updatedUser.getEmail());
+
+        return mapToUserProfileResponse(updatedUser);
+    }
+
+    private User getUserOrThrow(UUID userId, String action) {
+        User user = userRepository.findById(userId)
                 .orElseThrow(() -> {
-                    log.warn("[USER] Profile fetch failed: User not found in DB - userId={}", currentUserId);
+                    log.warn("[USER] {} failed: User not found in DB - userId={}", action, userId);
                     return new AppException(ErrorCode.USER_NOT_FOUND);
                 });
 
         if (user.isDeleted()) {
-            log.warn("[USER] Profile fetch failed: Account deactivated/deleted - userId={}", currentUserId);
+            log.warn("[USER] {} failed: Account deactivated/deleted - userId={}", action, userId);
             throw new AppException(ErrorCode.ACCOUNT_LOCKED_OR_DELETED);
         }
 
-        log.info("[USER] Profile retrieved successfully: userId={}, email={}, role={}", user.getId(), user.getEmail(), user.getRole());
+        return user;
+    }
 
+    private UserProfileResponse mapToUserProfileResponse(User user) {
         return UserProfileResponse.builder()
                 .id(user.getId())
                 .email(user.getEmail())

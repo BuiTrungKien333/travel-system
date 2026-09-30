@@ -89,7 +89,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     }
                 }
             } else {
-                authorities = Collections.emptySet();
+                authorities = Set.of();
             }
 
             CustomUserDetails userDetails = new CustomUserDetails(userId, username, role, authorities);

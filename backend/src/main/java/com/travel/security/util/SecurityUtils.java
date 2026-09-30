@@ -11,9 +11,7 @@ import java.util.UUID;
 
 public final class SecurityUtils {
 
-    private SecurityUtils() {
-        // Utility class, prevent instantiation
-    }
+    private SecurityUtils() {}
 
     /**
      * Lấy CustomUserDetails của người dùng hiện tại từ SecurityContext

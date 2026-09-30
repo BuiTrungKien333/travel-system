@@ -29,7 +29,7 @@ public class CustomUserDetailsService implements UserDetailsService {
 
         Set<String> permissions = user.getRole() != null
                 ? rolePermissionRepository.findPermissionNamesByRole(user.getRole())
-                : Collections.emptySet();
+                : Set.of();
 
         return new CustomUserDetails(user, permissions);
     }

@@ -23,7 +23,7 @@ public class CustomUserDetails implements UserDetails {
     private final boolean isDeleted;
 
     public CustomUserDetails(User user) {
-        this(user, Collections.emptySet());
+        this(user, Set.of());
     }
 
     public CustomUserDetails(User user, Collection<String> permissions) {
@@ -33,7 +33,7 @@ public class CustomUserDetails implements UserDetails {
         this.fullName = user.getFullName();
         this.role = user.getRole();
         this.isDeleted = user.isDeleted();
-        this.permissions = permissions != null ? Set.copyOf(permissions) : Collections.emptySet();
+        this.permissions = permissions != null ? Set.copyOf(permissions) : Set.of();
 
         List<GrantedAuthority> authList = new ArrayList<>();
         if (user.getRole() != null) {
@@ -46,7 +46,7 @@ public class CustomUserDetails implements UserDetails {
                 }
             }
         }
-        this.authorities = Collections.unmodifiableList(authList);
+        this.authorities = List.copyOf(authList);
     }
 
     public CustomUserDetails(UUID id, String email, Role role, Collection<? extends GrantedAuthority> authorities) {
@@ -55,11 +55,11 @@ public class CustomUserDetails implements UserDetails {
         this.password = "";
         this.fullName = null;
         this.role = role;
-        this.authorities = authorities != null ? Collections.unmodifiableCollection(authorities) : Collections.emptyList();
+        this.authorities = authorities != null ? List.copyOf(authorities) : List.of();
         this.permissions = authorities != null ? authorities.stream()
                 .map(GrantedAuthority::getAuthority)
                 .filter(auth -> !auth.startsWith("ROLE_"))
-                .collect(Collectors.toUnmodifiableSet()) : Collections.emptySet();
+                .collect(Collectors.toUnmodifiableSet()) : Set.of();
         this.isDeleted = false;
     }
 

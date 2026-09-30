@@ -4,6 +4,7 @@ import com.travel.common.persistence.BaseEntity;
 import com.travel.user.enums.Role;
 import jakarta.persistence.*;
 import lombok.*;
+import java.time.Instant;
 
 @Entity
 @Table(name = "users")
@@ -30,4 +31,12 @@ public class User extends BaseEntity {
 
     @Column(name = "avatar_url", length = 1000)
     private String avatarUrl;
+
+    @Column(name = "email_verified_at")
+    private Instant emailVerifiedAt;
+
+    @Column(name = "session_version", nullable = false)
+    private long sessionVersion;
+
+    public boolean isEmailVerified() { return emailVerifiedAt != null; }
 }

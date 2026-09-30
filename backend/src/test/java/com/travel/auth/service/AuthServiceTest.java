@@ -2,6 +2,8 @@ package com.travel.auth.service;
 
 import com.travel.auth.dto.request.*;
 import com.travel.auth.dto.response.AuthResponse;
+import com.travel.auth.dto.response.RegistrationResponse;
+import com.travel.auth.config.AuthEmailProperties;
 import com.travel.auth.entity.RefreshToken;
 import com.travel.auth.repository.RefreshTokenRepository;
 import com.travel.auth.service.impl.AuthServiceImpl;
@@ -40,6 +42,8 @@ class AuthServiceTest {
     @Mock PasswordEncoder encoder;
     @Mock JwtUtils jwt;
     @Mock RefreshTokenRepository tokens;
+    @Mock EmailActionService emailActions;
+    @Mock AuthEmailProperties emailProperties;
     @InjectMocks AuthServiceImpl service;
     private User user;
     private UUID userId;
@@ -47,7 +51,7 @@ class AuthServiceTest {
     @BeforeEach void setup() {
         userId = UUID.randomUUID();
         user = User.builder().email("user@travel.com").fullName("Nguyen Van Test")
-                .passwordHash("hashed").role(Role.USER).build();
+                .passwordHash("hashed").role(Role.USER).emailVerifiedAt(Instant.now()).build();
         ReflectionTestUtils.setField(user, "id", userId);
     }
 
@@ -80,45 +84,41 @@ class AuthServiceTest {
                 error -> assertThat(error.getErrorCode()).isEqualTo(expected));
     }
 
-    @Test void registerPersistsNormalizedUserAndHashedRefreshToken() {
+    @Test void registerPersistsUnverifiedUserAndRequestsEmailWithoutIssuingCredentials() {
         when(encoder.encode("Password123@")).thenReturn("hashed");
         when(users.saveAndFlush(any())).thenReturn(user);
-        issuance();
-        AuthResponse response = service.register(registration());
+        when(emailProperties.resendCooldown()).thenReturn(java.time.Duration.ofSeconds(60));
+        RegistrationResponse response = service.register(registration(), "vi");
         ArgumentCaptor<User> captured = ArgumentCaptor.forClass(User.class);
         verify(users).saveAndFlush(captured.capture());
         assertThat(captured.getValue().getEmail()).isEqualTo("user@travel.com");
         assertThat(captured.getValue().getFullName()).isEqualTo("Nguyen Van Test");
         assertThat(captured.getValue().getPasswordHash()).isEqualTo("hashed");
         assertThat(captured.getValue().getRole()).isEqualTo(Role.USER);
-        assertThat(response.getUser().getId()).isEqualTo(userId);
-        assertThat(response.getAccessToken()).isEqualTo("access");
-        assertThat(response.getExpiresIn()).isEqualTo(1800000L);
-        ArgumentCaptor<RefreshToken> stored = ArgumentCaptor.forClass(RefreshToken.class);
-        verify(tokens).save(stored.capture());
-        assertThat(stored.getValue().getTokenHash()).isEqualTo(AuthServiceImpl.hashToken("new.refresh"));
-        assertThat(stored.getValue().getTokenHash()).doesNotContain("new.refresh").hasSize(64);
-        assertThat(stored.getValue().getUserId()).isEqualTo(userId);
-        assertThat(stored.getValue().getExpiresAt()).isAfter(Instant.now().plusSeconds(600000));
+        assertThat(captured.getValue().isEmailVerified()).isFalse();
+        assertThat(response.verificationRequired()).isTrue();
+        assertThat(response.resendAfterSeconds()).isEqualTo(60);
+        verify(emailActions).sendInitialVerification(user, "vi");
+        verifyNoInteractions(jwt, tokens, permissions);
     }
     @Test void existingEmailReturnsConflictWithoutIssuingTokens() {
         when(users.existsByEmail("user@travel.com")).thenReturn(true);
-        expectCode(() -> service.register(registration()), ErrorCode.USER_ALREADY_EXISTS);
+        expectCode(() -> service.register(registration(), "vi"), ErrorCode.USER_ALREADY_EXISTS);
         verifyNoInteractions(encoder, jwt, tokens);
     }
     @Test void concurrentDuplicateEmailMapsDatabaseConstraintToConflict() {
         when(users.saveAndFlush(any())).thenThrow(new DataIntegrityViolationException("duplicate",
                 new ConstraintViolationException("duplicate", new SQLException(), "uk_users_email")));
-        expectCode(() -> service.register(registration()), ErrorCode.USER_ALREADY_EXISTS);
+        expectCode(() -> service.register(registration(), "vi"), ErrorCode.USER_ALREADY_EXISTS);
         verifyNoInteractions(jwt, tokens);
     }
     @Test void unrelatedDatabaseConstraintIsNotMisreportedAsDuplicateEmail() {
         when(users.saveAndFlush(any())).thenThrow(new DataIntegrityViolationException("other",
                 new ConstraintViolationException("other", new SQLException(), "other_constraint")));
-        assertThatThrownBy(() -> service.register(registration())).isInstanceOf(DataIntegrityViolationException.class);
+        assertThatThrownBy(() -> service.register(registration(), "vi")).isInstanceOf(DataIntegrityViolationException.class);
     }
     @Test void loginReturnsTokensForCorrectCredentials() {
-        when(users.findByEmail("user@travel.com")).thenReturn(Optional.of(user));
+        when(users.lockByEmail("user@travel.com")).thenReturn(Optional.of(user));
         when(encoder.matches("Password123@", "hashed")).thenReturn(true);
         issuance();
         assertThat(service.login(login()).getUser().getId()).isEqualTo(userId);
@@ -130,7 +130,7 @@ class AuthServiceTest {
             Locale.setDefault(Locale.forLanguageTag("tr-TR"));
             expectCode(() -> service.login(LoginRequest.builder().email("INFO@TRAVEL.COM")
                     .password("Password123@").build()), ErrorCode.INVALID_CREDENTIALS);
-            verify(users).findByEmail("info@travel.com");
+            verify(users).lockByEmail("info@travel.com");
         } finally { Locale.setDefault(previous); }
     }
     @Test void missingUserStillPerformsBcryptAndReturnsSameCredentialError() {
@@ -139,25 +139,25 @@ class AuthServiceTest {
         verifyNoInteractions(jwt, tokens);
     }
     @Test void wrongPasswordReturnsCredentialError() {
-        when(users.findByEmail("user@travel.com")).thenReturn(Optional.of(user));
+        when(users.lockByEmail("user@travel.com")).thenReturn(Optional.of(user));
         expectCode(() -> service.login(login()), ErrorCode.INVALID_CREDENTIALS);
         verifyNoInteractions(jwt, tokens);
     }
     @Test void disabledUserWithCorrectPasswordIsForbidden() {
         user.softDelete();
-        when(users.findByEmail("user@travel.com")).thenReturn(Optional.of(user));
+        when(users.lockByEmail("user@travel.com")).thenReturn(Optional.of(user));
         when(encoder.matches("Password123@", "hashed")).thenReturn(true);
         expectCode(() -> service.login(login()), ErrorCode.ACCOUNT_LOCKED_OR_DELETED);
         verifyNoInteractions(jwt, tokens);
     }
     @Test void disabledUserWithWrongPasswordDoesNotRevealAccountStatus() {
         user.softDelete();
-        when(users.findByEmail("user@travel.com")).thenReturn(Optional.of(user));
+        when(users.lockByEmail("user@travel.com")).thenReturn(Optional.of(user));
         expectCode(() -> service.login(login()), ErrorCode.INVALID_CREDENTIALS);
     }
     @Test void refreshConsumesOldTokenAndPersistsReplacement() {
         validRefresh();
-        when(users.findById(userId)).thenReturn(Optional.of(user));
+        when(users.lockById(userId)).thenReturn(Optional.of(user));
         when(tokens.consume(eq(AuthServiceImpl.hashToken("valid.refresh")), eq(userId), any())).thenReturn(1);
         issuance();
         assertThat(service.refreshToken(refresh()).getRefreshToken()).isEqualTo("new.refresh");
@@ -187,21 +187,21 @@ class AuthServiceTest {
         Claims claims = mock(Claims.class);
         when(claims.get("userId", String.class)).thenReturn(userId.toString());
         when(jwt.extractAllClaims("valid.refresh", TokenType.REFRESH_TOKEN)).thenReturn(claims);
-        when(users.findById(userId)).thenReturn(Optional.of(user));
+        when(users.lockById(userId)).thenReturn(Optional.of(user));
         user.softDelete();
         expectCode(() -> service.refreshToken(refresh()), ErrorCode.ACCOUNT_LOCKED_OR_DELETED);
         verifyNoInteractions(tokens);
     }
     @Test void refreshSubjectMustMatchPersistedUser() {
         validRefresh();
-        when(users.findById(userId)).thenReturn(Optional.of(user));
+        when(users.lockById(userId)).thenReturn(Optional.of(user));
         user.setEmail("other@travel.com");
         expectCode(() -> service.refreshToken(refresh()), ErrorCode.INVALID_REFRESH_TOKEN);
         verifyNoInteractions(tokens);
     }
     @Test void replayedExpiredOrConcurrentLosingTokenCannotIssueNewTokens() {
         validRefresh();
-        when(users.findById(userId)).thenReturn(Optional.of(user));
+        when(users.lockById(userId)).thenReturn(Optional.of(user));
         expectCode(() -> service.refreshToken(refresh()), ErrorCode.INVALID_REFRESH_TOKEN);
         verify(tokens, never()).save(any());
         verify(jwt, never()).generateAccessToken(any());

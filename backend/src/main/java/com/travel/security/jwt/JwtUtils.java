@@ -58,6 +58,7 @@ public class JwtUtils {
 
         if (userDetails instanceof CustomUserDetails user) {
             extraClaims.put("userId", user.getId());
+            extraClaims.put("sessionVersion", user.getSessionVersion());
             extraClaims.put("authorities", user.getAuthorities().stream()
                     .map(GrantedAuthority::getAuthority)
                     .toList());
@@ -70,6 +71,7 @@ public class JwtUtils {
         Map<String, Object> claims = new HashMap<>();
         if (userDetails instanceof CustomUserDetails user) {
             claims.put("userId", user.getId());
+            claims.put("sessionVersion", user.getSessionVersion());
         }
         return buildToken(claims, userDetails, TokenType.REFRESH_TOKEN, jwtRefreshExpiration);
     }

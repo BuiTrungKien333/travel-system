@@ -21,6 +21,7 @@ public class CustomUserDetails implements UserDetails {
     private final Set<String> permissions;
     private final Collection<? extends GrantedAuthority> authorities;
     private final boolean isDeleted;
+    private final long sessionVersion;
 
     public CustomUserDetails(User user) {
         this(user, Set.of());
@@ -33,6 +34,7 @@ public class CustomUserDetails implements UserDetails {
         this.fullName = user.getFullName();
         this.role = user.getRole();
         this.isDeleted = user.isDeleted();
+        this.sessionVersion = user.getSessionVersion();
         this.permissions = permissions != null ? Set.copyOf(permissions) : Set.of();
 
         List<GrantedAuthority> authList = new ArrayList<>();
@@ -61,6 +63,7 @@ public class CustomUserDetails implements UserDetails {
                 .filter(auth -> !auth.startsWith("ROLE_"))
                 .collect(Collectors.toUnmodifiableSet()) : Set.of();
         this.isDeleted = false;
+        this.sessionVersion = 0;
     }
 
     @Override

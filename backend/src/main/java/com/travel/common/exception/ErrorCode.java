@@ -27,6 +27,9 @@ public enum ErrorCode {
     INVALID_REFRESH_TOKEN("AUTH_005", "error.auth.invalid-refresh-token", HttpStatus.UNAUTHORIZED),
     USER_NOT_FOUND("AUTH_006", "error.auth.user-not-found", HttpStatus.NOT_FOUND),
     ACCOUNT_LOCKED_OR_DELETED("AUTH_007", "error.auth.account-disabled", HttpStatus.FORBIDDEN),
+    EMAIL_NOT_VERIFIED("AUTH_008", "error.auth.email-not-verified", HttpStatus.FORBIDDEN),
+    INVALID_ACTION_TOKEN("AUTH_009", "error.auth.invalid-action-token", HttpStatus.BAD_REQUEST),
+    EMAIL_SERVICE_UNAVAILABLE("AUTH_010", "error.auth.email-unavailable", HttpStatus.SERVICE_UNAVAILABLE),
 
     // --- PLANNING & ALGORITHM CODES ---
     TSP_EXCEEDS_MAX_LOCATIONS("PLANNING_001", "error.planning.tsp-exceeds-max-locations", HttpStatus.BAD_REQUEST),

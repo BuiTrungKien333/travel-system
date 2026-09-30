@@ -4,6 +4,7 @@ import com.travel.auth.dto.request.LoginRequest;
 import com.travel.auth.dto.request.RefreshTokenRequest;
 import com.travel.auth.dto.request.RegisterRequest;
 import com.travel.auth.dto.response.AuthResponse;
+import com.travel.auth.dto.response.RegistrationResponse;
 import com.travel.auth.service.AuthService;
 import com.travel.common.response.ApiResponse;
 import com.travel.common.response.ErrorResponse;
@@ -23,6 +24,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RequestHeader;
 
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -39,12 +41,12 @@ public class AuthController {
     // Register
     @Operation(
             summary = "Register new user",
-            description = "Create a new user account with role USER and receive JWT access and refresh tokens"
+            description = "Create an unverified USER account and request a single-use email verification link; no credentials are issued"
     )
     @ApiResponses({
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                    responseCode = "201",
-                    description = "User registered successfully, tokens generated"
+                    responseCode = "202",
+                    description = "Registration accepted; email verification required"
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "400",
@@ -72,10 +74,11 @@ public class AuthController {
             )
     })
     @PostMapping("/register")
-    public ResponseEntity<ApiResponse<AuthResponse>> register(@Valid @RequestBody RegisterRequest request) {
-        AuthResponse response = authService.register(request);
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success("User registered successfully", response));
+    public ResponseEntity<ApiResponse<RegistrationResponse>> register(@Valid @RequestBody RegisterRequest request,
+            @RequestHeader(value = "Accept-Language", defaultValue = "vi") String locale) {
+        RegistrationResponse response = authService.register(request, locale);
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
+                .body(ApiResponse.success("Registration accepted; verify your email before signing in", response));
     }
 
     // Login
@@ -114,7 +117,7 @@ public class AuthController {
             ),
             @io.swagger.v3.oas.annotations.responses.ApiResponse(
                     responseCode = "403",
-                    description = "Account is locked or deactivated",
+                    description = "Account is locked, deactivated or email is not verified (AUTH_008)",
                     content = @Content(
                             mediaType = MediaType.APPLICATION_JSON_VALUE,
                             schema = @Schema(implementation = ErrorResponse.class),

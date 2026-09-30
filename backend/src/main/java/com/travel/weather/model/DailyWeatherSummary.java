@@ -1,5 +1,6 @@
 package com.travel.weather.model;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.travel.weather.enums.WeatherCondition;
 import com.travel.weather.enums.WeatherRiskLevel;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -30,7 +31,8 @@ public record DailyWeatherSummary(
         @Schema(description = "Mức độ rủi ro cao nhất trong ngày")
         WeatherRiskLevel highestRiskLevel,
 
-        @Schema(description = "Chi tiết dự báo theo từng giờ của ngày")
+        @JsonInclude(JsonInclude.Include.NON_EMPTY)
+        @Schema(description = "Chi tiết dự báo theo từng giờ của ngày (chỉ trả về khi includeHourly=true)")
         List<HourlyWeather> hourlyForecasts
 ) {
     public DailyWeatherSummary {

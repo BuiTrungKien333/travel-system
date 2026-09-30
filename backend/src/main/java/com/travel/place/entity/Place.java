@@ -51,6 +51,9 @@ public class Place {
     @Column(name = "closing_time")
     private LocalTime closingTime;
 
+    @Column(name = "weekly_opening_hours", columnDefinition = "TEXT")
+    private String weeklyOpeningHours;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "place_type", nullable = false, length = 20)
     @Builder.Default

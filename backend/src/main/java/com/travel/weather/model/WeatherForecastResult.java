@@ -20,6 +20,25 @@ public record WeatherForecastResult(
     }
 
     /**
+     * Tạo bản sao dự báo không chứa chi tiết từng giờ (tối ưu hóa payload cho client/mobile)
+     */
+    public WeatherForecastResult withoutHourlyDetails() {
+        List<DailyWeatherSummary> stripped = dailySummaries.stream()
+                .map(d -> new DailyWeatherSummary(
+                        d.date(),
+                        d.minTemperature(),
+                        d.maxTemperature(),
+                        d.maxPrecipitationProbability(),
+                        d.totalRainMm(),
+                        d.dominantCondition(),
+                        d.highestRiskLevel(),
+                        List.of()
+                ))
+                .toList();
+        return new WeatherForecastResult(latitude, longitude, timezone, stripped, providerName);
+    }
+
+    /**
      * Lấy dự báo thời tiết theo ngày cụ thể
      */
     public Optional<DailyWeatherSummary> getDailySummaryAt(LocalDate date) {

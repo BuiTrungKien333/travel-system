@@ -14,7 +14,7 @@ class AiConfigPropertiesTest {
 
         assertThat(properties.getActiveProvider()).isEqualTo("gemini");
         assertThat(properties.getGemini()).isNotNull();
-        assertThat(properties.getGemini().getModel()).isEqualTo("gemini-2.0-flash");
+        assertThat(properties.getGemini().getModel()).isEqualTo("gemini-3.8-flash");
         assertThat(properties.getGemini().getBaseUrl()).isEqualTo("https://generativelanguage.googleapis.com/v1beta");
         assertThat(properties.getGemini().getTimeoutSeconds()).isEqualTo(30);
         assertThat(properties.getGemini().getTemperature()).isEqualTo(0.4);

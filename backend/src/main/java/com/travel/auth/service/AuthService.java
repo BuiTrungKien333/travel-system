@@ -30,4 +30,7 @@ public interface AuthService {
      * @return AuthResponse containing access/refresh tokens and user summary
      */
     AuthResponse refreshToken(RefreshTokenRequest request);
+
+    /** Thu hồi refresh token của thiết bị hiện tại; gọi lặp lại vẫn thành công. */
+    void logout(RefreshTokenRequest request);
 }

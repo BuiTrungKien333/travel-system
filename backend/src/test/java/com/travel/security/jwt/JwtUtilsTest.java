@@ -15,6 +15,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class JwtUtilsTest {
 
@@ -77,6 +78,25 @@ class JwtUtilsTest {
         assertThat(refreshToken).isNotBlank();
         assertThat(jwtUtils.isTokenValid(refreshToken, userDetails, TokenType.REFRESH_TOKEN)).isTrue();
         assertThat(jwtUtils.extractUsername(refreshToken, TokenType.REFRESH_TOKEN)).isEqualTo("test@travel.com");
+    }
+
+    @Test
+    void refreshTokensIssuedInSameSecondAreUniqueAndBoundToUser() {
+        String first = jwtUtils.generateRefreshToken(userDetails);
+        String second = jwtUtils.generateRefreshToken(userDetails);
+        assertThat(first).isNotEqualTo(second);
+        Claims claims = jwtUtils.extractAllClaims(first, TokenType.REFRESH_TOKEN);
+        assertThat(claims.get("userId", String.class)).isEqualTo(userId.toString());
+        assertThat(claims.getId()).isNotBlank();
+    }
+
+    @Test
+    void tokenTypesStaySeparatedEvenIfSigningKeysAreAccidentallyEqual() {
+        ReflectionTestUtils.setField(jwtUtils, "refreshKey", BASE64_SECRET);
+        ReflectionTestUtils.invokeMethod(jwtUtils, "initKeys");
+        String token = jwtUtils.generateAccessToken(userDetails);
+        assertThatThrownBy(() -> jwtUtils.extractAllClaims(token, TokenType.REFRESH_TOKEN))
+                .isInstanceOf(io.jsonwebtoken.JwtException.class);
     }
 
     @Test

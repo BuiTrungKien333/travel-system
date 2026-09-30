@@ -12,3 +12,14 @@ spring:
 logging:
   level:
     root: WARN
+
+# Khóa công khai chỉ dành cho test; production bắt buộc cung cấp biến môi trường.
+app:
+  jwt:
+    secret-key: dGVzdC1vbmx5LWFjY2Vzcy1zaWduaW5nLWtleS0zMi1ieXRlcw==
+    refresh-key: dGVzdC1vbmx5LXJlZnJlc2gtc2lnbmluZy1rZXktMzItYnl0ZXM=
+application:
+  ai:
+    active-provider: mock
+  weather:
+    active-provider: mock

@@ -51,9 +51,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         final Claims claims;
         try {
             claims = jwtUtils.extractAllClaims(jwt, TokenType.ACCESS_TOKEN);
-            log.debug("[JWT] Token parsed successfully. Username={}, URI={}", claims.getSubject(), requestUri);
+            log.trace("[JWT] Token parsed. URI={}", requestUri);
         } catch (JwtException | IllegalArgumentException e) {
-            log.warn("[JWT] Token parsing failed. URI={}, reason={}", requestUri, e.getMessage());
+            log.debug("[JWT] Token rejected. URI={}", requestUri);
             filterChain.doFilter(request, response);
             return;
         }
@@ -101,7 +101,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
 
-            log.debug("[JWT] Authentication success. Username={}, URI={}", username, requestUri);
+            log.trace("[JWT] Authentication successful. URI={}", requestUri);
         } catch (RuntimeException e) {
             log.error("[JWT] Authentication process failed. URI={}", requestUri, e);
         }

@@ -4,6 +4,8 @@ import com.travel.auth.dto.request.LoginRequest;
 import com.travel.auth.dto.request.RefreshTokenRequest;
 import com.travel.auth.dto.request.RegisterRequest;
 import com.travel.auth.dto.response.AuthResponse;
+import com.travel.auth.entity.RefreshToken;
+import com.travel.auth.repository.RefreshTokenRepository;
 import com.travel.auth.service.AuthService;
 import com.travel.common.exception.AppException;
 import com.travel.common.exception.ErrorCode;
@@ -18,147 +20,134 @@ import com.travel.user.repository.UserRepository;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.time.Instant;
+import java.util.HexFormat;
+import java.util.Locale;
 import java.util.Set;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j(topic = "AUTH_SERVICE")
 public class AuthServiceImpl implements AuthService {
-
+    // BCrypt vẫn chạy khi email không tồn tại để hạn chế phân biệt tài khoản qua thời gian phản hồi.
+    private static final String DUMMY_PASSWORD_HASH = "$2a$10$71iAveyKYFu0t2qhxc91UuFh1HfNYqzmzAwyfWDtxN3Pv1ZuDv7Tm";
     private final UserRepository userRepository;
     private final RolePermissionRepository rolePermissionRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtils jwtUtils;
+    private final RefreshTokenRepository refreshTokenRepository;
 
     @Override
     @Transactional
     public AuthResponse register(RegisterRequest request) {
-        String fullName = request.getFullName().trim();
-        String email = request.getEmail().trim().toLowerCase();
-        log.debug("[AUTH] Processing registration attempt for email: {}", email);
-
-        // 1. Check if email already exists
+        String email = normalizeEmail(request.getEmail());
         if (userRepository.existsByEmail(email)) {
-            log.warn("[AUTH] Registration rejected: Email already exists [{}]", email);
             throw new AppException(ErrorCode.USER_ALREADY_EXISTS);
         }
-
-        // 2. Hash password with BCrypt
-        String passwordHash = passwordEncoder.encode(request.getPassword());
-
-        // 3. Create and persist new User entity
         User user = User.builder()
-                .fullName(fullName)
+                .fullName(request.getFullName().trim())
                 .email(email)
-                .passwordHash(passwordHash)
+                .passwordHash(passwordEncoder.encode(request.getPassword()))
                 .role(Role.USER)
                 .build();
-        User savedUser = userRepository.save(user);
-
-        log.info("[AUTH] User registered successfully: email={}, userId={}, role={}", savedUser.getEmail(), savedUser.getId(), savedUser.getRole());
-
-        // 4. Generate tokens & return AuthResponse
-        return generateAuthResponse(savedUser);
+        try {
+            user = userRepository.saveAndFlush(user);
+        } catch (DataIntegrityViolationException exception) {
+            // Chỉ chuyển lỗi unique email thành 409; lỗi DB khác vẫn là lỗi nội bộ.
+            for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
+                if (cause instanceof org.hibernate.exception.ConstraintViolationException violation
+                        && "uk_users_email".equals(violation.getConstraintName())) {
+                    throw new AppException(ErrorCode.USER_ALREADY_EXISTS);
+                }
+            }
+            throw exception;
+        }
+        return issueTokens(user);
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public AuthResponse login(LoginRequest request) {
-        String email = request.getEmail().trim().toLowerCase();
-        log.debug("[AUTH] Processing login attempt for email: {}", email);
-
-        // 1. Find user by normalized email
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> {
-                    log.warn("[AUTH] Login rejected: Email not found [{}]", email);
-                    return new AppException(ErrorCode.INVALID_CREDENTIALS);
-                });
-
-        // 2. Check if account is deactivated or soft-deleted
-        if (user.isDeleted()) {
-            log.warn("[AUTH] Login rejected: Account deactivated/deleted - userId: {}", user.getId());
-            throw new AppException(ErrorCode.ACCOUNT_LOCKED_OR_DELETED);
-        }
-
-        // 3. Verify password hash using BCrypt
-        if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
-            log.warn("[AUTH] Login rejected: Incorrect password - userId: {}", user.getId());
+        User user = userRepository.findByEmail(normalizeEmail(request.getEmail())).orElse(null);
+        boolean passwordMatches = passwordEncoder.matches(request.getPassword(),
+                user != null ? user.getPasswordHash() : DUMMY_PASSWORD_HASH);
+        if (user == null || !passwordMatches) {
             throw new AppException(ErrorCode.INVALID_CREDENTIALS);
         }
-
-        log.info("[AUTH] Login successful: email={}, userId={}, role={}", user.getEmail(), user.getId(), user.getRole());
-
-        // 4. Generate tokens & return AuthResponse
-        return generateAuthResponse(user);
+        requireActiveUser(user);
+        return issueTokens(user);
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public AuthResponse refreshToken(RefreshTokenRequest request) {
-        final String token = request.getRefreshToken();
-
-        // 1. Extract and validate claims from refresh token
         final Claims claims;
+        final UUID userId;
         try {
-            claims = jwtUtils.extractAllClaims(token, TokenType.REFRESH_TOKEN);
-        } catch (JwtException | IllegalArgumentException e) {
-            log.warn("[AUTH] Refresh token rejected: Invalid or expired token - reason: {}", e.getMessage());
+            claims = jwtUtils.extractAllClaims(request.getRefreshToken(), TokenType.REFRESH_TOKEN);
+            String claimedUserId = claims.get("userId", String.class);
+            if (claimedUserId == null) { throw new IllegalArgumentException("Missing user ID"); }
+            userId = UUID.fromString(claimedUserId);
+        } catch (JwtException | IllegalArgumentException exception) {
             throw new AppException(ErrorCode.INVALID_REFRESH_TOKEN);
         }
-
-        String email = claims.getSubject();
-        log.debug("[AUTH] Processing refresh token request for email: {}", email);
-
-        // 2. Lookup user by subject (email)
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> {
-                    log.warn("[AUTH] Refresh token rejected: User not found with email [{}]", email);
-                    return new AppException(ErrorCode.INVALID_REFRESH_TOKEN);
-                });
-
-        // 3. Verify user status (not deleted/locked)
-        if (user.isDeleted()) {
-            log.warn("[AUTH] Refresh token rejected: Account deactivated/deleted - userId: {}", user.getId());
-            throw new AppException(ErrorCode.ACCOUNT_LOCKED_OR_DELETED);
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new AppException(ErrorCode.INVALID_REFRESH_TOKEN));
+        requireActiveUser(user);
+        if (!user.getEmail().equals(claims.getSubject())) {
+            throw new AppException(ErrorCode.INVALID_REFRESH_TOKEN);
         }
-
-        log.info("[AUTH] Token refreshed successfully: email={}, userId={}", user.getEmail(), user.getId());
-
-        // 4. Generate new token pair (Token Rotation) & return AuthResponse
-        return generateAuthResponse(user);
+        if (refreshTokenRepository.consume(hashToken(request.getRefreshToken()), userId, Instant.now()) != 1) {
+            throw new AppException(ErrorCode.INVALID_REFRESH_TOKEN);
+        }
+        return issueTokens(user);
     }
 
-    /**
-     * Tải quyền của người dùng, tạo Claims và đóng gói AuthResponse
-     */
-    private AuthResponse generateAuthResponse(User user) {
+    @Override
+    @Transactional
+    public void logout(RefreshTokenRequest request) {
+        refreshTokenRepository.revoke(hashToken(request.getRefreshToken()));
+        // TODO: Nên thêm thu hồi access token theo phiên nếu cần đăng xuất có hiệu lực ngay trên server;
+        // hiện token còn hiệu lực đến khi hết hạn. Có thể dùng session version hoặc Redis khi chạy nhiều instance.
+    }
+
+    private AuthResponse issueTokens(User user) {
         Set<String> permissions = user.getRole() != null
-                ? rolePermissionRepository.findPermissionNamesByRole(user.getRole())
-                : Set.of();
-
-        CustomUserDetails userDetails = new CustomUserDetails(user, permissions);
-        String accessToken = jwtUtils.generateAccessToken(userDetails);
-        String refreshToken = jwtUtils.generateRefreshToken(userDetails);
-
-        UserSummaryResponse userSummary = UserSummaryResponse.builder()
-                .id(user.getId())
-                .email(user.getEmail())
-                .fullName(user.getFullName())
-                .role(user.getRole())
-                .avatarUrl(user.getAvatarUrl())
-                .build();
-
+                ? rolePermissionRepository.findPermissionNamesByRole(user.getRole()) : Set.of();
+        CustomUserDetails details = new CustomUserDetails(user, permissions);
+        String accessToken = jwtUtils.generateAccessToken(details);
+        String refreshToken = jwtUtils.generateRefreshToken(details);
+        refreshTokenRepository.save(new RefreshToken(user.getId(), hashToken(refreshToken),
+                Instant.now().plusMillis(jwtUtils.getJwtRefreshExpiration())));
+        // TODO: Nên thêm tác vụ xóa refresh token hết hạn định kỳ khi số lượng phiên tăng.
         return AuthResponse.builder()
-                .accessToken(accessToken)
-                .refreshToken(refreshToken)
-                .tokenType("Bearer")
+                .accessToken(accessToken).refreshToken(refreshToken).tokenType("Bearer")
                 .expiresIn(jwtUtils.getJwtExpiration())
-                .user(userSummary)
+                .user(UserSummaryResponse.builder().id(user.getId()).email(user.getEmail())
+                        .fullName(user.getFullName()).role(user.getRole()).avatarUrl(user.getAvatarUrl()).build())
                 .build();
+    }
+
+    private static String normalizeEmail(String email) { return email.trim().toLowerCase(Locale.ROOT); }
+
+    private static void requireActiveUser(User user) {
+        if (user.isDeleted()) { throw new AppException(ErrorCode.ACCOUNT_LOCKED_OR_DELETED); }
+    }
+
+    public static String hashToken(String token) {
+        try {
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256")
+                    .digest(token.getBytes(StandardCharsets.UTF_8)));
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 is required by the Java runtime", exception);
+        }
     }
 }

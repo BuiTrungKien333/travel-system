@@ -332,6 +332,63 @@
             },
             "description": "Mục đích: Người dùng chủ động bỏ qua cảnh báo của AI, lịch trình giữ nguyên."
           }
+        },
+        {
+          "name": "4.6 Tối ưu & Thẩm định Nhiều Ngày (Multi-day: Tràn ngày & Cảnh báo Chồng lấn Collision)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"destination\": \"Đà Nẵng\",\n  \"isRoundTrip\": false,\n  \"userNotes\": \"Chuyến đi 2 ngày Đà Nẵng\",\n  \"days\": [\n    {\n      \"date\": \"2026-10-01\",\n      \"startTime\": \"20:00:00\",\n      \"originPlace\": {\n        \"id\": \"00000000-0000-0000-0000-000000000001\",\n        \"name\": \"Khách sạn Novotel Bạch Đằng\",\n        \"latitude\": 16.0748,\n        \"longitude\": 108.2238,\n        \"placeType\": \"INDOOR\"\n      },\n      \"locations\": [\n        {\n          \"id\": \"11111111-1111-1111-1111-111111111111\",\n          \"name\": \"Chợ đêm Helio\",\n          \"latitude\": 16.0353,\n          \"longitude\": 108.2255,\n          \"placeType\": \"OUTDOOR\",\n          \"durationMinutes\": 180,\n          \"visitStatus\": \"NOT_VISITED\",\n          \"weeklyOpeningHours\": {\n            \"thursday\": { \"status\": \"OPEN\", \"openTime\": \"17:30:00\", \"closeTime\": \"23:00:00\" }\n          }\n        },\n        {\n          \"id\": \"22222222-2222-2222-2222-222222222222\",\n          \"name\": \"Bar Pub Bãi Biển Mỹ Khê (Xuyên đêm)\",\n          \"latitude\": 16.0598,\n          \"longitude\": 108.2471,\n          \"placeType\": \"INDOOR\",\n          \"durationMinutes\": 120,\n          \"visitStatus\": \"NOT_VISITED\",\n          \"weeklyOpeningHours\": {\n            \"thursday\": { \"status\": \"OPEN\", \"openTime\": \"20:00:00\", \"closeTime\": \"03:00:00\" }\n          }\n        }\n      ]\n    },\n    {\n      \"date\": \"2026-10-02\",\n      \"startTime\": \"01:30:00\",\n      \"originPlace\": {\n        \"id\": \"00000000-0000-0000-0000-000000000001\",\n        \"name\": \"Khách sạn Novotel Bạch Đằng\",\n        \"latitude\": 16.0748,\n        \"longitude\": 108.2238,\n        \"placeType\": \"INDOOR\"\n      },\n      \"locations\": [\n        {\n          \"id\": \"33333333-3333-3333-3333-333333333333\",\n          \"name\": \"Ngắm bình minh Cầu Thuận Phước\",\n          \"latitude\": 16.0944,\n          \"longitude\": 108.2234,\n          \"placeType\": \"OUTDOOR\",\n          \"durationMinutes\": 60,\n          \"visitStatus\": \"NOT_VISITED\"\n        }\n      ]\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/planning/itinerary/optimize-and-audit-multiday",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "public", "planning", "itinerary", "optimize-and-audit-multiday"]
+            },
+            "description": "Mục đích: Test tối ưu hóa nhiều ngày độc lập, kiểm tra tự động phát hiện tràn ngày (isSpillover=true do Bar chơi đến 01:30 sáng hôm sau), và kiểm tra CollisionRule phát hiện Day 2 bắt đầu lúc 01:30 đụng giờ kết thúc của Day 1 (SCHEDULE_COLLISION)."
+          }
+        },
+        {
+          "name": "4.7 Tối ưu 1 Ngày với Điểm Xuất Phát Cố Định (Khách sạn) & Giờ Rời Điểm Đầu",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"destination\": \"Đà Nẵng\",\n  \"tripDate\": \"2026-10-01\",\n  \"startTime\": \"08:00:00\",\n  \"isRoundTrip\": false,\n  \"originPlace\": {\n    \"id\": \"00000000-0000-0000-0000-000000000001\",\n    \"name\": \"Khách sạn Mường Thanh Đà Nẵng\",\n    \"latitude\": 16.0592,\n    \"longitude\": 108.2464,\n    \"placeType\": \"INDOOR\"\n  },\n  \"locations\": [\n    {\n      \"id\": \"11111111-1111-1111-1111-111111111111\",\n      \"name\": \"Bảo tàng Điêu khắc Chăm\",\n      \"latitude\": 16.0592,\n      \"longitude\": 108.2272,\n      \"placeType\": \"INDOOR\",\n      \"durationMinutes\": 60,\n      \"weeklyOpeningHours\": {\n        \"thursday\": { \"status\": \"OPEN\", \"openTime\": \"07:30:00\", \"closeTime\": \"17:00:00\" }\n      }\n    },\n    {\n      \"id\": \"22222222-2222-2222-2222-222222222222\",\n      \"name\": \"Cầu Rồng Đà Nẵng\",\n      \"latitude\": 16.0610,\n      \"longitude\": 108.2272,\n      \"placeType\": \"OUTDOOR\",\n      \"durationMinutes\": 45,\n      \"weeklyOpeningHours\": {\n        \"thursday\": { \"status\": \"OPEN\", \"openTime\": \"00:00:00\", \"closeTime\": \"23:59:59\" }\n      }\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/planning/itinerary/optimize-and-audit",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "public", "planning", "itinerary", "optimize-and-audit"]
+            },
+            "description": "Mục đích: Test tính toán timeline khi có originPlace (Khách sạn). Khách rời khách sạn đúng lúc 08:00:00 (chặng 1 là di chuyển từ khách sạn đến điểm 1, arrivalTime = 08:00 + travelTime)."
+          }
+        },
+        {
+          "name": "4.8 Tối ưu Lại Khi Chuyến Đi Đang Diễn Ra (In-Progress Re-optimization)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"destination\": \"Đà Nẵng\",\n  \"tripDate\": \"2026-10-01\",\n  \"startTime\": \"14:00:00\",\n  \"isRoundTrip\": false,\n  \"originPlace\": {\n    \"id\": \"22222222-2222-2222-2222-222222222222\",\n    \"name\": \"Cầu Rồng Đà Nẵng (Đang ở đây, chuẩn bị rời đi lúc 14:00)\",\n    \"latitude\": 16.0610,\n    \"longitude\": 108.2272,\n    \"placeType\": \"OUTDOOR\"\n  },\n  \"locations\": [\n    {\n      \"id\": \"11111111-1111-1111-1111-111111111111\",\n      \"name\": \"Bảo tàng Điêu khắc Chăm (Đã đi xong buổi sáng)\",\n      \"latitude\": 16.0592,\n      \"longitude\": 108.2272,\n      \"placeType\": \"INDOOR\",\n      \"durationMinutes\": 60,\n      \"visitStatus\": \"COMPLETED\"\n    },\n    {\n      \"id\": \"22222222-2222-2222-2222-222222222222\",\n      \"name\": \"Cầu Rồng Đà Nẵng (Đang tham quan)\",\n      \"latitude\": 16.0610,\n      \"longitude\": 108.2272,\n      \"placeType\": \"OUTDOOR\",\n      \"durationMinutes\": 45,\n      \"visitStatus\": \"IN_PROGRESS\"\n    },\n    {\n      \"id\": \"33333333-3333-3333-3333-333333333333\",\n      \"name\": \"Bán đảo Sơn Trà (Chưa đi)\",\n      \"latitude\": 16.1000,\n      \"longitude\": 108.2778,\n      \"placeType\": \"OUTDOOR\",\n      \"durationMinutes\": 90,\n      \"visitStatus\": \"NOT_VISITED\"\n    },\n    {\n      \"id\": \"44444444-4444-4444-4444-444444444444\",\n      \"name\": \"Bãi biển Mỹ Khê (Chưa đi)\",\n      \"latitude\": 16.0598,\n      \"longitude\": 108.2471,\n      \"placeType\": \"OUTDOOR\",\n      \"durationMinutes\": 60,\n      \"visitStatus\": \"NOT_VISITED\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/planning/itinerary/optimize-and-audit",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "public", "planning", "itinerary", "optimize-and-audit"]
+            },
+            "description": "Mục đích: Test tối ưu lại khi chuyến đi đang diễn ra. Điểm COMPLETED và IN_PROGRESS được giữ cố định làm neo, chỉ có các điểm NOT_VISITED được thuật toán sắp xếp lại tuyến đường tối ưu nhất."
+          }
         }
       ]
     }

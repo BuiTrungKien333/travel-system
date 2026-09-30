@@ -40,9 +40,29 @@ public record TspLocationRequest(
         java.time.LocalTime closingTime,
 
         @Schema(description = "Thời gian tham quan dự kiến (phút)", example = "60")
-        Integer durationMinutes
+        Integer durationMinutes,
+
+        @Schema(description = "Trạng thái ghé thăm của lượt đi (NOT_VISITED, IN_PROGRESS, COMPLETED, SKIPPED)")
+        com.travel.planning.enums.VisitStatus visitStatus,
+
+        @Schema(description = "Lịch hoạt động theo từng thứ trong tuần (tùy chọn)")
+        com.travel.place.model.WeeklyOpeningHours weeklyOpeningHours
 ) {
+    public TspLocationRequest {
+        if (visitStatus == null) {
+            visitStatus = com.travel.planning.enums.VisitStatus.NOT_VISITED;
+        }
+    }
+
     public TspLocationRequest(UUID id, String name, Double latitude, Double longitude) {
-        this(id, name, latitude, longitude, null, null, null, null);
+        this(id, name, latitude, longitude, null, null, null, null, null, null);
+    }
+
+    public TspLocationRequest(UUID id, String name, Double latitude, Double longitude,
+                              com.travel.place.enums.PlaceType placeType,
+                              java.time.LocalTime openingTime,
+                              java.time.LocalTime closingTime,
+                              Integer durationMinutes) {
+        this(id, name, latitude, longitude, placeType, openingTime, closingTime, durationMinutes, null, null);
     }
 }

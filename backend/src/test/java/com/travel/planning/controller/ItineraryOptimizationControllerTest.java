@@ -114,4 +114,75 @@ class ItineraryOptimizationControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.status").value("ALL_CLEAR"));
     }
+
+    @Test
+    @DisplayName("POST /api/v1/public/planning/itinerary/optimize-and-audit-multiday should return 200 and multiday response")
+    void optimizeAndAuditMultiDay_validRequest_returns200() throws Exception {
+        UUID id1 = UUID.randomUUID();
+        com.travel.planning.dto.request.DayPlanRequest day1 = new com.travel.planning.dto.request.DayPlanRequest(
+                LocalDate.of(2026, 10, 1),
+                LocalTime.of(8, 0),
+                null,
+                List.of(new TspLocationRequest(id1, "Cầu Rồng", 16.06, 108.22)),
+                false
+        );
+
+        com.travel.planning.dto.request.MultiDayOptimizeAndAuditRequest request = new com.travel.planning.dto.request.MultiDayOptimizeAndAuditRequest(
+                "Đà Nẵng",
+                List.of(day1),
+                "Gia đình đi nghỉ dưỡng"
+        );
+
+        com.travel.planning.dto.response.MultiDayOptimizeAndAuditResponse mockResponse = new com.travel.planning.dto.response.MultiDayOptimizeAndAuditResponse(
+                "ALL_CLEAR", 10.5, 30, List.of(), List.of(), null
+        );
+
+        when(tripOptimizationService.optimizeAndAuditMultiDay(any())).thenReturn(mockResponse);
+
+        mockMvc.perform(post("/api/v1/public/planning/itinerary/optimize-and-audit-multiday")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.status").value("ALL_CLEAR"))
+                .andExpect(jsonPath("$.data.totalTripDistanceKm").value(10.5));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/public/planning/itinerary/optimize-and-audit-multiday handles raw JSON with 'date' and omitted 'isRoundTrip'")
+    void optimizeAndAuditMultiDay_jsonWithDateAliasAndOmittedRoundTrip_returns200() throws Exception {
+        String jsonPayload = """
+                {
+                  "destination": "Đà Nẵng",
+                  "isRoundTrip": false,
+                  "userNotes": "Chuyến đi 2 ngày Đà Nẵng",
+                  "days": [
+                    {
+                      "date": "2026-10-01",
+                      "startTime": "20:00:00",
+                      "locations": [
+                        {
+                          "name": "Chợ đêm Helio",
+                          "latitude": 16.0353,
+                          "longitude": 108.2255
+                        }
+                      ]
+                    }
+                  ]
+                }
+                """;
+
+        com.travel.planning.dto.response.MultiDayOptimizeAndAuditResponse mockResponse = new com.travel.planning.dto.response.MultiDayOptimizeAndAuditResponse(
+                "ALL_CLEAR", 5.0, 15, List.of(), List.of(), null
+        );
+
+        when(tripOptimizationService.optimizeAndAuditMultiDay(any())).thenReturn(mockResponse);
+
+        mockMvc.perform(post("/api/v1/public/planning/itinerary/optimize-and-audit-multiday")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonPayload))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.status").value("ALL_CLEAR"));
+    }
 }

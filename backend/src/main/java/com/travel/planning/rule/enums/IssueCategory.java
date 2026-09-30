@@ -17,5 +17,14 @@ public enum IssueCategory {
     TIGHT_TRANSIT_TIME,
 
     @Schema(description = "Lịch trình quá dày đặc, nguy cơ quá tải/kiệt sức")
-    OVERLOADED_SCHEDULE
+    OVERLOADED_SCHEDULE,
+
+    @Schema(description = "Xung đột/va chạm thời gian giữa các ngày (tràn từ ngày trước đè lên giờ xuất phát ngày sau)")
+    SCHEDULE_COLLISION,
+
+    @Schema(description = "Thời gian nghỉ ngơi giữa hai ngày kế tiếp không đủ (dưới 6 tiếng)")
+    INSUFFICIENT_REST_TIME,
+
+    @Schema(description = "Chưa có số liệu xác minh giờ hoạt động của địa điểm")
+    UNVERIFIED_HOURS
 }

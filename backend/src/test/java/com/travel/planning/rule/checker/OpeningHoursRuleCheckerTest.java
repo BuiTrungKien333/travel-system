@@ -126,4 +126,46 @@ class OpeningHoursRuleCheckerTest {
         assertThat(issues).hasSize(1);
         assertThat(issues.getFirst().severity()).isEqualTo(IssueSeverity.CRITICAL);
     }
+
+    @Test
+    @DisplayName("evaluate with UNVERIFIED opening hours should return INFO issue indicating unverified data")
+    void evaluate_unverifiedHours_returnsInfoIssue() {
+        LocalDate date = LocalDate.of(2026, 10, 1);
+        ScheduleItemContext item = new ScheduleItemContext(
+                UUID.randomUUID(), "Quán cafe địa phương", 16.0, 108.0, PlaceType.INDOOR,
+                date, date, false, date.atTime(10, 0), 60, false, 0,
+                com.travel.place.enums.PlaceOpeningStatus.UNVERIFIED,
+                null, null, null, 0.0, 0, com.travel.planning.enums.VisitStatus.NOT_VISITED
+        );
+
+        List<DetectedIssue> issues = checker.evaluate(List.of(item));
+
+        assertThat(issues).hasSize(1);
+        assertThat(issues.getFirst().severity()).isEqualTo(IssueSeverity.INFO);
+        assertThat(issues.getFirst().category()).isEqualTo(IssueCategory.UNVERIFIED_HOURS);
+    }
+
+    @Test
+    @DisplayName("evaluate with Saturday overnight shift arriving Sunday 01:00 should be valid")
+    void evaluate_weeklyOvernightShift_arrivingNextDayDawn_valid() {
+        // Thứ 7: 18:00 - 02:00 sáng CN
+        java.util.Map<java.time.DayOfWeek, com.travel.place.model.DaySchedule> map = new java.util.EnumMap<>(java.time.DayOfWeek.class);
+        map.put(java.time.DayOfWeek.SATURDAY, com.travel.place.model.DaySchedule.open(java.time.DayOfWeek.SATURDAY, LocalTime.of(18, 0), LocalTime.of(2, 0)));
+        map.put(java.time.DayOfWeek.SUNDAY, com.travel.place.model.DaySchedule.open(java.time.DayOfWeek.SUNDAY, LocalTime.of(10, 0), LocalTime.of(22, 0)));
+        com.travel.place.model.WeeklyOpeningHours weekly = new com.travel.place.model.WeeklyOpeningHours(map);
+
+        // Ngày 2026-10-04 là Chủ nhật, đến lúc 01:00 sáng (thuộc ca thứ Bảy 18:00 - 02:00)
+        LocalDate sunday = LocalDate.of(2026, 10, 4);
+        ScheduleItemContext item = new ScheduleItemContext(
+                UUID.randomUUID(), "Night Club", 16.0, 108.0, PlaceType.INDOOR,
+                sunday, sunday, false, sunday.atTime(1, 0), 45, false, 0,
+                com.travel.place.enums.PlaceOpeningStatus.OPEN,
+                LocalTime.of(18, 0), LocalTime.of(2, 0), weekly,
+                0.0, 0, com.travel.planning.enums.VisitStatus.NOT_VISITED
+        );
+
+        List<DetectedIssue> issues = checker.evaluate(List.of(item));
+
+        assertThat(issues).isEmpty();
+    }
 }

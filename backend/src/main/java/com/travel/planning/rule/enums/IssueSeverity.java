@@ -11,5 +11,9 @@ public enum IssueSeverity {
     IMPORTANT,
 
     @Schema(description = "Thông tin / Nhắc nhở: Lời khuyên hữu ích (mang ô/áo mưa, bù nước, lưu ý)")
-    INFO
+    INFO;
+
+    public boolean isCriticalOrImportant() {
+        return this == CRITICAL || this == IMPORTANT;
+    }
 }

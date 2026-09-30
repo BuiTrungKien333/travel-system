@@ -49,9 +49,18 @@ public record ItineraryEvaluationResult(
                 .sorted(Comparator.comparing(issue -> issue.severity().ordinal()))
                 .toList();
 
-        int critical = (int) sortedIssues.stream().filter(i -> i.severity() == IssueSeverity.CRITICAL).count();
-        int important = (int) sortedIssues.stream().filter(i -> i.severity() == IssueSeverity.IMPORTANT).count();
-        int info = (int) sortedIssues.stream().filter(i -> i.severity() == IssueSeverity.INFO).count();
+        int critical = 0;
+        int important = 0;
+        int info = 0;
+        for (DetectedIssue detectedIssue : sortedIssues) {
+            if (detectedIssue.severity() == IssueSeverity.CRITICAL) {
+                critical++;
+            } else if (detectedIssue.severity() == IssueSeverity.IMPORTANT) {
+                important++;
+            } else {
+                info++;
+            }
+        }
 
         String summary = String.format("Phát hiện %d vấn đề trong lịch trình (%d Nghiêm trọng, %d Quan trọng, %d Nhắc nhở)",
                 sortedIssues.size(), critical, important, info);

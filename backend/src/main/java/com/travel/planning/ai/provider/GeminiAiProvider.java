@@ -25,6 +25,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestClient;
 
 import java.time.Duration;
@@ -176,6 +177,10 @@ public class GeminiAiProvider implements AiProvider {
             log.error("[GEMINI] Client error calling Gemini API: status={}, message={}. Activating graceful fallback.",
                     ex.getStatusCode(), ex.getMessage());
             return fallbackGenerator.generateFallback(context);
+        } catch (HttpServerErrorException ex) {
+            log.warn("[GEMINI] Gemini server temporarily unavailable ({}) - high demand/spikes. Activating graceful fallback.",
+                    ex.getStatusCode());
+            return fallbackGenerator.generateFallback(context);
         } catch (Exception ex) {
             log.error("[GEMINI] Exception calling Gemini API: {}. Activating graceful fallback.", ex.getMessage(), ex);
             return fallbackGenerator.generateFallback(context);
@@ -245,6 +250,10 @@ public class GeminiAiProvider implements AiProvider {
             }
             log.error("[GEMINI_COPILOT] Client error calling Gemini API: status={}, message={}. Activating graceful fallback.",
                     ex.getStatusCode(), ex.getMessage());
+            return fallbackCopilotGenerator.generateFallback(context);
+        } catch (HttpServerErrorException ex) {
+            log.warn("[GEMINI_COPILOT] Gemini server temporarily unavailable ({}) - high demand/spikes. Activating graceful fallback.",
+                    ex.getStatusCode());
             return fallbackCopilotGenerator.generateFallback(context);
         } catch (Exception ex) {
             log.error("[GEMINI_COPILOT] Exception calling Gemini API: {}. Activating graceful fallback.", ex.getMessage(), ex);

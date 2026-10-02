@@ -44,11 +44,13 @@ class AuthServiceTest {
     @Mock RefreshTokenRepository tokens;
     @Mock EmailActionService emailActions;
     @Mock AuthEmailProperties emailProperties;
-    @InjectMocks AuthServiceImpl service;
+    AuthServiceImpl service;
     private User user;
     private UUID userId;
 
     @BeforeEach void setup() {
+        service = new AuthServiceImpl(users, encoder, jwt, tokens, emailActions, emailProperties,
+                new AuthTokenIssuer(permissions, jwt, tokens));
         userId = UUID.randomUUID();
         user = User.builder().email("user@travel.com").fullName("Nguyen Van Test")
                 .passwordHash("hashed").role(Role.USER).emailVerifiedAt(Instant.now()).build();

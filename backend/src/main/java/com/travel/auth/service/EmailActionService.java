@@ -50,7 +50,7 @@ public class EmailActionService {
                 .filter(user -> !user.isDeleted())
                 .filter(user -> purpose == ActionPurpose.PASSWORD_RESET || !user.isEmailVerified())
                 .ifPresent(user -> issue(user, purpose, locale));
-        
+
         return new EmailRequestResponse(properties.resendCooldown().toSeconds());
     }
 

@@ -26,6 +26,10 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     @Query("select u from User u where u.id = :id")
     Optional<User> lockById(UUID id);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select u from User u where u.googleSubject = :subject")
+    Optional<User> lockByGoogleSubject(String subject);
+
     // Avoid loading password hashes for every authenticated request.
     Optional<AuthState> findAuthStateById(UUID id);
 

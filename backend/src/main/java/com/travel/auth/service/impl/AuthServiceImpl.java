@@ -5,9 +5,9 @@ import com.travel.auth.dto.request.RefreshTokenRequest;
 import com.travel.auth.dto.request.RegisterRequest;
 import com.travel.auth.dto.response.AuthResponse;
 import com.travel.auth.dto.response.RegistrationResponse;
-import com.travel.auth.entity.RefreshToken;
 import com.travel.auth.repository.RefreshTokenRepository;
 import com.travel.auth.service.AuthService;
+import com.travel.auth.service.AuthTokenIssuer;
 import com.travel.auth.service.EmailActionService;
 import com.travel.auth.config.AuthEmailProperties;
 import com.travel.auth.token.ActionTokenCodec;
@@ -15,11 +15,8 @@ import com.travel.common.exception.AppException;
 import com.travel.common.exception.ErrorCode;
 import com.travel.security.jwt.JwtUtils;
 import com.travel.security.jwt.TokenType;
-import com.travel.security.model.CustomUserDetails;
-import com.travel.user.dto.response.UserSummaryResponse;
 import com.travel.user.entity.User;
 import com.travel.user.enums.Role;
-import com.travel.user.repository.RolePermissionRepository;
 import com.travel.user.repository.UserRepository;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
@@ -31,7 +28,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.Locale;
-import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -41,12 +37,12 @@ public class AuthServiceImpl implements AuthService {
     // BCrypt vẫn chạy khi email không tồn tại để hạn chế phân biệt tài khoản qua thời gian phản hồi.
     private static final String DUMMY_PASSWORD_HASH = "$2a$10$71iAveyKYFu0t2qhxc91UuFh1HfNYqzmzAwyfWDtxN3Pv1ZuDv7Tm";
     private final UserRepository userRepository;
-    private final RolePermissionRepository rolePermissionRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtils jwtUtils;
     private final RefreshTokenRepository refreshTokenRepository;
     private final EmailActionService emailActions;
     private final AuthEmailProperties emailProperties;
+    private final AuthTokenIssuer tokenIssuer;
 
     @Override
     @Transactional
@@ -83,12 +79,12 @@ public class AuthServiceImpl implements AuthService {
     public AuthResponse login(LoginRequest request) {
         User user = userRepository.lockByEmail(normalizeEmail(request.getEmail())).orElse(null);
         boolean passwordMatches = passwordEncoder.matches(request.getPassword(),
-                user != null ? user.getPasswordHash() : DUMMY_PASSWORD_HASH);
-        if (user == null || !passwordMatches) {
+                user != null && user.getPasswordHash() != null ? user.getPasswordHash() : DUMMY_PASSWORD_HASH);
+        if (user == null || user.getPasswordHash() == null || !passwordMatches) {
             throw new AppException(ErrorCode.INVALID_CREDENTIALS);
         }
         requireActiveUser(user);
-        return issueTokens(user);
+        return tokenIssuer.issue(user);
     }
 
     @Override
@@ -116,7 +112,7 @@ public class AuthServiceImpl implements AuthService {
         if (refreshTokenRepository.consume(hashToken(request.getRefreshToken()), userId, Instant.now()) != 1) {
             throw new AppException(ErrorCode.INVALID_REFRESH_TOKEN);
         }
-        return issueTokens(user);
+        return tokenIssuer.issue(user);
     }
 
     @Override
@@ -125,23 +121,6 @@ public class AuthServiceImpl implements AuthService {
         refreshTokenRepository.revoke(hashToken(request.getRefreshToken()));
         // TODO: Nên thêm thu hồi access token theo phiên nếu cần đăng xuất có hiệu lực ngay trên server;
         // hiện token còn hiệu lực đến khi hết hạn. Có thể dùng session version hoặc Redis khi chạy nhiều instance.
-    }
-
-    private AuthResponse issueTokens(User user) {
-        Set<String> permissions = user.getRole() != null
-                ? rolePermissionRepository.findPermissionNamesByRole(user.getRole()) : Set.of();
-        CustomUserDetails details = new CustomUserDetails(user, permissions);
-        String accessToken = jwtUtils.generateAccessToken(details);
-        String refreshToken = jwtUtils.generateRefreshToken(details);
-        refreshTokenRepository.save(new RefreshToken(user.getId(), hashToken(refreshToken),
-                Instant.now().plusMillis(jwtUtils.getJwtRefreshExpiration())));
-        // TODO: Nên thêm tác vụ xóa refresh token hết hạn định kỳ khi số lượng phiên tăng.
-        return AuthResponse.builder()
-                .accessToken(accessToken).refreshToken(refreshToken).tokenType("Bearer")
-                .expiresIn(jwtUtils.getJwtExpiration())
-                .user(UserSummaryResponse.builder().id(user.getId()).email(user.getEmail())
-                        .fullName(user.getFullName()).role(user.getRole()).avatarUrl(user.getAvatarUrl()).build())
-                .build();
     }
 
     private static String normalizeEmail(String email) {

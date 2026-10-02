@@ -30,7 +30,7 @@ public record AuthEmailProperties(boolean emailEnabled, String from, URI verifyE
         }
     }
 
-    private static void checkLink(URI url, boolean allowInsecure) {
+    public static void checkLink(URI url, boolean allowInsecure) {
         boolean https = url != null && "https".equals(url.getScheme()) && url.getHost() != null;
         boolean dev = url != null && allowInsecure &&
                 ((("http".equals(url.getScheme()) || "exp".equals(url.getScheme()) || "exps".equals(url.getScheme())) && url.getHost() != null)

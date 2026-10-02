@@ -21,7 +21,7 @@ public class User extends BaseEntity {
     @Column(name = "email", nullable = false, unique = true)
     private String email;
 
-    @Column(name = "password_hash", nullable = false)
+    @Column(name = "password_hash")
     private String passwordHash;
 
     @Enumerated(EnumType.STRING)
@@ -37,6 +37,9 @@ public class User extends BaseEntity {
 
     @Column(name = "session_version", nullable = false)
     private long sessionVersion;
+
+    @Column(name = "google_subject", unique = true, length = 255)
+    private String googleSubject;
 
     public boolean isEmailVerified() { return emailVerifiedAt != null; }
 }

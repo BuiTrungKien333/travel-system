@@ -29,6 +29,13 @@ server:
   port: ${SERVER_PORT:8080}
 
 app:
+  google:
+    enabled: ${GOOGLE_AUTH_ENABLED:false}
+    web-client-id: ${GOOGLE_WEB_CLIENT_ID:}
+    challenge-ttl: ${GOOGLE_CHALLENGE_TTL:5m}
+    link-ttl: ${GOOGLE_LINK_TTL:10m}
+    link-url: ${GOOGLE_LINK_URL:https://example.invalid/google-link}
+    allow-insecure-links: false
   auth:
     email-enabled: ${AUTH_EMAIL_ENABLED:false}
     from: ${AUTH_EMAIL_FROM:}

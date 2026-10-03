@@ -59,6 +59,7 @@ public class EmailActionService {
         var previous = tokens.findByUserIdAndPurpose(user.getId(), purpose);
         if (previous.isPresent() && previous.get().getCreatedAt().plus(properties.resendCooldown()).isAfter(now))
             return;
+
         tokens.revoke(user.getId(), purpose);
         String token = ActionTokenCodec.generate();
         Instant expiry = now.plus(purpose == ActionPurpose.VERIFY_EMAIL ? properties.verificationTtl() : properties.resetTtl());
@@ -70,7 +71,9 @@ public class EmailActionService {
     @Transactional
     public void verify(String rawToken) {
         User user = consume(rawToken, ActionPurpose.VERIFY_EMAIL);
-        if (user.isEmailVerified()) throw invalidToken();
+        if (user.isEmailVerified())
+            throw invalidToken();
+
         user.setEmailVerifiedAt(clock.instant());
     }
 
@@ -79,7 +82,9 @@ public class EmailActionService {
         User user = consume(rawToken, ActionPurpose.PASSWORD_RESET);
         user.setPasswordHash(passwords.encode(password));
         // Email ownership was proven by this token, including for an unfinished registration.
-        if (!user.isEmailVerified()) user.setEmailVerifiedAt(clock.instant());
+        if (!user.isEmailVerified())
+            user.setEmailVerifiedAt(clock.instant());
+
         user.setSessionVersion(Math.incrementExact(user.getSessionVersion()));
         refreshTokens.revokeAllForUser(user.getId());
         tokens.revokeAll(user.getId());
@@ -87,9 +92,14 @@ public class EmailActionService {
 
     private User consume(String rawToken, ActionPurpose purpose) {
         String hash = ActionTokenCodec.hash(rawToken);
-        ActionToken token = tokens.findByTokenHashAndPurpose(hash, purpose).orElseThrow(this::invalidToken);
+        ActionToken token = tokens.findByTokenHashAndPurpose(hash, purpose)
+                .orElseThrow(this::invalidToken);
+
         User user = users.lockById(token.getUserId()).orElseThrow(this::invalidToken);
-        if (user.isDeleted() || tokens.consume(hash, purpose, clock.instant()) != 1) throw invalidToken();
+
+        if (user.isDeleted() || tokens.consume(hash, purpose, clock.instant()) != 1)
+            throw invalidToken();
+
         return user;
     }
 

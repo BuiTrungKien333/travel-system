@@ -22,14 +22,17 @@ public class SmtpAuthEmailSender implements AuthEmailSender {
         boolean verify = email.purpose() == ActionPurpose.VERIFY_EMAIL;
         boolean google = email.purpose() == ActionPurpose.GOOGLE_LINK;
         boolean vietnamese = "vi".equals(email.locale());
+
         // Fragment stays on the client: it is not sent to web servers in a GET request.
         String link = (google ? email.linkOverride() : verify ? properties.verifyEmailUrl() : properties.resetPasswordUrl()) + "#token=" + email.token();
         String subject = vietnamese ? (verify ? "Tripzy — Xác thực email" : "Tripzy — Đặt lại mật khẩu")
                 : (verify ? "Tripzy — Verify your email" : "Tripzy — Reset your password");
+
         String intro = vietnamese ? (verify ? "Mở liên kết và chọn Xác thực email để hoàn tất đăng ký."
                 : "Mở liên kết để tạo mật khẩu mới. Sau khi đổi mật khẩu, mọi phiên cũ sẽ bị thu hồi.")
                 : (verify ? "Open the link and choose Verify email to complete registration."
                 : "Open the link to choose a new password. All previous sessions will be revoked.");
+
         long minutes = (verify ? properties.verificationTtl() : properties.resetTtl()).toMinutes();
         if (google) {
             subject = vietnamese ? "Tripzy — Xác nhận đăng nhập Google" : "Tripzy — Confirm Google sign-in";
@@ -37,6 +40,7 @@ public class SmtpAuthEmailSender implements AuthEmailSender {
                     : "You requested Google sign-in. Open the link and confirm to link your Google account and sign in. Confirm only if you just made this request.";
             minutes = Math.max(1, java.time.Duration.between(java.time.Instant.now(), email.expiresAt()).toMinutes());
         }
+
         String details = vietnamese ? "Liên kết dùng một lần, hết hạn sau " + minutes + " phút. Nếu bạn không yêu cầu, hãy bỏ qua email này."
                 : "This single-use link expires after " + minutes + " minutes. If you did not request it, ignore this email.";
         try {

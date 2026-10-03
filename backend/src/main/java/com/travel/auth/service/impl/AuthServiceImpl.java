@@ -52,12 +52,14 @@ public class AuthServiceImpl implements AuthService {
         if (userRepository.existsByEmail(email)) {
             throw new AppException(ErrorCode.USER_ALREADY_EXISTS);
         }
+
         User user = User.builder()
                 .fullName(request.getFullName().trim())
                 .email(email)
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
                 .role(Role.USER)
                 .build();
+
         try {
             user = userRepository.saveAndFlush(user);
         } catch (DataIntegrityViolationException exception) {
@@ -80,6 +82,7 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.lockByEmail(normalizeEmail(request.getEmail())).orElse(null);
         boolean passwordMatches = passwordEncoder.matches(request.getPassword(),
                 user != null && user.getPasswordHash() != null ? user.getPasswordHash() : DUMMY_PASSWORD_HASH);
+
         if (user == null || user.getPasswordHash() == null || !passwordMatches) {
             throw new AppException(ErrorCode.INVALID_CREDENTIALS);
         }
@@ -98,20 +101,25 @@ public class AuthServiceImpl implements AuthService {
             if (claimedUserId == null) {
                 throw new IllegalArgumentException("Missing user ID");
             }
+
             userId = UUID.fromString(claimedUserId);
         } catch (JwtException | IllegalArgumentException exception) {
             throw new AppException(ErrorCode.INVALID_REFRESH_TOKEN);
         }
+
         User user = userRepository.lockById(userId)
                 .orElseThrow(() -> new AppException(ErrorCode.INVALID_REFRESH_TOKEN));
+
         requireActiveUser(user);
         Long version = claims.get("sessionVersion", Long.class);
         if (!user.getEmail().equals(claims.getSubject()) || user.getSessionVersion() != (version == null ? 0 : version)) {
             throw new AppException(ErrorCode.INVALID_REFRESH_TOKEN);
         }
+
         if (refreshTokenRepository.consume(hashToken(request.getRefreshToken()), userId, Instant.now()) != 1) {
             throw new AppException(ErrorCode.INVALID_REFRESH_TOKEN);
         }
+
         return tokenIssuer.issue(user);
     }
 
@@ -131,6 +139,7 @@ public class AuthServiceImpl implements AuthService {
         if (user.isDeleted()) {
             throw new AppException(ErrorCode.ACCOUNT_LOCKED_OR_DELETED);
         }
+
         if (!user.isEmailVerified()) {
             throw new AppException(ErrorCode.EMAIL_NOT_VERIFIED);
         }

@@ -75,7 +75,7 @@ public class AuthController {
     })
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<RegistrationResponse>> register(@Valid @RequestBody RegisterRequest request,
-            @RequestHeader(value = "Accept-Language", defaultValue = "vi") String locale) {
+                                                                      @RequestHeader(value = "Accept-Language", defaultValue = "vi") String locale) {
         RegistrationResponse response = authService.register(request, locale);
         return ResponseEntity.status(HttpStatus.ACCEPTED)
                 .body(ApiResponse.success("Registration accepted; verify your email before signing in", response));

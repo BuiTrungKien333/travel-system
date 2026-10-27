@@ -15,6 +15,10 @@ logging:
 
 # Khóa công khai chỉ dành cho test; production bắt buộc cung cấp biến môi trường.
 app:
+  google:
+    enabled: true
+    web-client-id: test-client.apps.googleusercontent.com
+    link-url: https://app.example.com/google-link
   auth:
     email-enabled: true
     from: no-reply@example.com

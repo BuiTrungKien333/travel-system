@@ -43,6 +43,11 @@
         </dependencies>
     </dependencyManagement>
     <dependencies>
+        <!-- Verify Google ID tokens with Nimbus/Spring Security and cached Google JWKS. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+        </dependency>
         <!-- SMTP delivery via the provider-neutral Spring Mail abstraction. -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

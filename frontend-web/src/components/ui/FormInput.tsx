@@ -25,30 +25,29 @@ export const FormInput = forwardRef<HTMLInputElement, FormInputProps>(
     },
     ref
   ) => {
+    void isTouched;
     return (
       <div className="space-y-1.5">
-        <label htmlFor={id} className="block text-xs font-bold text-slate-700">
-          {label} {required && <span className="text-red-500">*</span>}
+        <label htmlFor={id} className="block text-xs font-semibold uppercase tracking-wider text-foreground">
+          {label} {required && <span className="text-destructive">*</span>}
         </label>
         <div className="relative">
           {Icon && (
-            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-muted-foreground">
               <Icon className="h-4 w-4" />
             </div>
           )}
           <input
             id={id}
             ref={ref}
-            className={`w-full rounded-xl border bg-white ${
+            className={`w-full rounded-lg border bg-background ${
               Icon ? 'pl-10' : 'pl-3.5'
             } ${
               rightElement ? 'pr-10' : 'pr-3.5'
-            } py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none transition-all ${
+            } py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none transition-colors ${
               error
-                ? 'border-red-400 focus:border-red-500 focus:ring-4 focus:ring-red-500/10'
-                : isTouched && !error
-                ? 'border-emerald-400 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10'
-                : 'border-slate-300 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10'
+                ? 'border-destructive focus:border-destructive focus:ring-1 focus:ring-destructive'
+                : 'border-input focus:border-primary focus:ring-1 focus:ring-primary'
             } ${className}`}
             {...props}
           />
@@ -59,7 +58,7 @@ export const FormInput = forwardRef<HTMLInputElement, FormInputProps>(
           )}
         </div>
         {error && (
-          <p className="text-xs text-red-600 flex items-center gap-1 mt-1 animate-fade-in font-medium">
+          <p className="text-xs text-destructive flex items-center gap-1 mt-1 font-medium">
             <AlertCircle className="h-3 w-3 shrink-0" />
             <span>{error}</span>
           </p>

@@ -20,10 +20,10 @@ import { useItineraryUIStore } from '@/features/itinerary/store/useItineraryUISt
 import { DayContainer } from '@/features/itinerary/components/DayContainer';
 import { PlaceCard } from '@/features/itinerary/components/PlaceCard';
 import { PlanningResultPreview } from '@/features/itinerary/components/PlanningResultPreview';
-import { MapView } from '@/features/map/components/MapView';
 import { AI_LOADING_MESSAGES } from '@/lib/constants';
 import type { ItineraryItem } from '@/features/itinerary/types';
 import type { MapMarker } from '@/features/map/types';
+import { MapboxView } from '@/features/map/components/MapBoxView';
 
 export default function ItineraryPage({
   params,
@@ -90,39 +90,48 @@ export default function ItineraryPage({
 
   if (isLoading) {
     return (
-      <div className="flex h-full items-center justify-center p-8">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div className="p-6 space-y-4 max-w-2xl animate-pulse">
+        <div className="h-8 w-48 bg-muted rounded-lg" />
+        <div className="h-4 w-72 bg-muted rounded" />
+        <div className="space-y-3 pt-4">
+          <div className="h-32 bg-muted rounded-xl" />
+          <div className="h-32 bg-muted rounded-xl" />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-full bg-background overflow-hidden">
       {/* Left panel: Itinerary list */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 max-w-xl">
-        {/* Header action: Generate / Optimize */}
-        <div className="flex items-center justify-between pb-2 border-b">
+      <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 space-y-5 max-w-2xl hide-scrollbar">
+
+        {/* Header action */}
+        <div className="flex items-center justify-between gap-4 pb-4 border-b border-border/60">
           <div>
-            <h2 className="font-semibold text-base">Lịch trình</h2>
-            <p className="text-xs text-muted-foreground">
-              Kéo thả để sắp xếp các địa điểm theo ngày
+            <h2 className="text-xl font-bold tracking-tight text-foreground">
+              Lịch trình
+            </h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Kéo thả để sắp xếp thứ tự hoặc nhận gợi ý từ AI
             </p>
           </div>
+
           <button
             onClick={() => planningMutation.mutate()}
             disabled={isGenerating || planningMutation.isPending}
-            className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-60 transition"
+            className="flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-xs font-semibold text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors shadow-xs shrink-0"
           >
             {isGenerating ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
             ) : (
               <Sparkles className="h-3.5 w-3.5" />
             )}
-            {isGenerating ? AI_LOADING_MESSAGES[0] : '✨ AI gợi ý lịch trình'}
+            <span>{isGenerating ? AI_LOADING_MESSAGES[0] : 'AI gợi ý lịch trình'}</span>
           </button>
         </div>
 
-        {/* AI Recommendation Preview (Apply / Edit / Ignore) */}
+        {/* AI Recommendation Preview */}
         {pendingRecommendation && (
           <PlanningResultPreview
             recommendation={pendingRecommendation}
@@ -138,7 +147,7 @@ export default function ItineraryPage({
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
         >
-          <div className="space-y-4">
+          <div className="space-y-5 pb-20">
             {itinerary?.days.map((day) => (
               <DayContainer
                 key={day.dayIndex}
@@ -148,15 +157,22 @@ export default function ItineraryPage({
             ))}
           </div>
 
-          <DragOverlay>
-            {activeItem ? <PlaceCard item={activeItem} isDragging /> : null}
+          <DragOverlay dropAnimation={{
+            duration: 180,
+            easing: 'cubic-bezier(0.25, 0.1, 0.25, 1)',
+          }}>
+            {activeItem ? (
+              <div className="opacity-90 shadow-lg">
+                <PlaceCard item={activeItem} isDragging />
+              </div>
+            ) : null}
           </DragOverlay>
         </DndContext>
       </div>
 
-      {/* Right panel: Google Map View */}
-      <div className="hidden lg:block w-[45%] border-l h-full">
-        <MapView markers={markers} />
+      {/* Right panel: Mapbox View */}
+      <div className="hidden lg:block w-[45%] xl:w-[50%] border-l border-border/60 h-full relative bg-muted/20">
+        <MapboxView markers={markers} className="w-full h-full" />
       </div>
     </div>
   );

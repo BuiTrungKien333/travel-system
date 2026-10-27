@@ -167,6 +167,7 @@ export const mockService = {
   },
 
   generatePlanning: async (_tripId: string) => {
+    void _tripId;
     // Artificial AI thinking delay (1.2s)
     await new Promise((r) => setTimeout(r, 1200));
     return MOCK_AI_RECOMMENDATION;

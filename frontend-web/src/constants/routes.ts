@@ -2,7 +2,6 @@ export const ROUTES = {
   // Public / marketing
   home: '/',
   travelGuides: '/travel-guides',
-  guides: '/travel-guides',
 
   // Auth
   login: '/auth/login',

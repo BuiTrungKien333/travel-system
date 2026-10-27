@@ -1,31 +1,32 @@
 import Link from 'next/link';
-import { Compass, ArrowLeft } from 'lucide-react';
-import { ROUTES } from '@/lib/constants';
+import { Compass, ArrowLeft, Search } from 'lucide-react';
+import { ROUTES } from '@/constants';
 
 export default function NotFound() {
   return (
-    <div className="min-h-[70vh] flex flex-col items-center justify-center text-center px-4">
-      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-orange-100 text-orange-600 mb-6 shadow-md shadow-orange-500/10">
-        <Compass className="h-8 w-8 animate-spin" style={{ animationDuration: '8s' }} />
+    <div className="min-h-[70vh] flex flex-col items-center justify-center text-center px-4 bg-background">
+      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted text-primary mb-6">
+        <Compass className="h-8 w-8" strokeWidth={1.5} />
       </div>
-      <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">404</h1>
-      <h2 className="text-xl font-semibold text-slate-700 mt-2">Không tìm thấy trang</h2>
-      <p className="text-sm text-slate-500 max-w-md mt-2">
-        Trang bạn đang tìm kiếm không tồn tại hoặc đã được chuyển sang địa chỉ khác.
+      <h1 className="text-4xl sm:text-5xl font-bold text-foreground tracking-tight mb-2">404</h1>
+      <h2 className="text-lg font-semibold text-foreground mb-2">Điểm dừng chân không tồn tại</h2>
+      <p className="text-xs sm:text-sm text-muted-foreground max-w-sm mb-8 leading-relaxed">
+        Trang bạn đang tìm kiếm có thể đã được di chuyển hoặc không còn tồn tại. Hãy quay lại hành trình của bạn.
       </p>
-      <div className="mt-6 flex items-center gap-3">
+      <div className="flex flex-col sm:flex-row items-center gap-3">
         <Link
           href={ROUTES.home}
-          className="inline-flex items-center gap-2 rounded-xl bg-orange-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-orange-700 transition"
+          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-xs font-semibold text-primary-foreground hover:bg-primary/90 transition-colors shadow-xs"
         >
           <ArrowLeft className="h-4 w-4" />
           <span>Về trang chủ</span>
         </Link>
         <Link
-          href={ROUTES.travelGuides}
-          className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 transition"
+          href={ROUTES.trips}
+          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-background px-5 py-2.5 text-xs font-medium text-foreground hover:bg-muted/50 transition-colors"
         >
-          <span>Khám phá Cẩm nang</span>
+          <Search className="h-4 w-4" />
+          <span>Danh sách chuyến đi</span>
         </Link>
       </div>
     </div>

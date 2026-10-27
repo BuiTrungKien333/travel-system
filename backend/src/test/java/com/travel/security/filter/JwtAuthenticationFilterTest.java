@@ -4,6 +4,7 @@ import com.travel.security.jwt.JwtUtils;
 import com.travel.security.jwt.TokenType;
 import com.travel.security.model.CustomUserDetails;
 import com.travel.user.enums.Role;
+import com.travel.user.repository.UserRepository;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
@@ -34,6 +35,7 @@ class JwtAuthenticationFilterTest {
 
     @Mock
     private JwtUtils jwtUtils;
+    @Mock private UserRepository users;
 
     @Mock
     private HttpServletRequest request;
@@ -100,6 +102,11 @@ class JwtAuthenticationFilterTest {
         when(jwtUtils.extractAllClaims(validToken, TokenType.ACCESS_TOKEN)).thenReturn(claims);
         when(claims.getSubject()).thenReturn(username);
         when(claims.get("userId", String.class)).thenReturn(userId.toString());
+        when(claims.get("sessionVersion", Long.class)).thenReturn(0L);
+        UserRepository.AuthState user = mock(UserRepository.AuthState.class);
+        when(user.getEmail()).thenReturn(username);
+        when(user.getEmailVerifiedAt()).thenReturn(java.time.Instant.now());
+        when(users.findAuthStateById(userId)).thenReturn(java.util.Optional.of(user));
         when(claims.get("authorities", List.class)).thenReturn(List.of("ROLE_USER", "trip:read", "trip:create"));
 
         jwtAuthenticationFilter.doFilterInternal(request, response, filterChain);

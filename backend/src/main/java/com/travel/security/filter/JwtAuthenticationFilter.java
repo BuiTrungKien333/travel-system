@@ -4,6 +4,7 @@ import com.travel.security.jwt.JwtUtils;
 import com.travel.security.jwt.TokenType;
 import com.travel.security.model.CustomUserDetails;
 import com.travel.user.enums.Role;
+import com.travel.user.repository.UserRepository;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
@@ -31,6 +32,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final WebAuthenticationDetailsSource DETAILS_SOURCE = new WebAuthenticationDetailsSource();
 
     private final JwtUtils jwtUtils;
+    private final UserRepository userRepository;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
@@ -68,6 +70,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String username = claims.getSubject();
             String userIdStr = claims.get("userId", String.class);
             UUID userId = userIdStr != null ? UUID.fromString(userIdStr) : null;
+
+            Long version = claims.get("sessionVersion", Long.class);
+            if (userId == null || userRepository.findAuthStateById(userId)
+                    .filter(user -> user.getDeletedAt() == null && user.getEmailVerifiedAt() != null)
+                    .filter(user -> user.getEmail().equals(username))
+                    .filter(user -> user.getSessionVersion() == (version == null ? 0 : version))
+                    .isEmpty()) {
+                filterChain.doFilter(request, response);
+                return;
+            }
 
             @SuppressWarnings("unchecked")
             List<String> authorityStrings = claims.get("authorities", List.class);

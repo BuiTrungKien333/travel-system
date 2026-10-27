@@ -5,6 +5,7 @@ import com.travel.auth.dto.request.LoginRequest;
 import com.travel.auth.dto.request.RefreshTokenRequest;
 import com.travel.auth.dto.request.RegisterRequest;
 import com.travel.auth.dto.response.AuthResponse;
+import com.travel.auth.dto.response.RegistrationResponse;
 import com.travel.auth.service.AuthService;
 import com.travel.common.exception.GlobalExceptionHandler;
 import com.travel.common.util.Translator;
@@ -25,6 +26,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -57,39 +59,26 @@ class AuthControllerTest {
     class RegisterEndpointTests {
 
         @Test
-        @DisplayName("POST /api/v1/auth/register with valid body should return 201 Created and AuthResponse")
-        void register_validRequest_returns201Created() throws Exception {
+        @DisplayName("POST /api/v1/auth/register with valid body should return 202 Accepted pending verification")
+        void register_validRequest_returns202Accepted() throws Exception {
             RegisterRequest request = RegisterRequest.builder()
                     .fullName("Nguyen Van Test")
                     .email("user@travel.com")
                     .password("Password123@")
                     .build();
 
-            AuthResponse mockResponse = AuthResponse.builder()
-                    .accessToken("mock.access.token")
-                    .refreshToken("mock.refresh.token")
-                    .tokenType("Bearer")
-                    .expiresIn(1800000L)
-                    .user(UserSummaryResponse.builder()
-                            .id(UUID.randomUUID())
-                            .email("user@travel.com")
-                            .fullName("Nguyen Van Test")
-                            .role(Role.USER)
-                            .build())
-                    .build();
-
-            when(authService.register(any(RegisterRequest.class))).thenReturn(mockResponse);
+            RegistrationResponse mockResponse = new RegistrationResponse(true, 60);
+            when(authService.register(any(RegisterRequest.class), eq("vi"))).thenReturn(mockResponse);
 
             mockMvc.perform(post("/api/v1/auth/register")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
-                    .andExpect(status().isCreated())
+                    .andExpect(status().isAccepted())
                     .andExpect(jsonPath("$.success").value(true))
-                    .andExpect(jsonPath("$.message").value("User registered successfully"))
-                    .andExpect(jsonPath("$.data.accessToken").value("mock.access.token"))
-                    .andExpect(jsonPath("$.data.refreshToken").value("mock.refresh.token"))
-                    .andExpect(jsonPath("$.data.tokenType").value("Bearer"))
-                    .andExpect(jsonPath("$.data.user.email").value("user@travel.com"));
+                    .andExpect(jsonPath("$.data.verificationRequired").value(true))
+                    .andExpect(jsonPath("$.data.resendAfterSeconds").value(60))
+                    .andExpect(jsonPath("$.data.accessToken").doesNotExist())
+                    .andExpect(jsonPath("$.data.refreshToken").doesNotExist());
         }
 
         @Test
@@ -129,7 +118,7 @@ class AuthControllerTest {
         }
 
         @Test
-        @DisplayName("POST /api/v1/auth/register with password shorter than 6 characters should return 400 Bad Request")
+        @DisplayName("POST /api/v1/auth/register with password shorter than 8 characters should return 400 Bad Request")
         void register_shortPassword_returns400BadRequest() throws Exception {
             RegisterRequest request = RegisterRequest.builder()
                     .fullName("Nguyen Van Test")

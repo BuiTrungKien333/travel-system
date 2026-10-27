@@ -15,6 +15,11 @@ logging:
 
 # Khóa công khai chỉ dành cho test; production bắt buộc cung cấp biến môi trường.
 app:
+  auth:
+    email-enabled: true
+    from: no-reply@example.com
+    verify-email-url: https://app.example.com/verify-email
+    reset-password-url: https://app.example.com/reset-password
   jwt:
     secret-key: dGVzdC1vbmx5LWFjY2Vzcy1zaWduaW5nLWtleS0zMi1ieXRlcw==
     refresh-key: dGVzdC1vbmx5LXJlZnJlc2gtc2lnbmluZy1rZXktMzItYnl0ZXM=

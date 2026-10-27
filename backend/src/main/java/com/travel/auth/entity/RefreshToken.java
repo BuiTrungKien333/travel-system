@@ -7,12 +7,15 @@ import lombok.NoArgsConstructor;
 import java.time.Instant;
 import java.util.UUID;
 
-/** Chỉ lưu SHA-256 của refresh token, không lưu bearer token có thể sử dụng lại. */
+/**
+ * Chỉ lưu SHA-256 của refresh token, không lưu bearer token có thể sử dụng lại.
+ */
 @Entity
 @Table(name = "auth_refresh_tokens")
 @Getter
 @NoArgsConstructor(access = lombok.AccessLevel.PROTECTED)
 public class RefreshToken {
+
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;

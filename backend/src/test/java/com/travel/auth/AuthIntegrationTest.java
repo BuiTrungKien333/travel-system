@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.travel.TestcontainersConfiguration;
 import com.travel.auth.service.impl.AuthServiceImpl;
+import com.travel.auth.mail.AuthEmailSender;
+import com.travel.auth.mail.AuthEmail;
 import com.travel.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -17,6 +19,8 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import static org.mockito.Mockito.*;
 
 import java.util.Map;
 import java.util.UUID;
@@ -36,18 +40,34 @@ class AuthIntegrationTest {
     @Autowired UserRepository users;
     @Autowired PasswordEncoder encoder;
     @Autowired JdbcTemplate jdbc;
+    @MockitoBean AuthEmailSender sender;
+    private final java.util.concurrent.ConcurrentMap<String, BlockingQueue<AuthEmail>> emails = new ConcurrentHashMap<>();
     private MockMvc mvc;
     private final ObjectMapper json = new ObjectMapper();
     private static final String PASSWORD = "Password123@";
 
-    @BeforeEach void setup() { mvc = MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build(); }
+    @BeforeEach void setup() {
+        mvc = MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build();
+        doAnswer(invocation -> {
+            AuthEmail email = invocation.getArgument(0);
+            emails.computeIfAbsent(email.recipient(), key -> new LinkedBlockingQueue<>()).add(email);
+            return null;
+        }).when(sender).send(any());
+    }
     private String email() { return UUID.randomUUID() + "@example.com"; }
     private String body(Map<String, ?> values) throws Exception { return json.writeValueAsString(values); }
     private JsonNode register(String email) throws Exception {
-        String response = mvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON)
+        mvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON)
                         .content(body(Map.of("fullName", "Nguyễn Văn An", "email", email, "password", PASSWORD))))
-                .andExpect(status().isCreated()).andExpect(jsonPath("$.success").value(true))
+                .andExpect(status().isAccepted()).andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.user.passwordHash").doesNotExist())
+                .andExpect(jsonPath("$.data.accessToken").doesNotExist());
+        AuthEmail message = emails.computeIfAbsent(email, key -> new LinkedBlockingQueue<>()).poll(5, TimeUnit.SECONDS);
+        assertThat(message).isNotNull();
+        mvc.perform(post("/api/v1/auth/verify-email").contentType(MediaType.APPLICATION_JSON)
+                .content(body(Map.of("token", message.token())))).andExpect(status().isNoContent());
+        String response = mvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
+                .content(body(Map.of("email", email, "password", PASSWORD)))).andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString();
         return json.readTree(response).path("data");
     }
@@ -119,7 +139,7 @@ class AuthIntegrationTest {
         mvc.perform(post("/api/v1/auth/refresh").contentType(MediaType.APPLICATION_JSON).content(refreshBody(data)))
                 .andExpect(status().isForbidden());
         mvc.perform(get("/api/v1/users/me").header("Authorization", "Bearer " + data.path("accessToken").asText()))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test void refreshRejectsAccessTokenAndDatabaseExpiredToken() throws Exception {
@@ -144,7 +164,7 @@ class AuthIntegrationTest {
         String content = body(Map.of("fullName", "An", "email", email(), "password", PASSWORD));
         assertThat(race(() -> mvc.perform(post("/api/v1/auth/register").contentType(MediaType.APPLICATION_JSON)
                         .content(content)).andReturn().getResponse().getStatus()))
-                .containsExactlyInAnyOrder(201, 409);
+                .containsExactlyInAnyOrder(202, 409);
     }
 
     @Test void demoAccountsWithUnchangedDefaultPasswordAreDisabled() {

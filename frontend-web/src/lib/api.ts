@@ -31,7 +31,7 @@ apiClient.interceptors.request.use(async (config) => {
     if (url === "/auth/login" && method === "post") {
       mockResponse = await mockService.login(data.email);
     } else if (url === "/auth/register" && method === "post") {
-      mockResponse = await mockService.register(data.fullName, data.email);
+      mockResponse = await mockService.register();
     } else if (url === "/auth/logout" && method === "post") {
       mockResponse = { success: true };
     } else if (url === "/me" && method === "get") {
@@ -144,11 +144,16 @@ export class ApiError extends Error {
 }
 
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    if (response.data?.success === true && 'data' in response.data) {
+      response.data = response.data.data;
+    }
+    return response;
+  },
   (error: AxiosError<ApiErrorPayload>) => {
     const data = error.response?.data;
     if (data && "code" in data) {
-      return Promise.reject(new ApiError(data));
+      return Promise.reject(new ApiError({ ...data, status: error.response?.status ?? 0 }));
     }
 
     const isNetworkError =

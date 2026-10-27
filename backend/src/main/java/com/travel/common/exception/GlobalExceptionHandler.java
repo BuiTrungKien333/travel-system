@@ -1,5 +1,7 @@
 package com.travel.common.exception;
 
+import com.fasterxml.jackson.core.JsonParseException;
+import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import com.travel.common.response.ErrorResponse;
 import com.travel.common.util.Translator;
 import jakarta.servlet.http.HttpServletRequest;
@@ -18,6 +20,11 @@ import org.springframework.web.bind.MissingPathVariableException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -277,10 +284,10 @@ public class GlobalExceptionHandler {
         return buildErrorResponse(errorCode, null);
     }
 
-    @ExceptionHandler({org.springframework.dao.InvalidDataAccessApiUsageException.class, IllegalArgumentException.class})
+    @ExceptionHandler(org.springframework.dao.InvalidDataAccessApiUsageException.class)
     public ResponseEntity<ErrorResponse> handleInvalidDataAccessApiUsageException(Exception e, HttpServletRequest request) {
         log.warn("Invalid API parameter/data usage on uri: {} - {}", request.getRequestURI(), e.getMessage());
-        return buildErrorResponse(ErrorCode.VALIDATION_ERROR);
+        return buildErrorResponse(ErrorCode.VALIDATION_ERROR, null);
     }
 
     /*

@@ -1,7 +1,6 @@
 package com.travel.config;
 
 import com.cloudinary.Cloudinary;
-import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -29,9 +28,5 @@ public class CloudinaryConfig {
                 "api_secret", apiSecret,
                 "secure", true
         ));
-    }
-    @PostConstruct
-    public void checkKey() {
-        System.out.println("===> API KEY CURRENTLY LOADED: " + apiKey);
     }
 }

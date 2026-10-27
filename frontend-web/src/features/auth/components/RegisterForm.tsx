@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Loader2, User, Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { registerSchema, type RegisterInput } from '../schema';
@@ -14,7 +13,6 @@ import { FormInput } from '@/components/ui';
 export function RegisterForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const router = useRouter();
   const registerMutation = useRegisterMutation();
 
   const {
@@ -27,10 +25,19 @@ export function RegisterForm() {
   });
 
   const onSubmit = (data: RegisterInput) => {
-    registerMutation.mutate(data, {
-      onSuccess: () => router.push(ROUTES.trips),
-    });
+    registerMutation.mutate(data);
   };
+
+  if (registerMutation.isSuccess) {
+    return (
+      <div role="status" className="space-y-4 text-sm">
+        <p>Đã tạo tài khoản. Vui lòng kiểm tra email và xác minh địa chỉ trước khi đăng nhập.</p>
+        <Link href={ROUTES.login} className="font-semibold text-primary hover:underline">
+          Đến trang đăng nhập
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>

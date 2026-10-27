@@ -19,12 +19,11 @@ export interface AuthTokens {
   refreshToken: string;
 }
 
-export interface LoginResponse {
+export interface LoginResponse extends AuthTokens {
   user: User;
-  tokens: AuthTokens;
 }
 
 export interface RegisterResponse {
-  user: User;
-  tokens: AuthTokens;
+  verificationRequired: boolean;
+  resendAfterSeconds: number;
 }

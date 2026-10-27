@@ -15,7 +15,7 @@ export function useLoginMutation() {
       return data;
     },
     onSuccess: (data) => {
-      setAuth(data.user, data.tokens.accessToken, data.tokens.refreshToken);
+      setAuth(data.user, data.accessToken, data.refreshToken);
       queryClient.setQueryData(QUERY_KEYS.me(), data.user);
     },
   });

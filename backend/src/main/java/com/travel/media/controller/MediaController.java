@@ -65,14 +65,14 @@ public class MediaController {
     }
 
     /**
-     * Upload multiple images to Cloudinary (up to 5).
+     * Upload multiple images to Cloudinary (up to 10).
      * POST /api/v1/media/uploads?tripId=...&memoryId=...
      */
     @PostMapping(value = "/uploads", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(
             summary = "Upload multiple images",
-            description = "Upload up to 5 image files at once. Each file must be JPEG, PNG, GIF, or WebP. Max 10MB per file. "
+            description = "Upload up to 10 image files at once. Each file must be JPEG, PNG, GIF, or WebP. Max 10MB per file. "
                     + "Organized into folder structure if tripId & memoryId are provided."
     )
     public ApiResponse<List<UploadResponse>> uploadImages(

@@ -45,22 +45,12 @@ export const mockService = {
     const user = { ...MOCK_USER, email: email || MOCK_USER.email };
     return {
       user,
-      tokens: { accessToken: 'mock-jwt-token-12345', refreshToken: 'mock-refresh-token-12345' },
+      accessToken: 'mock-jwt-token-12345',
+      refreshToken: 'mock-refresh-token-12345',
     };
   },
 
-  register: async (fullName: string, email: string) => {
-    const user = {
-      ...MOCK_USER,
-      id: `usr-${Date.now()}`,
-      fullName: fullName || 'Người dùng mới',
-      email: email || 'user@example.com',
-    };
-    return {
-      user,
-      tokens: { accessToken: 'mock-jwt-token-12345', refreshToken: 'mock-refresh-token-12345' },
-    };
-  },
+  register: async () => ({ verificationRequired: true, resendAfterSeconds: 60 }),
 
   getMe: async () => {
     return MOCK_USER;

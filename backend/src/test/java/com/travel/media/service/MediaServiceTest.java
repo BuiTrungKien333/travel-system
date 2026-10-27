@@ -149,10 +149,10 @@ class MediaServiceTest {
     }
 
     @Test
-    @DisplayName("Upload multiple images throws exception when more than 5 files")
+    @DisplayName("Upload multiple images throws exception when more than 10 files")
     void uploadImages_TooManyFiles_ThrowsException() {
         List<MultipartFile> files = new ArrayList<>();
-        for (int i = 0; i < 6; i++) {
+        for (int i = 0; i < 11; i++) {
             files.add(new MockMultipartFile("file", "test" + i + ".jpg", "image/jpeg", "content".getBytes()));
         }
 

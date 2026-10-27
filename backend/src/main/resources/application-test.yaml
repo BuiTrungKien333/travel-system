@@ -15,6 +15,10 @@ logging:
 
 # Khóa công khai chỉ dành cho test; production bắt buộc cung cấp biến môi trường.
 app:
+  cloudinary:
+    cloud-name: test-cloud
+    api-key: test-key
+    api-secret: test-secret
   google:
     enabled: true
     web-client-id: test-client.apps.googleusercontent.com

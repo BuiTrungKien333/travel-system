@@ -21,7 +21,7 @@ public interface MediaService {
     UploadResponse uploadImage(MultipartFile file, UUID userId, UUID tripId, UUID memoryId);
 
     /**
-     * Upload multiple image files to Cloudinary (up to 5) into organized folder.
+     * Upload multiple image files to Cloudinary (up to 10) into organized folder.
      *
      * @param files    the list of multipart files
      * @param userId   the user ID
@@ -41,7 +41,7 @@ public interface MediaService {
     UploadResponse uploadImage(MultipartFile file, UUID userId);
 
     /**
-     * Upload multiple image files to Cloudinary (up to 5, misc folder — backward compatible).
+     * Upload multiple image files to Cloudinary (up to 10, misc folder — backward compatible).
      *
      * @param files  the list of multipart files
      * @param userId the user ID

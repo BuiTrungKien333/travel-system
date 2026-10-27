@@ -44,6 +44,13 @@ public enum ErrorCode {
     AI_API_KEY_INVALID("AI_004", "error.ai.api-key-invalid", HttpStatus.UNAUTHORIZED),
     AI_VALIDATION_FAILED("AI_005", "error.ai.validation-failed", HttpStatus.UNPROCESSABLE_ENTITY),
 
+    TRIP_NOT_FOUND("TRIP_001", "error.trip.not-found", HttpStatus.NOT_FOUND),
+    TRIP_PLACE_NOT_FOUND("TRIP_002", "error.trip.place-not-found", HttpStatus.NOT_FOUND),
+    TRIP_PLACE_ALREADY_EXISTS("TRIP_003", "error.trip.place-exists", HttpStatus.CONFLICT),
+    INVALID_TRIP_DATES("TRIP_004", "error.trip.invalid-dates", HttpStatus.BAD_REQUEST),
+    PLACE_NOT_FOUND("PLACE_001", "error.place.not-found", HttpStatus.NOT_FOUND),
+    PROVINCE_NOT_FOUND("PLACE_002", "error.place.province-not-found", HttpStatus.NOT_FOUND),
+
     MEMORY_NOT_FOUND("MEMORY_001", "error.memory.not-found", HttpStatus.NOT_FOUND),
     MEMORY_ACCESS_DENIED("MEMORY_002", "error.memory.access-denied", HttpStatus.FORBIDDEN),
     MEDIA_NOT_FOUND("MEDIA_001", "error.media.not-found", HttpStatus.NOT_FOUND),

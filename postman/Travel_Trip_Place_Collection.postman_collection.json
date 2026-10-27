@@ -1,0 +1,869 @@
+{
+  "info": {
+    "_postman_id": "a2777636-a24f-42a7-853f-ec06e77f914e",
+    "name": "Travel System - Trip & Trip Place Local CRUD",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Local-only CRUD sequence for authenticated Trip and TripPlace APIs. Set accessToken locally and run in order against a disposable local/test backend. Uses no auth registration/email requests. Creates one master Place which is intentionally preserved by cleanup. Docs: docs/TRIP_PLACE_API.md."
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080/api/v1",
+      "type": "string"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "tripId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "placeId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "if (pm.info.requestName === \"01 Create Trip\") {",
+          "  if (!pm.variables.get(\"accessToken\")) throw new Error(\"Set accessToken locally before running the collection.\");",
+          "  const start = new Date(); start.setUTCDate(start.getUTCDate() + 7);",
+          "  const end = new Date(start); end.setUTCDate(end.getUTCDate() + 2);",
+          "  pm.collectionVariables.set(\"tripStartDate\", start.toISOString().slice(0, 10));",
+          "  pm.collectionVariables.set(\"tripEndDate\", end.toISOString().slice(0, 10));",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "01 Create Trip",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/trips",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "trips"
+          ]
+        },
+        "description": "Creates a new Trip owned by the bearer-token user. All following requests use the captured internal tripId.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Postman local CRUD {{$timestamp}}\",\n  \"destination\": \"Đà Nẵng\",\n  \"startDate\": \"{{tripStartDate}}\",\n  \"endDate\": \"{{tripEndDate}}\",\n  \"transportation\": \"Car\",\n  \"preferences\": [\n    \"Nature\",\n    \"Food\"\n  ],\n  \"budget\": 3000000,\n  \"constraints\": \"Không đi quá sớm\",\n  \"description\": \"Temporary local API sample\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.test(\"Success wrapper\", () => { pm.expect(body.success).to.eql(true); pm.expect(body).to.have.property(\"data\"); });",
+              "const data = body.data;",
+              "pm.test(\"Trip defaults and counters\", () => { pm.expect(data.status).to.eql(\"PLANNING\"); pm.expect(data.placeCount).to.eql(0); pm.expect(data.visitedCount).to.eql(0); pm.expect(data.memoryCount).to.eql(0); pm.expect(data.userId).to.be.a(\"string\"); });",
+              "pm.collectionVariables.set(\"tripId\", data.id);",
+              "pm.collectionVariables.set(\"tripName\", data.name);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 List own Trips",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/trips",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "trips"
+          ]
+        },
+        "description": "List response is an array in ApiResponse.data."
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test(\"Success wrapper\", () => { pm.expect(body.success).to.eql(true); pm.expect(body).to.have.property(\"data\"); });",
+              "const data = body.data;",
+              "pm.test(\"Array includes created Trip\", () => { pm.expect(data).to.be.an(\"array\"); pm.expect(data.some(trip => trip.id === pm.collectionVariables.get(\"tripId\"))).to.eql(true); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 Read Trip",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/trips/{{tripId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "trips",
+            "{{tripId}}"
+          ]
+        },
+        "description": "Reads the owned Trip and summary counters."
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test(\"Success wrapper\", () => { pm.expect(body.success).to.eql(true); pm.expect(body).to.have.property(\"data\"); });",
+              "const data = body.data;",
+              "pm.test(\"Read correct Trip\", () => { pm.expect(data.id).to.eql(pm.collectionVariables.get(\"tripId\")); pm.expect(data.name).to.eql(pm.collectionVariables.get(\"tripName\")); pm.expect(data.preferences).to.eql([\"Nature\", \"Food\"]); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "04 Partial update Trip",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/trips/{{tripId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "trips",
+            "{{tripId}}"
+          ]
+        },
+        "description": "Missing/null fields retain previous values; READY is supported.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"description\": \"Đã cập nhật qua Postman\",\n  \"status\": \"READY\",\n  \"name\": null\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test(\"Success wrapper\", () => { pm.expect(body.success).to.eql(true); pm.expect(body).to.have.property(\"data\"); });",
+              "const data = body.data;",
+              "pm.test(\"Partial PUT retains null/missing fields\", () => { pm.expect(data.name).to.eql(pm.collectionVariables.get(\"tripName\")); pm.expect(data.destination).to.eql(\"Đà Nẵng\"); pm.expect(data.status).to.eql(\"READY\"); pm.expect(data.description).to.eql(\"Đã cập nhật qua Postman\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "05 Clear optional Trip fields",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/trips/{{tripId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "trips",
+            "{{tripId}}"
+          ]
+        },
+        "description": "Empty optional text clears content. Empty preferences clears the list.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"description\": \"\",\n  \"preferences\": []\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test(\"Success wrapper\", () => { pm.expect(body.success).to.eql(true); pm.expect(body).to.have.property(\"data\"); });",
+              "const data = body.data;",
+              "pm.test(\"Optional values cleared\", () => { pm.expect(data.description == null || data.description === \"\").to.eql(true); pm.expect(data.preferences).to.eql([]); pm.expect(data.name).to.eql(pm.collectionVariables.get(\"tripName\")); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "06 Reject reversed dates",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/trips/{{tripId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "trips",
+            "{{tripId}}"
+          ]
+        },
+        "description": "Rejected update must not persist invalid dates.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"startDate\": \"2099-12-31\",\n  \"endDate\": \"2099-01-01\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"Error TRIP_004\", () => { const body = pm.response.json(); pm.expect(body.success).to.eql(false); pm.expect(body.code).to.eql(\"TRIP_004\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "07 Dates unchanged after rejected update",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/trips/{{tripId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "trips",
+            "{{tripId}}"
+          ]
+        },
+        "description": "Confirms date validation did not partly mutate the Trip."
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test(\"Success wrapper\", () => { pm.expect(body.success).to.eql(true); pm.expect(body).to.have.property(\"data\"); });",
+              "const data = body.data;",
+              "pm.test(\"Rejected update is atomic\", () => { pm.expect(data.startDate).to.eql(pm.collectionVariables.get(\"tripStartDate\")); pm.expect(data.endDate).to.eql(pm.collectionVariables.get(\"tripEndDate\")); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "08 Reject invalid Place coordinates",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/trips/{{tripId}}/places",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "trips",
+            "{{tripId}}",
+            "places"
+          ]
+        },
+        "description": "Invalid latitude is rejected at the boundary.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Invalid coordinate sample\",\n  \"latitude\": 91,\n  \"longitude\": 108.2473\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));",
+              "pm.test(\"Error COMMON_003\", () => { const body = pm.response.json(); pm.expect(body.success).to.eql(false); pm.expect(body.code).to.eql(\"COMMON_003\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "09 Create and attach raw Place",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/trips/{{tripId}}/places",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "trips",
+            "{{tripId}}",
+            "places"
+          ]
+        },
+        "description": "Creates a master Place and TripPlace. No provider-name/coordinate deduplication is implied. Master Place remains after cleanup.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Mỹ Khê - local CRUD {{$timestamp}}\",\n  \"latitude\": 16.0544,\n  \"longitude\": 108.2473,\n  \"address\": \"Đà Nẵng\",\n  \"category\": \"Beach\",\n  \"priority\": 1,\n  \"estimatedDuration\": 90,\n  \"notes\": \"Ngắm biển\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.test(\"Success wrapper\", () => { pm.expect(body.success).to.eql(true); pm.expect(body).to.have.property(\"data\"); });",
+              "const data = body.data;",
+              "pm.test(\"Linked Place defaults\", () => { pm.expect(data.tripId).to.eql(pm.collectionVariables.get(\"tripId\")); pm.expect(data.placeId).to.be.a(\"string\"); pm.expect(data.place.id).to.eql(data.placeId); pm.expect(data.place.category).to.eql(\"Beach\"); pm.expect(data.plannedOrder).to.eql(0); pm.expect(data.visited).to.eql(false); });",
+              "pm.collectionVariables.set(\"placeId\", data.placeId);",
+              "pm.collectionVariables.set(\"tripPlaceId\", data.id);",
+              "pm.collectionVariables.set(\"placeName\", data.place.name);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "10 Reject duplicate internal Place",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/trips/{{tripId}}/places",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "trips",
+            "{{tripId}}",
+            "places"
+          ]
+        },
+        "description": "The same internal Place cannot be attached twice to one Trip.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"placeId\": \"{{placeId}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 409\", () => pm.response.to.have.status(409));",
+              "pm.test(\"Error TRIP_003\", () => { const body = pm.response.json(); pm.expect(body.success).to.eql(false); pm.expect(body.code).to.eql(\"TRIP_003\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "11 List Trip Places",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/trips/{{tripId}}/places",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "trips",
+            "{{tripId}}",
+            "places"
+          ]
+        },
+        "description": "TripPlace.id and placeId are different identifiers; item routes use placeId."
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test(\"Success wrapper\", () => { pm.expect(body.success).to.eql(true); pm.expect(body).to.have.property(\"data\"); });",
+              "const data = body.data;",
+              "pm.test(\"One attached Place\", () => { pm.expect(data).to.be.an(\"array\").with.lengthOf(1); pm.expect(data[0].placeId).to.eql(pm.collectionVariables.get(\"placeId\")); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "12 Update TripPlace only",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/trips/{{tripId}}/places/{{placeId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "trips",
+            "{{tripId}}",
+            "places",
+            "{{placeId}}"
+          ]
+        },
+        "description": "Updates only TripPlace attributes. Shared Place metadata is unchanged.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"priority\": 2,\n  \"estimatedDuration\": 60,\n  \"notes\": \"\",\n  \"plannedOrder\": 0,\n  \"visited\": true\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test(\"Success wrapper\", () => { pm.expect(body.success).to.eql(true); pm.expect(body).to.have.property(\"data\"); });",
+              "const data = body.data;",
+              "pm.test(\"Relationship updated, master unchanged\", () => { pm.expect(data.priority).to.eql(2); pm.expect(data.estimatedDuration).to.eql(60); pm.expect(data.visited).to.eql(true); pm.expect(data.notes == null || data.notes === \"\").to.eql(true); pm.expect(data.place.name).to.eql(pm.collectionVariables.get(\"placeName\")); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "13 Read Trip counters",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/trips/{{tripId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "trips",
+            "{{tripId}}"
+          ]
+        },
+        "description": "Shows real place/visited counts from stored relationships."
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test(\"Success wrapper\", () => { pm.expect(body.success).to.eql(true); pm.expect(body).to.have.property(\"data\"); });",
+              "const data = body.data;",
+              "pm.test(\"Counters reflect relationship\", () => { pm.expect(data.placeCount).to.eql(1); pm.expect(data.visitedCount).to.eql(1); pm.expect(data.memoryCount).to.eql(0); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "14 Remove TripPlace",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/trips/{{tripId}}/places/{{placeId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "trips",
+            "{{tripId}}",
+            "places",
+            "{{placeId}}"
+          ]
+        },
+        "description": "Removes only the relationship, preserving master Place and any Memory."
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 204\", () => pm.response.to.have.status(204));",
+              "pm.test(\"Empty response\", () => pm.expect(pm.response.text()).to.eql(\"\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "15 Confirm missing relationship",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/trips/{{tripId}}/places/{{placeId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "trips",
+            "{{tripId}}",
+            "places",
+            "{{placeId}}"
+          ]
+        },
+        "description": "An existing master Place without a TripPlace returns TRIP_002.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"notes\": \"No relationship exists\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 404\", () => pm.response.to.have.status(404));",
+              "pm.test(\"Error TRIP_002\", () => { const body = pm.response.json(); pm.expect(body.success).to.eql(false); pm.expect(body.code).to.eql(\"TRIP_002\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "16 Reattach existing master Place",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/trips/{{tripId}}/places",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "trips",
+            "{{tripId}}",
+            "places"
+          ]
+        },
+        "description": "Proves removal kept the master Place. Reattaching starts a new relationship.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"placeId\": \"{{placeId}}\",\n  \"notes\": \"Dùng lại master Place\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.test(\"Success wrapper\", () => { pm.expect(body.success).to.eql(true); pm.expect(body).to.have.property(\"data\"); });",
+              "const data = body.data;",
+              "pm.test(\"Master Place survived removal\", () => { pm.expect(data.placeId).to.eql(pm.collectionVariables.get(\"placeId\")); pm.expect(data.place.name).to.eql(pm.collectionVariables.get(\"placeName\")); pm.expect(data.visited).to.eql(false); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "17 Cleanup relationship",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/trips/{{tripId}}/places/{{placeId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "trips",
+            "{{tripId}}",
+            "places",
+            "{{placeId}}"
+          ]
+        },
+        "description": "Cleanup: removes the example relationship. Safe to run manually if an earlier request failed after attachment."
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 204\", () => pm.response.to.have.status(204));",
+              "pm.test(\"Empty response\", () => pm.expect(pm.response.text()).to.eql(\"\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "18 Cleanup Trip",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/trips/{{tripId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "trips",
+            "{{tripId}}"
+          ]
+        },
+        "description": "Cleanup: soft-deletes only the example Trip. Does not remove memories or master Places."
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 204\", () => pm.response.to.have.status(204));",
+              "pm.test(\"Empty response\", () => pm.expect(pm.response.text()).to.eql(\"\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "19 Confirm soft-deleted Trip hidden",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/trips/{{tripId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "trips",
+            "{{tripId}}"
+          ]
+        },
+        "description": "Deleted Trip is hidden from subsequent API reads."
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 404\", () => pm.response.to.have.status(404));",
+              "pm.test(\"Error TRIP_001\", () => { const body = pm.response.json(); pm.expect(body.success).to.eql(false); pm.expect(body.code).to.eql(\"TRIP_001\"); });"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "20 Confirm soft-deleted Trip places hidden",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/trips/{{tripId}}/places",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "trips",
+            "{{tripId}}",
+            "places"
+          ]
+        },
+        "description": "Trip ownership/deleted-state checks also apply to child endpoints."
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 404\", () => pm.response.to.have.status(404));",
+              "pm.test(\"Error TRIP_001\", () => { const body = pm.response.json(); pm.expect(body.success).to.eql(false); pm.expect(body.code).to.eql(\"TRIP_001\"); });"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,228 @@
+package com.travel.trip.service.impl;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.travel.common.exception.AppException;
+import com.travel.common.exception.ErrorCode;
+import com.travel.place.entity.Place;
+import com.travel.place.repository.PlaceRepository;
+import com.travel.place.repository.ProvinceRepository;
+import com.travel.trip.dto.request.*;
+import com.travel.trip.dto.response.*;
+import com.travel.trip.entity.Trip;
+import com.travel.trip.entity.TripPlace;
+import com.travel.trip.repository.TripPlaceRepository;
+import com.travel.trip.repository.TripRepository;
+import com.travel.trip.service.TripService;
+import com.travel.user.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
+public class TripServiceImpl implements TripService {
+    private final TripRepository trips;
+    private final TripPlaceRepository tripPlaces;
+    private final PlaceRepository places;
+    private final ProvinceRepository provinces;
+    private final UserRepository users;
+    private final ObjectMapper json;
+
+    @Override
+    @Transactional
+    public TripResponse create(UUID userId, CreateTripRequest request) {
+        validateDates(request.startDate(), request.endDate());
+        Trip trip = Trip.builder().user(users.getReferenceById(userId))
+                .name(request.name().trim()).destination(request.destination().trim())
+                .startDate(request.startDate()).endDate(request.endDate())
+                .transportation(trim(request.transportation())).preferences(writePreferences(request.preferences()))
+                .budget(request.budget()).constraints(trim(request.constraints()))
+                .description(trim(request.description())).coverImage(trim(request.coverImage())).build();
+        return response(trips.saveAndFlush(trip));
+    }
+
+    @Override
+    public List<TripResponse> list(UUID userId) {
+        List<Trip> owned = trips.findByUserIdAndDeletedAtIsNullOrderByCreatedAtDescIdAsc(userId);
+        if (owned.isEmpty()) return List.of();
+        Map<UUID, TripRepository.TripCounts> counts = trips.countResources(owned.stream().map(Trip::getId).toList())
+                .stream().collect(Collectors.toMap(TripRepository.TripCounts::getTripId, Function.identity()));
+        return owned.stream().map(trip -> response(trip, counts.get(trip.getId()))).toList();
+    }
+
+    @Override
+    public TripResponse get(UUID userId, UUID tripId) {
+        return response(ownedTrip(userId, tripId));
+    }
+
+    @Override
+    @Transactional
+    public TripResponse update(UUID userId, UUID tripId, UpdateTripRequest request) {
+        Trip trip = lockedTrip(userId, tripId);
+        LocalDate start = request.startDate() != null ? request.startDate() : trip.getStartDate();
+        LocalDate end = request.endDate() != null ? request.endDate() : trip.getEndDate();
+        validateDates(start, end);
+        trip.setStartDate(start);
+        trip.setEndDate(end);
+        if (request.name() != null) trip.setName(request.name().trim());
+        if (request.destination() != null) trip.setDestination(request.destination().trim());
+        if (request.transportation() != null) trip.setTransportation(trim(request.transportation()));
+        if (request.preferences() != null) trip.setPreferences(writePreferences(request.preferences()));
+        if (request.budget() != null) trip.setBudget(request.budget());
+        if (request.constraints() != null) trip.setConstraints(trim(request.constraints()));
+        if (request.description() != null) trip.setDescription(trim(request.description()));
+        if (request.coverImage() != null) trip.setCoverImage(trim(request.coverImage()));
+        if (request.status() != null) trip.setStatus(request.status());
+        return response(trips.saveAndFlush(trip));
+    }
+
+    @Override
+    @Transactional
+    public void delete(UUID userId, UUID tripId) {
+        lockedTrip(userId, tripId).softDelete();
+    }
+
+    @Override
+    @Transactional
+    public TripPlaceResponse addPlace(UUID userId, UUID tripId, AddTripPlaceRequest request) {
+        Trip trip = lockedTrip(userId, tripId);
+        Place place;
+        if (request.placeId() != null) {
+            place = places.findById(request.placeId()).orElseThrow(() -> new AppException(ErrorCode.PLACE_NOT_FOUND));
+        } else {
+            place = Place.builder().name(request.name().trim()).address(trim(request.address()))
+                    .providerPlaceId(trim(request.providerPlaceId())).latitude(request.latitude()).longitude(request.longitude())
+                    .category(trim(request.category())).build();
+            if (request.provinceId() != null) {
+                place.setProvince(provinces.findById(request.provinceId())
+                        .orElseThrow(() -> new AppException(ErrorCode.PROVINCE_NOT_FOUND)));
+            }
+            place = places.save(place);
+        }
+        if (tripPlaces.existsByTripIdAndPlaceId(tripId, place.getId())) {
+            throw new AppException(ErrorCode.TRIP_PLACE_ALREADY_EXISTS);
+        }
+        TripPlace link = TripPlace.builder().trip(trip).place(place)
+                .priority(request.priority() == null ? 0 : request.priority())
+                .estimatedDuration(request.estimatedDuration()).notes(trim(request.notes())).build();
+        tripPlaces.saveAndFlush(link);
+        movePlace(link, request.plannedOrder());
+        tripPlaces.flush();
+        return placeResponse(link);
+    }
+
+    @Override
+    public List<TripPlaceResponse> listPlaces(UUID userId, UUID tripId) {
+        ownedTrip(userId, tripId);
+        return orderedPlaces(tripId).stream().map(this::placeResponse).toList();
+    }
+
+    @Override
+    @Transactional
+    public TripPlaceResponse updatePlace(UUID userId, UUID tripId, UUID placeId, UpdateTripPlaceRequest request) {
+        lockedTrip(userId, tripId);
+        TripPlace link = linkedPlace(tripId, placeId);
+        if (request.priority() != null) link.setPriority(request.priority());
+        if (request.estimatedDuration() != null) link.setEstimatedDuration(request.estimatedDuration());
+        if (request.notes() != null) link.setNotes(trim(request.notes()));
+        if (request.visited() != null) link.setVisited(request.visited());
+        if (request.plannedOrder() != null) movePlace(link, request.plannedOrder());
+        tripPlaces.flush();
+        return placeResponse(link);
+    }
+
+    @Override
+    @Transactional
+    public void removePlace(UUID userId, UUID tripId, UUID placeId) {
+        lockedTrip(userId, tripId);
+        tripPlaces.delete(linkedPlace(tripId, placeId));
+        tripPlaces.flush();
+        normalizeOrder(orderedPlaces(tripId));
+    }
+
+    private Trip ownedTrip(UUID userId, UUID tripId) {
+        return trips.findByIdAndUserIdAndDeletedAtIsNull(tripId, userId)
+                .orElseThrow(() -> new AppException(ErrorCode.TRIP_NOT_FOUND));
+    }
+
+    private Trip lockedTrip(UUID userId, UUID tripId) {
+        // Serialize mutations of the aggregate, including duplicate adds and delete-vs-add.
+        return trips.lockOwnedTrip(tripId, userId).orElseThrow(() -> new AppException(ErrorCode.TRIP_NOT_FOUND));
+    }
+
+    private TripPlace linkedPlace(UUID tripId, UUID placeId) {
+        return tripPlaces.findByTripIdAndPlaceId(tripId, placeId)
+                .orElseThrow(() -> new AppException(ErrorCode.TRIP_PLACE_NOT_FOUND));
+    }
+
+    private List<TripPlace> orderedPlaces(UUID tripId) {
+        return tripPlaces.findByTripIdOrderByPlannedOrderAscCreatedAtAscIdAsc(tripId);
+    }
+
+    private void movePlace(TripPlace link, Integer position) {
+        List<TripPlace> ordered = orderedPlaces(link.getTrip().getId());
+        ordered.removeIf(item -> item.getId().equals(link.getId()));
+        ordered.add(position == null ? ordered.size() : Math.min(position, ordered.size()), link);
+        normalizeOrder(ordered);
+    }
+
+    private void normalizeOrder(List<TripPlace> ordered) {
+        for (int i = 0; i < ordered.size(); i++) ordered.get(i).setPlannedOrder(i);
+    }
+
+    private static void validateDates(LocalDate start, LocalDate end) {
+        if (start != null && end != null && end.isBefore(start)) throw new AppException(ErrorCode.INVALID_TRIP_DATES);
+    }
+
+    private TripResponse response(Trip trip) {
+        return response(trip, trips.countResources(List.of(trip.getId())).getFirst());
+    }
+
+    private TripResponse response(Trip trip, TripRepository.TripCounts counts) {
+        return new TripResponse(trip.getId(), trip.getUser().getId(), trip.getName(), trip.getDestination(),
+                trip.getStartDate(), trip.getEndDate(), trip.getTransportation(), readPreferences(trip.getPreferences()),
+                trip.getBudget(), trip.getConstraints(), trip.getDescription(), trip.getCoverImage(), trip.getStatus(),
+                trip.getCreatedAt(), trip.getUpdatedAt(), counts.getPlaceCount(), counts.getVisitedCount(), counts.getMemoryCount());
+    }
+
+    private TripPlaceResponse placeResponse(TripPlace link) {
+        Place place = link.getPlace();
+        var province = place.getProvince();
+        var details = new TripPlaceResponse.PlaceResponse(place.getId(), place.getProviderPlaceId(), place.getName(),
+                place.getAddress(), place.getLatitude(), place.getLongitude(), province == null ? null : province.getId(),
+                province == null ? null : province.getName(), place.getCategory(), place.getCreatedAt());
+        return new TripPlaceResponse(link.getId(), link.getTrip().getId(), place.getId(), details, link.getPriority(),
+                link.getEstimatedDuration(), link.getNotes(), link.getPlannedOrder(), link.isVisited(), link.getCreatedAt(), link.getUpdatedAt());
+    }
+
+    private String writePreferences(List<String> preferences) {
+        try {
+            return json.writeValueAsString(preferences == null ? List.of() : preferences.stream().map(String::trim).toList());
+        } catch (JsonProcessingException exception) {
+            throw new IllegalStateException("Cannot serialize trip preferences", exception);
+        }
+    }
+
+    private List<String> readPreferences(String preferences) {
+        if (preferences == null || preferences.isBlank()) return List.of();
+        // Existing seed data stores free text; retain it as a single preference.
+        if (!preferences.stripLeading().startsWith("[")) return List.of(preferences);
+        try {
+            return json.readValue(preferences, new TypeReference<List<String>>() {});
+        } catch (JsonProcessingException exception) {
+            throw new IllegalStateException("Cannot read stored trip preferences", exception);
+        }
+    }
+
+    private static String trim(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
+    }
+}

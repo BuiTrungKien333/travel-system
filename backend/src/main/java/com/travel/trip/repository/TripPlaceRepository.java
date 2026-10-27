@@ -2,6 +2,7 @@ package com.travel.trip.repository;
 
 import com.travel.trip.entity.TripPlace;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -20,4 +21,8 @@ public interface TripPlaceRepository extends JpaRepository<TripPlace, UUID> {
     boolean existsByTripIdAndPlaceId(UUID tripId, UUID placeId);
 
     void deleteByTripIdAndPlaceId(UUID tripId, UUID placeId);
+
+    @EntityGraph(attributePaths = {"place", "place.province"})
+    List<TripPlace> findByTripIdOrderByPlannedOrderAscCreatedAtAscIdAsc(UUID tripId);
+
 }

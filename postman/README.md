@@ -8,6 +8,10 @@ Tài liệu này hướng dẫn chi tiết cách import và chạy bộ kiểm t
 
 ---
 
+## Trip & Trip Place CRUD
+
+Import [Travel_Trip_Place_Collection.postman_collection.json](Travel_Trip_Place_Collection.postman_collection.json), đặt `accessToken` local và chạy theo thứ tự trên backend local/test. Collection tự tạo Trip/Place, kiểm tra cập nhật/validation và cleanup Trip; master Place mẫu được giữ. Contract và lưu ý: [docs/TRIP_PLACE_API.md](../docs/TRIP_PLACE_API.md).
+
 ## 📁 Cấu Trúc Thư Mục Postman
 
 ```

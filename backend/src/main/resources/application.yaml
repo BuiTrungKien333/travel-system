@@ -88,6 +88,11 @@ application:
       timeout-seconds: 10
       default-timezone: Asia/Ho_Chi_Minh
 
+management:
+  health:
+    mail:
+      enabled: false
+
 springdoc:
   api-docs:
     path: /v3/api-docs

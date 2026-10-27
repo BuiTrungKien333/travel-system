@@ -30,7 +30,7 @@ public class UserServiceImpl implements UserService {
 
         User user = getUserOrThrow(currentUserId, "Profile fetch");
 
-        log.info("[USER] Profile retrieved successfully: userId={}, email={}, role={}", user.getId(), user.getEmail(), user.getRole());
+        log.debug("[USER] Profile retrieved: userId={}", user.getId());
 
         return mapToUserProfileResponse(user);
     }
@@ -48,7 +48,7 @@ public class UserServiceImpl implements UserService {
 
         User updatedUser = userRepository.save(user);
 
-        log.info("[USER] Profile updated successfully: userId={}, email={}", updatedUser.getId(), updatedUser.getEmail());
+        log.debug("[USER] Profile updated: userId={}", updatedUser.getId());
 
         return mapToUserProfileResponse(updatedUser);
     }

@@ -18,6 +18,7 @@ import java.time.Instant;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 import java.util.function.Function;
 
 @Component
@@ -39,6 +40,8 @@ public class JwtUtils {
     public long getJwtExpiration() {
         return jwtExpiration;
     }
+
+    public long getJwtRefreshExpiration() { return jwtRefreshExpiration; }
 
     private SecretKey accessSigningKey;
     private SecretKey refreshSigningKey;
@@ -64,13 +67,19 @@ public class JwtUtils {
     }
 
     public String generateRefreshToken(UserDetails userDetails) {
-        return buildToken(new HashMap<>(), userDetails, TokenType.REFRESH_TOKEN, jwtRefreshExpiration);
+        Map<String, Object> claims = new HashMap<>();
+        if (userDetails instanceof CustomUserDetails user) {
+            claims.put("userId", user.getId());
+        }
+        return buildToken(claims, userDetails, TokenType.REFRESH_TOKEN, jwtRefreshExpiration);
     }
 
     private String buildToken(Map<String, Object> extraClaims, UserDetails userDetails, TokenType type, long expiration) {
         Instant now = Instant.now();
         return Jwts.builder()
                 .claims(extraClaims)
+                .claim("tokenType", type.name())
+                .id(UUID.randomUUID().toString())
                 .subject(userDetails.getUsername())
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plusMillis(expiration)))
@@ -85,7 +94,7 @@ public class JwtUtils {
             final String username = extractUsername(token, type);
             return (username.equals(userDetails.getUsername())) && !isTokenExpired(token, type);
         } catch (JwtException | IllegalArgumentException e) {
-            log.error("Invalid JWT Token (Type: {}): {}", type, e.getMessage());
+            log.debug("Invalid JWT token type={}", type);
             return false;
         }
     }
@@ -107,6 +116,7 @@ public class JwtUtils {
     public Claims extractAllClaims(String token, TokenType type) {
         return Jwts.parser()
                 .verifyWith(getSignInKey(type))
+                .require("tokenType", type.name())
                 .build()
                 .parseSignedClaims(token)
                 .getPayload();

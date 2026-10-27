@@ -33,6 +33,9 @@ public class AuthController {
 
     private final AuthService authService;
 
+    // TODO: Nên thêm rate limit cho login/register/refresh trước khi public để hạn chế brute force và spam.
+    // Có thể thực hiện tại gateway; không cần thêm Redis vào base MVP chỉ cho mục đích này.
+
     // Register
     @Operation(
             summary = "Register new user",
@@ -51,7 +54,7 @@ public class AuthController {
                             schema = @Schema(implementation = ErrorResponse.class),
                             examples = @ExampleObject(
                                     name = "Validation Error",
-                                    value = "{\"success\": false, \"code\": \"COMMON_003\", \"message\": \"Validation failed\", \"errors\": {\"email\": \"Invalid email format\", \"password\": \"Password must be between 6 and 50 characters\"}, \"timestamp\": \"2026-08-20T12:00:00Z\"}"
+                                    value = "{\"success\": false, \"code\": \"COMMON_003\", \"message\": \"Validation failed\", \"errors\": {\"email\": \"Invalid email format\", \"password\": \"Password must be between 8 and 50 characters\"}, \"timestamp\": \"2026-08-20T12:00:00Z\"}"
                             )
                     )
             ),
@@ -179,5 +182,12 @@ public class AuthController {
     public ResponseEntity<ApiResponse<AuthResponse>> refresh(@Valid @RequestBody RefreshTokenRequest request) {
         AuthResponse response = authService.refreshToken(request);
         return ResponseEntity.ok(ApiResponse.success("Token refreshed successfully", response));
+    }
+
+    @PostMapping("/logout")
+    @Operation(summary = "Log out current device", description = "Idempotently revoke the supplied refresh token. Existing access tokens expire after their configured lifetime.")
+    public ResponseEntity<Void> logout(@Valid @RequestBody RefreshTokenRequest request) {
+        authService.logout(request);
+        return ResponseEntity.noContent().build();
     }
 }

@@ -20,8 +20,8 @@ server:
 
 app:
   jwt:
-    secret-key: ${JWT_SECRET_KEY:9a4f2c8d7e1b5a3f6c8e0d2b4a6f8c1d3e5a7b9c1d3e5f7a9b1c3d5e7f9a1b3c}
-    refresh-key: ${JWT_REFRESH_KEY:7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c}
+    secret-key: ${JWT_SECRET_KEY}
+    refresh-key: ${JWT_REFRESH_KEY}
 
     access:
       expiration: 1800000 # 30 phút
@@ -34,7 +34,7 @@ app:
 application:
   security:
     cors:
-      allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
+      allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173,http://localhost:8081}
 
   ai:
     active-provider: ${AI_PROVIDER:gemini}

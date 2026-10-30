@@ -1,0 +1,22 @@
+# Opt-in isolated demo. Existing dev database and docker volume are unchanged.
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:${RAG_DEMO_DB_PORT:5434}/travel_rag_demo
+    username: travel_demo
+    password: ${RAG_DEMO_DB_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration,classpath:db/rag-demo
+application:
+  rag:
+    api-key: ${GEMINI_API_KEY:}
+    embedding-model: ${RAG_EMBEDDING_MODEL:gemini-embedding-001}
+    base-url: https://generativelanguage.googleapis.com/v1beta
+management:
+  health:
+    mail:
+      enabled: false # This demo has no SMTP service; DB/readiness health remains enabled.

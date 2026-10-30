@@ -48,6 +48,10 @@ public enum ErrorCode {
     TRIP_PLACE_NOT_FOUND("TRIP_002", "error.trip.place-not-found", HttpStatus.NOT_FOUND),
     TRIP_PLACE_ALREADY_EXISTS("TRIP_003", "error.trip.place-exists", HttpStatus.CONFLICT),
     INVALID_TRIP_DATES("TRIP_004", "error.trip.invalid-dates", HttpStatus.BAD_REQUEST),
+    INVALID_ITINERARY("TRIP_005", "error.itinerary.invalid", HttpStatus.BAD_REQUEST),
+    ITINERARY_NOT_FOUND("TRIP_006", "error.itinerary.not-found", HttpStatus.NOT_FOUND),
+    ITINERARY_PLACE_NOT_IN_TRIP("TRIP_007", "error.itinerary.place-not-in-trip", HttpStatus.BAD_REQUEST),
+    ITINERARY_CHANGED("TRIP_008", "error.itinerary.changed", HttpStatus.CONFLICT),
     PLACE_NOT_FOUND("PLACE_001", "error.place.not-found", HttpStatus.NOT_FOUND),
     PROVINCE_NOT_FOUND("PLACE_002", "error.place.province-not-found", HttpStatus.NOT_FOUND),
 

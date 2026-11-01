@@ -10,6 +10,7 @@ import com.travel.planning.retrieval.PlaceCandidate;
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
+
 import java.io.IOException;
 import java.time.LocalDate;
 import java.util.*;
@@ -22,13 +23,18 @@ public class DraftAiAdvisor {
     private final GeminiStructuredClient ai;
     private final ObjectMapper mapper;
     private final Map<String, Object> allocationSchema, themesSchema;
+
     public DraftAiAdvisor(GeminiStructuredClient ai, ObjectMapper mapper) throws IOException {
-        this.ai = ai; this.mapper = mapper;
-        allocationSchema = schema("draft-allocation-schema.json"); themesSchema = schema("draft-themes-schema.json");
+        this.ai = ai;
+        this.mapper = mapper;
+        allocationSchema = schema("draft-allocation-schema.json");
+        themesSchema = schema("draft-themes-schema.json");
     }
+
     private Map<String, Object> schema(String file) throws IOException {
         try (var input = new ClassPathResource("ai/" + file).getInputStream()) {
-            return mapper.readValue(input, new TypeReference<Map<String, Object>>() {});
+            return mapper.readValue(input, new TypeReference<Map<String, Object>>() {
+            });
         }
     }
 
@@ -61,13 +67,17 @@ public class DraftAiAdvisor {
 
     private List<List<UUID>> validateAllocation(JsonNode root, Map<String, PlaceCandidate> refs, Set<UUID> required, int days) {
         if (root.size() != 1 || !root.path("days").isArray() || root.path("days").size() != days) throw invalid();
-        List<List<UUID>> result = new ArrayList<>(Collections.nCopies(days, null)); Set<UUID> seen = new HashSet<>();
+        List<List<UUID>> result = new ArrayList<>(Collections.nCopies(days, null));
+        Set<UUID> seen = new HashSet<>();
         for (JsonNode day : root.path("days")) {
-            int index = index(day, days); if (day.size() != 2 || result.get(index) != null || !day.path("placeRefs").isArray()) throw invalid();
+            int index = index(day, days);
+            if (day.size() != 2 || result.get(index) != null || !day.path("placeRefs").isArray()) throw invalid();
             List<UUID> ids = new ArrayList<>();
             for (JsonNode ref : day.path("placeRefs")) {
                 if (!ref.isTextual() || !refs.containsKey(ref.asText())) throw invalid();
-                UUID id = refs.get(ref.asText()).placeId(); if (!seen.add(id)) throw invalid(); ids.add(id);
+                UUID id = refs.get(ref.asText()).placeId();
+                if (!seen.add(id)) throw invalid();
+                ids.add(id);
             }
             result.set(index, ids);
         }
@@ -76,7 +86,8 @@ public class DraftAiAdvisor {
     }
 
     private List<List<UUID>> fallback(List<PlaceCandidate> candidates, Set<UUID> required, TravelIntent intent, int days) {
-        var groups = new ArrayList<List<UUID>>(); int[] load = new int[days];
+        var groups = new ArrayList<List<UUID>>();
+        int[] load = new int[days];
         for (int i = 0; i < days; i++) groups.add(new ArrayList<>());
         List<PlaceCandidate> ranked = new ArrayList<>(candidates);
         ranked.sort(Comparator.comparing(p -> !required.contains(p.placeId())));
@@ -84,9 +95,13 @@ public class DraftAiAdvisor {
         for (PlaceCandidate p : ranked) {
             if (!required.contains(p.placeId()) && Collections.disjoint(p.tags(), intent.interests())) continue;
             int best = -1;
-            for (int i = 0; i < days; i++) if ((required.contains(p.placeId()) || groups.get(i).size() < target)
-                    && (best == -1 || load[i] < load[best])) best = i;
-            if (best >= 0) { groups.get(best).add(p.placeId()); load[best] += p.estimatedDurationMinutes() + 15; }
+            for (int i = 0; i < days; i++)
+                if ((required.contains(p.placeId()) || groups.get(i).size() < target)
+                        && (best == -1 || load[i] < load[best])) best = i;
+            if (best >= 0) {
+                groups.get(best).add(p.placeId());
+                load[best] += p.estimatedDurationMinutes() + 15;
+            }
         }
         return groups;
     }
@@ -105,17 +120,23 @@ public class DraftAiAdvisor {
                     LOCAL_MARKETS cần MARKET/SHOPPING/LOCAL. MIXED cho ngày có điểm, FREE_TIME chỉ cho ngày trống.
                     Với ngày có điểm hãy chọn ít nhất một highlightRef. Backend biên tập title/summary từ tên và chủ đề đã kiểm tra.
                     """, mapper.writeValueAsString(context), themesSchema);
-            if (root.size() != 1 || !root.path("days").isArray() || root.path("days").size() != days.size()) throw invalid();
+            if (root.size() != 1 || !root.path("days").isArray() || root.path("days").size() != days.size())
+                throw invalid();
             var result = new ArrayList<Day>(Collections.nCopies(days.size(), null));
             for (JsonNode node : root.path("days")) {
-                int i = index(node, days.size()); Day day = days.get(i);
+                int i = index(node, days.size());
+                Day day = days.get(i);
                 if (result.get(i) != null || node.size() != 3 || !node.path("theme").isTextual()
-                        || !node.path("highlightRefs").isArray() || node.path("highlightRefs").size() > 3) throw invalid();
-                String theme = node.path("theme").asText(); if (!supportedTheme(theme, day)) throw invalid();
-                List<String> names = new ArrayList<>(); Set<UUID> seen = new HashSet<>();
+                        || !node.path("highlightRefs").isArray() || node.path("highlightRefs").size() > 3)
+                    throw invalid();
+                String theme = node.path("theme").asText();
+                if (!supportedTheme(theme, day)) throw invalid();
+                List<String> names = new ArrayList<>();
+                Set<UUID> seen = new HashSet<>();
                 for (JsonNode ref : node.path("highlightRefs")) {
                     PlaceCandidate p = refs.get(ref.asText());
-                    if (!ref.isTextual() || p == null || !seen.add(p.placeId()) || day.stops().stream().noneMatch(s -> s.place().placeId().equals(p.placeId()))) throw invalid();
+                    if (!ref.isTextual() || p == null || !seen.add(p.placeId()) || day.stops().stream().noneMatch(s -> s.place().placeId().equals(p.placeId())))
+                        throw invalid();
                     names.add(p.name());
                 }
                 if (names.isEmpty() && !day.stops().isEmpty()) throw invalid();
@@ -128,34 +149,49 @@ public class DraftAiAdvisor {
     }
 
     private boolean supportedTheme(String theme, Day day) {
-        Set<String> tags = new HashSet<>(); day.stops().forEach(s -> tags.addAll(s.place().tags()));
+        Set<String> tags = new HashSet<>();
+        day.stops().forEach(s -> tags.addAll(s.place().tags()));
         return switch (theme) {
             case "CULTURE_ART" -> !Collections.disjoint(tags, Set.of("CULTURE", "ART", "MUSEUM"));
             case "HISTORY" -> tags.contains("HISTORY");
             case "SEA_SCENERY" -> !Collections.disjoint(tags, Set.of("BEACH", "SCENERY", "PARK"));
             case "LOCAL_MARKETS" -> !Collections.disjoint(tags, Set.of("MARKET", "SHOPPING", "LOCAL"));
-            case "MIXED" -> !day.stops().isEmpty(); case "FREE_TIME" -> day.stops().isEmpty(); default -> false;
+            case "MIXED" -> !day.stops().isEmpty();
+            case "FREE_TIME" -> day.stops().isEmpty();
+            default -> false;
         };
     }
+
     private Day render(Day day, String theme, List<String> names, String source) {
         String label = switch (theme) {
-            case "CULTURE_ART" -> "Văn hóa và nghệ thuật"; case "HISTORY" -> "Tìm hiểu lịch sử";
-            case "SEA_SCENERY" -> "Biển và cảnh quan"; case "LOCAL_MARKETS" -> "Khám phá địa phương";
+            case "CULTURE_ART" -> "Văn hóa và nghệ thuật";
+            case "HISTORY" -> "Tìm hiểu lịch sử";
+            case "SEA_SCENERY" -> "Biển và cảnh quan";
+            case "LOCAL_MARKETS" -> "Khám phá địa phương";
             default -> day.stops().isEmpty() ? "Thời gian tự do" : "Trải nghiệm Đà Nẵng";
         };
         String summary = names.isEmpty() ? "Chưa xếp điểm tham quan cho ngày này." : "Lịch có " + day.stops().size()
                 + " điểm dừng; điểm nhấn: " + String.join(", ", names) + ".";
         return day.narrated("Ngày " + day.dayIndex() + " — " + label, summary, source);
     }
+
     private int index(JsonNode day, int size) {
-        var id = day.path("dayIndex"); if (!id.isIntegralNumber() || !id.canConvertToInt() || id.intValue() < 1 || id.intValue() > size) throw invalid();
+        var id = day.path("dayIndex");
+        if (!id.isIntegralNumber() || !id.canConvertToInt() || id.intValue() < 1 || id.intValue() > size)
+            throw invalid();
         return id.intValue() - 1;
     }
+
     private LinkedHashMap<String, PlaceCandidate> references(List<PlaceCandidate> candidates) {
         var refs = new LinkedHashMap<String, PlaceCandidate>();
         for (int i = 0; i < candidates.size(); i++) refs.put("P" + (i + 1), candidates.get(i));
         return refs;
     }
-    private IllegalArgumentException invalid() { return new IllegalArgumentException("Invalid AI draft output"); }
-    public record Allocation(List<List<UUID>> days, String source, String warning) {}
+
+    private IllegalArgumentException invalid() {
+        return new IllegalArgumentException("Invalid AI draft output");
+    }
+
+    public record Allocation(List<List<UUID>> days, String source, String warning) {
+    }
 }

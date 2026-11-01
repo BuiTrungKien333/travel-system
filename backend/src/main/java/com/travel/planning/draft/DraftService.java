@@ -7,6 +7,7 @@ import com.travel.planning.retrieval.*;
 import com.travel.weather.service.WeatherService;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
+
 import java.time.*;
 import java.util.*;
 import java.util.function.Function;
@@ -27,17 +28,25 @@ public class DraftService {
 
     public DraftService(TravelIntentService intents, PlaceRetrievalService retrieval, PlaceRepository places,
                         DraftAiAdvisor advisor, DraftTimelinePlanner planner, WeatherService weather, RagDemoProperties properties) {
-        this.intents = intents; this.retrieval = retrieval; this.places = places; this.advisor = advisor;
-        this.planner = planner; this.weather = weather; this.properties = properties;
+        this.intents = intents;
+        this.retrieval = retrieval;
+        this.places = places;
+        this.advisor = advisor;
+        this.planner = planner;
+        this.weather = weather;
+        this.properties = properties;
     }
 
     public Response generate(DraftController.Request request) {
-        var search = intents.search(request.text(), 8); var analysis = search.analysis();
+        var search = intents.search(request.text(), 8);
+        var analysis = search.analysis();
         var issues = new ArrayList<Problem>();
         var metadata = new LinkedHashMap<String, String>();
-        metadata.put("model", properties.getIntentModel()); metadata.put("routeSource", "ESTIMATED_HAVERSINE_35_KMH");
+        metadata.put("model", properties.getIntentModel());
+        metadata.put("routeSource", "ESTIMATED_HAVERSINE_35_KMH");
         metadata.put("optimizationScope", "HELD_KARP_PER_DAY_DISTANCE_ONLY");
-        metadata.put("persistence", "PREVIEW_ONLY"); metadata.put("originSource", "USER_PROVIDED_ANCHOR_NOT_DB_PLACE");
+        metadata.put("persistence", "PREVIEW_ONLY");
+        metadata.put("originSource", "USER_PROVIDED_ANCHOR_NOT_DB_PLACE");
         metadata.put("restPolicy", request.restMinutes() + " phút nghỉ sau hai điểm nếu còn điểm tiếp theo; đệm theo nhịp độ.");
         if (!"CANDIDATES_FOUND".equals(search.status())) {
             analysis.questions().forEach(q -> issues.add(new Problem("NEEDS_INPUT", true, null, q)));
@@ -51,7 +60,8 @@ public class DraftService {
         if (request.origin().latitude() < 15.8 || request.origin().latitude() > 16.3
                 || request.origin().longitude() < 107.9 || request.origin().longitude() > 108.4)
             issues.add(new Problem("ORIGIN_OUTSIDE_DEMO", true, null, "Điểm xuất phát cần nằm trong khu vực demo Đà Nẵng."));
-        if (!issues.isEmpty()) return response("NEEDS_INPUT", request, search, List.of(), List.of(), issues, unknownWeather(), metadata);
+        if (!issues.isEmpty())
+            return response("NEEDS_INPUT", request, search, List.of(), List.of(), issues, unknownWeather(), metadata);
 
         Map<UUID, PlaceCandidate> current = retrieval.catalog().stream().collect(Collectors.toMap(PlaceCandidate::placeId, Function.identity()));
         List<PlaceCandidate> candidates = search.candidates().matches().stream().map(PlaceRetrievalService.Match::place)
@@ -65,8 +75,10 @@ public class DraftService {
             issues.add(new Problem("STALE_REQUIRED_PLACE", true, null, "Điểm bắt buộc đã thay đổi hoặc không còn được duyệt; hãy tạo lại yêu cầu."));
             return response("NEEDS_INPUT", request, search, List.of(), List.of(), issues, unknownWeather(), metadata);
         }
-        if (candidates.isEmpty()) return response("NO_CANDIDATES", request, search, List.of(), List.of(), issues, unknownWeather(), metadata);
-        int days = intent.numberOfDays(); LocalTime start = LocalTime.parse(intent.dailyStartTime()), end = LocalTime.parse(intent.dailyEndTime());
+        if (candidates.isEmpty())
+            return response("NO_CANDIDATES", request, search, List.of(), List.of(), issues, unknownWeather(), metadata);
+        int days = intent.numberOfDays();
+        LocalTime start = LocalTime.parse(intent.dailyStartTime()), end = LocalTime.parse(intent.dailyEndTime());
         int requiredMinutes = candidates.stream().filter(p -> required.contains(p.placeId())).mapToInt(PlaceCandidate::estimatedDurationMinutes).sum();
         if (requiredMinutes > Duration.between(start, end).toMinutes() * days) {
             issues.add(new Problem("REQUIRED_TIME_LOWER_BOUND", true, null, "Tổng thời lượng điểm bắt buộc đã vượt quỹ giờ, ngay cả khi chưa tính di chuyển/nghỉ. Cần đổi yêu cầu."));
@@ -74,35 +86,50 @@ public class DraftService {
         }
         int buffer = "RELAXED".equals(intent.travelPace()) ? 15 : "ACTIVE".equals(intent.travelPace()) ? 5 : 10;
         metadata.put("bufferMinutesBetweenStops", Integer.toString(buffer));
-        if (intent.travelPace() == null) issues.add(new Problem("PACE_NOT_SPECIFIED", false, null, "Nhịp độ chưa nêu; sử dụng cấu hình demo cân bằng, không ghi thành sở thích người dùng."));
+        if (intent.travelPace() == null)
+            issues.add(new Problem("PACE_NOT_SPECIFIED", false, null, "Nhịp độ chưa nêu; sử dụng cấu hình demo cân bằng, không ghi thành sở thích người dùng."));
         var allocation = advisor.allocate(candidates, required, intent, days, request.startDate());
         metadata.put("allocationSource", allocation.source());
-        if (allocation.warning() != null) issues.add(new Problem("ALLOCATION_FALLBACK", false, null, allocation.warning()));
+        if (allocation.warning() != null)
+            issues.add(new Problem("ALLOCATION_FALLBACK", false, null, allocation.warning()));
         List<List<UUID>> groups = allocation.days().stream().map(ArrayList::new).collect(Collectors.toCollection(ArrayList::new));
         Map<UUID, PlaceCandidate> byId = candidates.stream().collect(Collectors.toMap(PlaceCandidate::placeId, Function.identity()));
         List<Day> built = build(groups, request, start, end, buffer, byId, entities);
-        Map<UUID, String> removed = new HashMap<>(); int repairPasses = 0;
+        Map<UUID, String> removed = new HashMap<>();
+        int repairPasses = 0;
         // Bounded deterministic repair; never drops a required place or calls the model again.
         for (int pass = 0; pass < 2; pass++) {
-            int bad = -1; for (int i = 0; i < built.size(); i++) if (built.get(i).blocked()) { bad = i; break; }
+            int bad = -1;
+            for (int i = 0; i < built.size(); i++)
+                if (built.get(i).blocked()) {
+                    bad = i;
+                    break;
+                }
             if (bad == -1) break;
             Day badDay = built.get(bad);
             UUID target = badDay.issues().stream().filter(Problem::blocking).map(Problem::placeId).filter(Objects::nonNull).findFirst().orElse(null);
-            if (target == null) target = groups.get(bad).stream().filter(id -> !required.contains(id)).reduce((a,b) -> b)
-                    .orElse(groups.get(bad).getLast());
+            if (target == null)
+                target = groups.get(bad).stream().filter(id -> !required.contains(id)).reduce((a, b) -> b)
+                        .orElse(groups.get(bad).getLast());
             boolean moved = false;
             for (int other = 0; other < groups.size(); other++) {
                 if (other == bad) continue;
-                var trial = copy(groups); trial.get(bad).remove(target); trial.get(other).add(target);
+                var trial = copy(groups);
+                trial.get(bad).remove(target);
+                trial.get(other).add(target);
                 var next = build(trial, request, start, end, buffer, byId, entities);
                 if (!next.get(other).blocked() && next.get(bad).issues().stream().filter(Problem::blocking).count()
                         < badDay.issues().stream().filter(Problem::blocking).count()) {
-                    groups = trial; built = next; moved = true; break;
+                    groups = trial;
+                    built = next;
+                    moved = true;
+                    break;
                 }
             }
             if (!moved) {
                 if (required.contains(target)) break;
-                groups.get(bad).remove(target); removed.put(target, "REMOVED_TO_RESOLVE_CONFLICT");
+                groups.get(bad).remove(target);
+                removed.put(target, "REMOVED_TO_RESOLVE_CONFLICT");
                 built = build(groups, request, start, end, buffer, byId, entities);
             }
             repairPasses++;
@@ -132,19 +159,26 @@ public class DraftService {
     private List<Day> build(List<List<UUID>> groups, DraftController.Request request, LocalTime start, LocalTime end,
                             int buffer, Map<UUID, PlaceCandidate> candidates, Map<UUID, Place> entities) {
         var result = new ArrayList<Day>();
-        for (int i = 0; i < groups.size(); i++) result.add(planner.build(i + 1, request.startDate().plusDays(i), start, end,
-                request.origin(), request.roundTrip(), request.restMinutes(), buffer, groups.get(i).stream().map(candidates::get).toList(), entities));
+        for (int i = 0; i < groups.size(); i++)
+            result.add(planner.build(i + 1, request.startDate().plusDays(i), start, end,
+                    request.origin(), request.roundTrip(), request.restMinutes(), buffer, groups.get(i).stream().map(candidates::get).toList(), entities));
         return result;
     }
+
     private List<List<UUID>> copy(List<List<UUID>> groups) {
         return groups.stream().map(g -> (List<UUID>) new ArrayList<>(g)).collect(Collectors.toCollection(ArrayList::new));
     }
+
     private Response response(String status, DraftController.Request request, TravelIntentService.TextSearchResult search,
                               List<Day> days, List<Unassigned> unassigned, List<Problem> issues, WeatherAdvice forecast, Map<String, String> metadata) {
         return new Response(status, request.startDate(), "Asia/Ho_Chi_Minh", search.analysis(), search.candidates(),
                 List.copyOf(days), unassigned, List.copyOf(issues), forecast, Map.copyOf(metadata));
     }
-    private WeatherAdvice unknownWeather() { return new WeatherAdvice("UNKNOWN", "UNAVAILABLE", "ORIGIN_COORDINATES_ONLY", List.of()); }
+
+    private WeatherAdvice unknownWeather() {
+        return new WeatherAdvice("UNKNOWN", "UNAVAILABLE", "ORIGIN_COORDINATES_ONLY", List.of());
+    }
+
     private WeatherAdvice weather(DraftController.Request request, int days) {
         try {
             var result = weather.getForecast(request.origin().latitude(), request.origin().longitude(), request.startDate(), request.startDate().plusDays(days - 1));
@@ -155,6 +189,8 @@ public class DraftService {
                     .map(d -> new WeatherDay(d.date(), d.minTemperature(), d.maxTemperature(), d.maxPrecipitationProbability(),
                             d.dominantCondition() == null ? "UNKNOWN" : d.dominantCondition().name(),
                             d.highestRiskLevel() == null ? "UNKNOWN" : d.highestRiskLevel().name())).toList());
-        } catch (Exception ex) { return unknownWeather(); }
+        } catch (Exception ex) {
+            return unknownWeather();
+        }
     }
 }

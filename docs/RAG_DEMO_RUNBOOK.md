@@ -8,7 +8,7 @@
 - Chỉ trả các địa điểm đã duyệt còn tồn tại trong DB. Vector khác model hoặc stale content hash không được dùng.
 - Ba API catalog/search/index là public, không cần tài khoản hoặc token; chỉ có khi bật profile rag-demo.
 
-Đã bổ sung LLM tách ý định/phủ định và API search-from-text, xem [hướng dẫn nhập câu tự nhiên](./RAG_INTENT_POSTMAN.md). Đây chưa phải luồng tạo hành trình hoàn chỉnh: chưa chọn/chia ngày, nối Held–Karp/timeline, sinh chủ đề hoặc mobile. API search cũ vẫn nhận sở thích tích cực và exclusions có cấu trúc.
+Đã bổ sung LLM tách ý định/phủ định và API search-from-text, xem [hướng dẫn nhập câu tự nhiên](./RAG_INTENT_POSTMAN.md). API [generate-draft](./RAG_DRAFT_POSTMAN.md) nối tiếp chọn/chia ngày, Held–Karp, timeline và chủ đề; chưa lưu itinerary hoặc tích hợp mobile. API search cũ vẫn nhận sở thích tích cực và exclusions có cấu trúc.
 
 ## Chất lượng dữ liệu
 

@@ -3,6 +3,7 @@ package com.travel.planning.retrieval;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import com.travel.planning.ai.intent.TravelIntentController;
+import com.travel.planning.draft.DraftController;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -11,10 +12,11 @@ class RagDemoProfileTest {
     void publicDemoControllersAreAbsentOutsideDemoProfile() {
         new ApplicationContextRunner()
                 .withInitializer(context -> context.getEnvironment().setActiveProfiles("test"))
-                .withUserConfiguration(PlaceRetrievalController.class, PlaceIndexController.class, TravelIntentController.class)
+                .withUserConfiguration(PlaceRetrievalController.class, PlaceIndexController.class, TravelIntentController.class, DraftController.class)
                 .run(context -> assertThat(context)
                         .doesNotHaveBean(PlaceRetrievalController.class)
                         .doesNotHaveBean(PlaceIndexController.class)
-                        .doesNotHaveBean(TravelIntentController.class));
+                        .doesNotHaveBean(TravelIntentController.class)
+                        .doesNotHaveBean(DraftController.class));
     }
 }

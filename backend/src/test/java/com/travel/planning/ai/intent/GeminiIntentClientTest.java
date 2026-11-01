@@ -28,7 +28,7 @@ class GeminiIntentClientTest {
     }
 
     @Test void extract_sendsSchemaAndRawUserDataSeparately() throws Exception {
-        server.expect(requestTo("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent"))
+        server.expect(requestTo("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent"))
                 .andExpect(header("x-goog-api-key", "test-only"))
                 .andExpect(jsonPath("$.generationConfig.responseMimeType").value("application/json"))
                 .andExpect(jsonPath("$.generationConfig.responseJsonSchema.additionalProperties").value(false))

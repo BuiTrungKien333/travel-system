@@ -69,7 +69,7 @@ application:
     active-provider: ${AI_PROVIDER:gemini}
     gemini:
       api-key: ${GEMINI_API_KEY:AQ.Ab8RN6JUDihPVm7bmxsX7MWAdHDZvdMIOD-HTIN0G6fHqFsIsQ}
-      model: ${GEMINI_MODEL:gemini-3.8-flash}
+      model: ${GEMINI_MODEL:gemini-3.5-flash}
       base-url: ${GEMINI_BASE_URL:https://generativelanguage.googleapis.com/v1beta}
       timeout-seconds: 30
       temperature: 0.4

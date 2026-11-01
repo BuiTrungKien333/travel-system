@@ -69,4 +69,4 @@ Không yêu cầu hoàn thành toàn bộ benchmark/hệ thống quản trị d�
 
 ## 6. Trạng thái tại thời điểm lập phạm vi
 
-Đã triển khai bộ seed 8 điểm trong database demo riêng, metadata có nguồn và chất lượng dữ liệu, PostgreSQL + pgvector, API catalog/search/indexing, intent parser và search-from-text. Xem [hướng dẫn chạy](./RAG_DEMO_RUNBOOK.md) và [kiểm tra câu tự nhiên](./RAG_INTENT_POSTMAN.md). Đã thử Gemini thật và truy xuất HYBRID cho nhóm văn hóa và cảnh quan, kiểm tra thiếu điểm đến/điểm không tồn tại. Chưa có orchestrator lập lịch/chủ đề/mobile. Tọa độ vẫn là xấp xỉ demo và giờ hoạt động UNKNOWN.
+Đã triển khai bộ seed 8 điểm, PostgreSQL + pgvector, API catalog/search/indexing, intent parser, search-from-text và generate-draft nối chọn/chia ngày, Held–Karp, timeline và chủ đề. Xem [hướng dẫn chạy](./RAG_DEMO_RUNBOOK.md), [kiểm tra câu tự nhiên](./RAG_INTENT_POSTMAN.md) và [bản nháp lịch trình](./RAG_DRAFT_POSTMAN.md). Chưa lưu itinerary hoặc tích hợp mobile. Tọa độ vẫn là xấp xỉ demo và giờ hoạt động UNKNOWN. Kết quả provider thật và giới hạn được ghi riêng trong hướng dẫn draft.

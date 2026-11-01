@@ -6,7 +6,7 @@ Mốc này bổ sung intent extraction bằng Gemini và nối với hybrid retr
 
 Đã có: trích xuất điểm đến, số ngày, sở thích, nhóm/điểm bị loại, khung giờ, nhịp độ và tên điểm bắt buộc; kiểm tra JSON và dữ liệu nghiệp vụ; truy xuất ứng viên có ID từ catalog DB; trả câu hỏi khi thiếu thông tin cốt lõi/mâu thuẫn/không tìm được điểm.
 
-Chưa có: chọn phương án lịch hoàn chỉnh, chia ngày, Held–Karp/timeline/chủ đề trong luồng mới, lưu itinerary hoặc giao diện mobile. Các giờ và số ngày là ý định đã trích xuất, chưa được dùng để tuyên bố ứng viên phù hợp với thời gian. Ngân sách, origin, ngày cụ thể và các yêu cầu đặc biệt khác chưa có trường xử lý ở mốc này.
+Hai API trên trang này chỉ trích xuất và truy xuất, không tạo lịch. Luồng chọn/chia ngày, Held–Karp/timeline và chủ đề đã có ở API riêng [generate-draft](./RAG_DRAFT_POSTMAN.md), nhận thêm ngày bắt đầu và origin bằng dữ liệu có cấu trúc. Chưa lưu itinerary hoặc tích hợp mobile. Ngân sách và các yêu cầu đặc biệt ngoài schema chưa được xử lý.
 
 ## Chạy
 

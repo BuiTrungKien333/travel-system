@@ -15,7 +15,7 @@ application:
   rag:
     api-key: ${GEMINI_API_KEY:}
     embedding-model: ${RAG_EMBEDDING_MODEL:gemini-embedding-001}
-    intent-model: ${RAG_INTENT_MODEL:gemini-3.8-flash}
+    intent-model: ${RAG_INTENT_MODEL:gemini-3.5-flash}
     base-url: https://generativelanguage.googleapis.com/v1beta
 management:
   health:

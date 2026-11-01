@@ -77,7 +77,7 @@ public class TravelIntentService {
             missing.add("interests"); questions.add("Bạn muốn trải nghiệm gì: văn hóa, nghệ thuật, đi chợ hay ngắm biển/cảnh quan?");
         }
         if (supported && !questions.isEmpty()) status = "NEEDS_INPUT";
-        if (!missing.isEmpty()) warnings.add("Thông tin chưa cung cấp được giữ trống; chưa đủ để lập timeline. Việc truy xuất chỉ cần điểm đến và sở thích/điểm ghé rõ ràng.");
+        if (!missing.isEmpty()) warnings.add("Thông tin chưa cung cấp được giữ trống. Truy xuất chỉ cần điểm đến và sở thích/điểm ghé rõ ràng; luồng lập lịch kiểm tra riêng các trường bắt buộc và công bố chính sách cho trường tùy chọn.");
         return new IntentAnalysis(status, intent, supported ? "48" : null, missing, questions, warnings,
                 positiveQuery, required, List.copyOf(excludedIds), properties.getIntentModel());
     }

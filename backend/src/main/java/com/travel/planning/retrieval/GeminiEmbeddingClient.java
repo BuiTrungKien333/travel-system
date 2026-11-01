@@ -1,14 +1,13 @@
 package com.travel.planning.retrieval;
 
-import com.travel.common.exception.AppException;
-import com.travel.common.exception.ErrorCode;
+import com.travel.planning.ai.resilience.*;
+import com.travel.planning.ai.resilience.AiRequestContext.Stage;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
-import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 
@@ -19,51 +18,51 @@ public class GeminiEmbeddingClient {
     public static final int DIMENSIONS = 768;
     private final RagDemoProperties properties;
     private final RestClient client;
+    private final AiRequestContext context;
+    private final AiRetryExecutor retries;
 
     @Autowired
-    public GeminiEmbeddingClient(RagDemoProperties properties) {
-        this(properties, buildClient());
+    public GeminiEmbeddingClient(RagDemoProperties properties, AiRequestContext context, AiRetryExecutor retries) {
+        this.properties = properties; this.context = context; this.retries = retries;
+        this.client = RestClient.builder().requestFactory(new AiDeadlineRequestFactory(context, properties)).build();
     }
 
     public GeminiEmbeddingClient(RagDemoProperties properties, RestClient client) {
         this.properties = properties;
         this.client = client;
+        this.context = new AiRequestContext(properties);
+        this.retries = new AiRetryExecutor(properties, context, new ObjectMapper());
     }
 
-    private static RestClient buildClient() {
-        var factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(Duration.ofSeconds(5));
-        factory.setReadTimeout(Duration.ofSeconds(15));
-
-        return RestClient.builder().requestFactory(factory).build();
+    public GeminiEmbeddingClient(RagDemoProperties properties) {
+        this.properties = properties; this.context = new AiRequestContext(properties);
+        this.retries = new AiRetryExecutor(properties, context, new ObjectMapper());
+        this.client = RestClient.builder().requestFactory(new AiDeadlineRequestFactory(context, properties)).build();
     }
 
     public float[] embed(String text, boolean document) {
-        if (properties.getApiKey() == null || properties.getApiKey().isBlank()) {
-            throw new AppException(ErrorCode.AI_SERVICE_UNAVAILABLE);
-        }
+        try (var scope = context.ensure()) {
+            if (properties.getApiKey() == null || properties.getApiKey().isBlank()) {
+                context.failure(Stage.RETRIEVAL, "MISSING_API_KEY", null);
+                throw new AiCallFailure("MISSING_API_KEY", null);
+            }
+            return retries.execute(Stage.RETRIEVAL, properties.getEmbeddingModel(), () -> {
+                var body = Map.of("model", "models/" + properties.getEmbeddingModel(),
+                        "content", Map.of("parts", List.of(Map.of("text", text))),
+                        "taskType", document ? "RETRIEVAL_DOCUMENT" : "RETRIEVAL_QUERY",
+                        "outputDimensionality", DIMENSIONS);
 
-        try {
-            var body = Map.of("model", "models/" + properties.getEmbeddingModel(),
-                    "content", Map.of("parts", List.of(Map.of("text", text))),
-                    "taskType", document ? "RETRIEVAL_DOCUMENT" : "RETRIEVAL_QUERY",
-                    "outputDimensionality", DIMENSIONS);
+                EmbeddingResponse response = client.post()
+                        .uri(properties.getBaseUrl() + "/models/{model}:embedContent", properties.getEmbeddingModel())
+                        .header("x-goog-api-key", properties.getApiKey())
+                        .body(body).retrieve().body(EmbeddingResponse.class);
 
-            EmbeddingResponse response = client.post()
-                    .uri(properties.getBaseUrl() + "/models/{model}:embedContent", properties.getEmbeddingModel())
-                    .header("x-goog-api-key", properties.getApiKey())
-                    .body(body).retrieve().body(EmbeddingResponse.class);
-
-            if (response == null || response.embedding() == null)
-                throw new IllegalArgumentException("Missing embedding");
-
-            float[] values = response.embedding().values();
-            vectorLiteral(values); // Validate size, finite values and non-zero norm.
-
-            return values;
-        } catch (Exception ex) {
-            // Do not log HTTP exception messages: they can include sensitive request data.
-            throw new AppException(ErrorCode.AI_SERVICE_UNAVAILABLE);
+                if (response == null || response.embedding() == null) throw new AiCallFailure("INVALID_RESPONSE", null);
+                float[] values = response.embedding().values();
+                try { vectorLiteral(values); }
+                catch (IllegalArgumentException ex) { throw new AiCallFailure("INVALID_RESPONSE", null); }
+                return values;
+            });
         }
     }
 

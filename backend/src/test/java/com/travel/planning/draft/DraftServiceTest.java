@@ -30,7 +30,7 @@ class DraftServiceTest {
         var advisor = new DraftAiAdvisor(ai, mapper);
         var planner = new DraftTimelinePlanner(new HeldKarpSolver(new HaversineDistanceMatrixService()), new TimelineEngine(), mapper);
         service = new DraftService(intents, retrieval, repository, advisor, planner, weather, new RagDemoProperties());
-        when(ai.generate(anyString(), anyString(), anyMap())).thenThrow(new AppException(ErrorCode.AI_SERVICE_UNAVAILABLE));
+        when(ai.generate(any(com.travel.planning.ai.resilience.AiRequestContext.Stage.class), anyString(), anyString(), anyMap())).thenThrow(new AppException(ErrorCode.AI_SERVICE_UNAVAILABLE));
         when(retrieval.catalog()).thenReturn(points);
         when(repository.findAllByIdIn(anyCollection())).thenReturn(new ArrayList<>(entities(points).values()));
     }

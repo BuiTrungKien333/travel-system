@@ -10,6 +10,8 @@
 
 Đã bổ sung LLM tách ý định/phủ định và API search-from-text, xem [hướng dẫn nhập câu tự nhiên](./RAG_INTENT_POSTMAN.md). API [generate-draft](./RAG_DRAFT_POSTMAN.md) nối tiếp chọn/chia ngày, Held–Karp, timeline và chủ đề; chưa lưu itinerary hoặc tích hợp mobile. API search cũ vẫn nhận sở thích tích cực và exclusions có cấu trúc.
 
+Đã bổ sung retry có giới hạn và executionReport phân biệt AI/fallback từng bước. Xem [kịch bản demo AI/fallback và đầu vào preferences](./RAG_AI_FALLBACK_DEMO.md). Có thể chạy `./scripts/Start-RagDemo.ps1 -WithoutAi` để kiểm tra fallback mà không sửa key trong file cấu hình.
+
 ## Chất lượng dữ liệu
 
 Sự tồn tại và mô tả được đối chiếu nguồn ngày 30/10/2026; phạm vi kiểm chứng thể hiện ở `verificationScope`.

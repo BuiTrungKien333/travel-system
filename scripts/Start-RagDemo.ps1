@@ -1,4 +1,4 @@
-param([ValidateRange(1, 65535)][int]$Port = 18080)
+param([ValidateRange(1, 65535)][int]$Port = 18080, [switch]$WithoutAi)
 $ErrorActionPreference = 'Stop'
 
 $taskOccupied = [System.Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().GetActiveTcpListeners() |
@@ -26,6 +26,11 @@ foreach ($taskName in @('JWT_SECRET_KEY', 'JWT_REFRESH_KEY')) {
 }
 foreach ($taskName in $taskSettings.Keys) {
     [Environment]::SetEnvironmentVariable($taskName, $taskSettings[$taskName], 'Process')
+}
+if ($WithoutAi) {
+    # Current process only: keep the key stored in .env.rag-demo unchanged.
+    $env:GEMINI_API_KEY = ''
+    Write-Host 'AI disabled for this run. Structured preferences will use explicit fallbacks.'
 }
 $env:SERVER_PORT = $Port.ToString()
 & docker compose --env-file $taskEnvPath -f (Join-Path $taskRoot 'docker-compose.rag-demo.yml') up -d --wait

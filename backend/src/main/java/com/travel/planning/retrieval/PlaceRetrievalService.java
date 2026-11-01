@@ -2,6 +2,7 @@ package com.travel.planning.retrieval;
 
 import com.travel.common.exception.AppException;
 import com.travel.common.exception.ErrorCode;
+import com.travel.planning.ai.resilience.AiCallFailure;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
@@ -54,12 +55,15 @@ public class PlaceRetrievalService {
         List<UUID> lexical = repository.lexical(positiveQuery);
         List<UUID> semantic;
         String mode;
+        String fallbackReason = null;
         try {
             semantic = repository.semantic(embeddings.embed(positiveQuery, false), properties.getEmbeddingModel());
             mode = semantic.isEmpty() ? "LEXICAL_ONLY_NO_CURRENT_EMBEDDINGS" : "HYBRID";
+            if (semantic.isEmpty()) fallbackReason = "NO_CURRENT_EMBEDDINGS";
         } catch (AppException ex) {
             semantic = List.of();
             mode = "LEXICAL_FALLBACK_EMBEDDING_UNAVAILABLE";
+            fallbackReason = ex instanceof AiCallFailure failure ? failure.reason() : "EMBEDDING_UNAVAILABLE";
         }
         Map<UUID, Double> scores = new HashMap<>();
         addRanks(scores, lexical);
@@ -73,7 +77,7 @@ public class PlaceRetrievalService {
                 .map(p -> new Match(p, scores.get(p.placeId()), lexical.contains(p.placeId()), semanticIds.contains(p.placeId())))
                 .sorted(Comparator.comparingDouble(Match::rankScore).reversed().thenComparing(m -> m.place().placeId()))
                 .limit(limit).toList();
-        return new SearchResult(mode, properties.getEmbeddingModel(), matches);
+        return new SearchResult(mode, properties.getEmbeddingModel(), matches, fallbackReason);
     }
 
     private void addRanks(Map<UUID, Double> scores, List<UUID> ids) {
@@ -83,7 +87,10 @@ public class PlaceRetrievalService {
     public record Match(PlaceCandidate place, double rankScore, boolean lexicalMatch, boolean semanticMatch) {
     }
 
-    public record SearchResult(String retrievalMode, String embeddingModel, List<Match> matches) {
+    public record SearchResult(String retrievalMode, String embeddingModel, List<Match> matches, String fallbackReason) {
+        public SearchResult(String retrievalMode, String embeddingModel, List<Match> matches) {
+            this(retrievalMode, embeddingModel, matches, null);
+        }
     }
 
     public record IndexResult(int updated, int skipped, int failed, String model) {

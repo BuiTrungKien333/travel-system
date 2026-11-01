@@ -16,4 +16,7 @@ public class RagDemoProperties {
     private String embeddingModel = "gemini-embedding-001";
     private String intentModel = "gemini-3.5-flash";
     private String baseUrl = "https://generativelanguage.googleapis.com/v1beta";
+    private long requestDeadlineMillis = 60_000;
+    private long callTimeoutMillis = 30_000;
+    private long retryBackoffMillis = 500;
 }

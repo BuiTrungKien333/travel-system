@@ -1,6 +1,7 @@
 package com.travel.planning.draft;
 
 import com.travel.planning.ai.intent.TravelIntentService;
+import com.travel.planning.ai.resilience.AiRequestContext;
 import com.travel.planning.retrieval.PlaceCandidate;
 import com.travel.planning.retrieval.PlaceRetrievalService;
 
@@ -51,6 +52,6 @@ public final class DraftModels {
     public record Response(String status, LocalDate startDate, String timezone,
                            TravelIntentService.IntentAnalysis analysis, PlaceRetrievalService.SearchResult candidates,
                            List<Day> days, List<Unassigned> unassignedPlaces, List<Problem> issues,
-                           WeatherAdvice weather, Map<String, String> metadata) {
+                           WeatherAdvice weather, Map<String, String> metadata, AiRequestContext.Report executionReport) {
     }
 }

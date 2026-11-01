@@ -29,7 +29,10 @@ public class TravelIntentService {
     }
 
     public IntentAnalysis analyze(String text) {
-        TravelIntent intent = client.extract(text);
+        return analyze(client.extract(text), properties.getIntentModel());
+    }
+
+    private IntentAnalysis analyze(TravelIntent intent, String model) {
         List<String> missing = new ArrayList<>(), questions = new ArrayList<>(), warnings = new ArrayList<>();
         if (intent.destination() == null) {
             missing.add("destination"); questions.add("Bạn muốn đi tỉnh/thành nào? Demo hiện có dữ liệu Đà Nẵng.");
@@ -70,20 +73,29 @@ public class TravelIntentService {
                 }
             }
         }
-        String positiveQuery = String.join(" ", intent.interests().stream().map(QUERY_WORDS::get).toList());
-        if (!required.isEmpty()) positiveQuery += " " + String.join(" ", required.stream().map(PlaceCandidate::name).toList());
-        positiveQuery = positiveQuery.strip();
+        // Interests are alternatives: a museum need not also be a market to be a useful candidate.
+        // Preserve AND within each phrase, OR across independently requested interests/places.
+        List<String> positiveGroups = new ArrayList<>(intent.interests().stream().map(QUERY_WORDS::get).toList());
+        positiveGroups.addAll(required.stream().map(PlaceCandidate::name).toList());
+        String positiveQuery = String.join(" OR ", positiveGroups);
         if (intent.interests().isEmpty() && intent.mustVisitNames().isEmpty()) {
             missing.add("interests"); questions.add("Bạn muốn trải nghiệm gì: văn hóa, nghệ thuật, đi chợ hay ngắm biển/cảnh quan?");
         }
         if (supported && !questions.isEmpty()) status = "NEEDS_INPUT";
         if (!missing.isEmpty()) warnings.add("Thông tin chưa cung cấp được giữ trống. Truy xuất chỉ cần điểm đến và sở thích/điểm ghé rõ ràng; luồng lập lịch kiểm tra riêng các trường bắt buộc và công bố chính sách cho trường tùy chọn.");
         return new IntentAnalysis(status, intent, supported ? "48" : null, missing, questions, warnings,
-                positiveQuery, required, List.copyOf(excludedIds), properties.getIntentModel());
+                positiveQuery, required, List.copyOf(excludedIds), model);
     }
 
     public TextSearchResult search(String text, int limit) {
-        IntentAnalysis analysis = analyze(text);
+        return search(analyze(text), limit);
+    }
+
+    public TextSearchResult search(TravelIntent preferences, int limit) {
+        return search(analyze(preferences, null), limit);
+    }
+
+    private TextSearchResult search(IntentAnalysis analysis, int limit) {
         if (!analysis.status().equals("READY_FOR_RETRIEVAL")) return new TextSearchResult(analysis.status(), analysis, null);
         if (analysis.mustVisitPlaces().size() > limit) {
             var questions = new ArrayList<>(analysis.questions()); questions.add("Số điểm bắt buộc lớn hơn limit. Hãy tăng limit hoặc giảm số điểm bắt buộc.");
@@ -103,7 +115,7 @@ public class TravelIntentService {
             if (matches.size() >= limit) break;
             if (!excluded.contains(match.place().placeId()) && added.add(match.place().placeId())) matches.add(match);
         }
-        var candidates = new PlaceRetrievalService.SearchResult(result.retrievalMode(), result.embeddingModel(), List.copyOf(matches));
+        var candidates = new PlaceRetrievalService.SearchResult(result.retrievalMode(), result.embeddingModel(), List.copyOf(matches), result.fallbackReason());
         return new TextSearchResult(matches.isEmpty() ? "NO_CANDIDATES" : "CANDIDATES_FOUND", analysis, candidates);
     }
 

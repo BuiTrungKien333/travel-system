@@ -17,6 +17,9 @@ application:
     embedding-model: ${RAG_EMBEDDING_MODEL:gemini-embedding-001}
     intent-model: ${RAG_INTENT_MODEL:gemini-3.5-flash}
     base-url: https://generativelanguage.googleapis.com/v1beta
+    request-deadline-millis: ${RAG_AI_DEADLINE_MILLIS:60000}
+    call-timeout-millis: ${RAG_AI_CALL_TIMEOUT_MILLIS:30000}
+    retry-backoff-millis: ${RAG_AI_RETRY_BACKOFF_MILLIS:500}
 management:
   health:
     mail:

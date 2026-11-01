@@ -52,6 +52,7 @@ public class GeminiIntentClient {
     }
 
     public TravelIntent extract(String text) {
-        return validator.validate(client.generate(INSTRUCTION, text, schema).toString(), text);
+        return validator.validate(client.generate(com.travel.planning.ai.resilience.AiRequestContext.Stage.INTENT,
+                INSTRUCTION, text, schema).toString(), text);
     }
 }

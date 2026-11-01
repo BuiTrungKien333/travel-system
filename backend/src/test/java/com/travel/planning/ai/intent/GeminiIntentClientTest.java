@@ -51,7 +51,8 @@ class GeminiIntentClientTest {
     }
 
     @Test void quotaFailureIsExplicitAndNotSilentlyReplacedWithMock() {
-        server.expect(anything()).andRespond(withStatus(HttpStatus.TOO_MANY_REQUESTS));
+        server.expect(anything()).andRespond(withStatus(HttpStatus.TOO_MANY_REQUESTS).contentType(MediaType.APPLICATION_JSON)
+                .body("{\"error\":{\"details\":[{\"violations\":[{\"quotaId\":\"GenerateRequestsPerDayPerProject\"}]}]}}"));
         assertThatThrownBy(() -> client.extract(IntentFixtures.TEXT)).isInstanceOfSatisfying(AppException.class,
                 e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.AI_RATE_LIMIT_EXCEEDED)); server.verify();
     }

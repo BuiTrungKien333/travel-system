@@ -3,10 +3,14 @@ package com.travel.planning.draft;
 import com.travel.place.entity.Place;
 import com.travel.place.repository.PlaceRepository;
 import com.travel.planning.ai.intent.TravelIntentService;
+import com.travel.planning.ai.resilience.*;
+import com.travel.common.exception.AppException;
+import com.travel.common.exception.ErrorCode;
 import com.travel.planning.retrieval.*;
 import com.travel.weather.service.WeatherService;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.time.*;
 import java.util.*;
@@ -14,6 +18,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.travel.planning.draft.DraftModels.*;
+import static com.travel.planning.ai.resilience.AiRequestContext.Stage.*;
 
 @Service
 @Profile("rag-demo")
@@ -25,9 +30,12 @@ public class DraftService {
     private final DraftTimelinePlanner planner;
     private final WeatherService weather;
     private final RagDemoProperties properties;
+    private final AiRequestContext context;
 
+    @Autowired
     public DraftService(TravelIntentService intents, PlaceRetrievalService retrieval, PlaceRepository places,
-                        DraftAiAdvisor advisor, DraftTimelinePlanner planner, WeatherService weather, RagDemoProperties properties) {
+                        DraftAiAdvisor advisor, DraftTimelinePlanner planner, WeatherService weather, RagDemoProperties properties,
+                        AiRequestContext context) {
         this.intents = intents;
         this.retrieval = retrieval;
         this.places = places;
@@ -35,10 +43,44 @@ public class DraftService {
         this.planner = planner;
         this.weather = weather;
         this.properties = properties;
+        this.context = context;
+    }
+
+    public DraftService(TravelIntentService intents, PlaceRetrievalService retrieval, PlaceRepository places,
+                        DraftAiAdvisor advisor, DraftTimelinePlanner planner, WeatherService weather, RagDemoProperties properties) {
+        this(intents, retrieval, places, advisor, planner, weather, properties, new AiRequestContext(properties));
     }
 
     public Response generate(DraftController.Request request) {
-        var search = intents.search(request.text(), 8);
+        try (var scope = context.ensure()) { return generateWithinBudget(request); }
+    }
+
+    private Response generateWithinBudget(DraftController.Request request) {
+        TravelIntentService.TextSearchResult search;
+        try {
+            if (request.preferences() != null) {
+                context.record(INTENT, "USER_PROVIDED", "STRUCTURED_PREFERENCES", null, null);
+                search = intents.search(request.preferences().toIntent(), 8);
+            } else {
+                search = intents.search(request.text(), 8);
+                context.record(INTENT, "AI", "GEMINI_STRUCTURED_EXTRACTION", context.lastReason(INTENT), null);
+            }
+        } catch (AppException ex) {
+            if (request.preferences() != null) throw ex;
+            String reason = ex instanceof AiCallFailure failure ? failure.reason()
+                    : ex.getErrorCode() == ErrorCode.AI_VALIDATION_FAILED ? "INVALID_RESPONSE" : "AI_UNAVAILABLE";
+            context.failure(INTENT, reason, ex instanceof AiCallFailure failure ? failure.providerStatus() : null);
+            return response("NEEDS_STRUCTURED_INPUT", request, null, List.of(), List.of(),
+                    List.of(new Problem("INTENT_UNAVAILABLE", true, null,
+                            "Chưa đọc được yêu cầu bằng AI (" + reason + "). Hãy gửi preferences có cấu trúc thay cho text; hệ thống không tự đoán yêu cầu.")),
+                    unknownWeather(), Map.of("persistence", "PREVIEW_ONLY", "nextAction", "RESUBMIT_WITH_PREFERENCES"));
+        }
+        if (search.candidates() != null) {
+            var result = search.candidates();
+            boolean hybrid = "HYBRID".equals(result.retrievalMode());
+            context.record(RETRIEVAL, hybrid ? "AI" : "FALLBACK", hybrid ? "HYBRID_RRF" : "LEXICAL_DATABASE_SEARCH",
+                    hybrid ? context.lastReason(RETRIEVAL) : result.fallbackReason(), null);
+        }
         var analysis = search.analysis();
         var issues = new ArrayList<Problem>();
         var metadata = new LinkedHashMap<String, String>();
@@ -89,6 +131,9 @@ public class DraftService {
         if (intent.travelPace() == null)
             issues.add(new Problem("PACE_NOT_SPECIFIED", false, null, "Nhịp độ chưa nêu; sử dụng cấu hình demo cân bằng, không ghi thành sở thích người dùng."));
         var allocation = advisor.allocate(candidates, required, intent, days, request.startDate());
+        context.record(ALLOCATION, allocation.source().equals("AI") ? "AI" : "FALLBACK",
+                allocation.source().equals("AI") ? "GEMINI_VALIDATED_PLACE_REFS" : "RULE_BASED_LOAD_BALANCING",
+                allocation.source().equals("AI") ? context.lastReason(ALLOCATION) : allocation.reason(), null);
         metadata.put("allocationSource", allocation.source());
         if (allocation.warning() != null)
             issues.add(new Problem("ALLOCATION_FALLBACK", false, null, allocation.warning()));
@@ -135,6 +180,7 @@ public class DraftService {
             repairPasses++;
         }
         metadata.put("repairPasses", Integer.toString(repairPasses));
+        context.record(OPTIMIZATION, "DETERMINISTIC", "HELD_KARP_AND_TIMELINE_WITH_BOUNDED_REPAIR", null, null);
         Set<UUID> assigned = built.stream().flatMap(d -> d.stops().stream()).map(s -> s.place().placeId()).collect(Collectors.toSet());
         if (!assigned.containsAll(required)) throw new IllegalStateException("Draft lost a required place");
         var unassigned = candidates.stream().filter(p -> !assigned.contains(p.placeId()))
@@ -143,12 +189,20 @@ public class DraftService {
             issues.add(new Problem("NO_SCHEDULED_PLACES", true, null, "Chưa xếp được điểm phù hợp với yêu cầu trong kho demo; hãy điều chỉnh sở thích hoặc điều kiện loại trừ."));
             return response("NO_CANDIDATES", request, search, List.of(), unassigned, issues, unknownWeather(), metadata);
         }
-        built = advisor.narrate(built);
+        var narration = advisor.narrateWithProvenance(built);
+        built = narration.days();
+        boolean aiThemes = built.stream().allMatch(d -> "AI_GROUNDED_TEMPLATE".equals(d.summarySource()));
+        context.record(THEMES, aiThemes ? "AI" : "FALLBACK",
+                aiThemes ? "GEMINI_THEME_SELECTION_BACKEND_TEMPLATE" : "RULE_BASED_TEMPLATE",
+                aiThemes ? context.lastReason(THEMES) : narration.fallbackReason(), null);
         if (built.stream().anyMatch(d -> d.summarySource().equals("RULE_BASED_FALLBACK")))
             issues.add(new Problem("THEME_FALLBACK", false, null, "Chủ đề/tóm tắt được dựng bằng mẫu từ lịch cuối vì AI không khả dụng hoặc kết quả không hợp lệ."));
         built.forEach(d -> issues.addAll(d.issues()));
         issues.add(new Problem("ESTIMATED_ROUTE", false, null, "Quãng đường là Haversine và thời gian theo 35 km/h; chưa phải định tuyến đường bộ hay giao thông thực tế."));
         var forecast = weather(request, days);
+        context.record(WEATHER, forecast.status().equals("AVAILABLE_ORIGIN_ONLY") ? "EXTERNAL_API" : "UNAVAILABLE",
+                forecast.status().equals("AVAILABLE_ORIGIN_ONLY") ? "OPEN_METEO_ORIGIN_ONLY" : "NONE",
+                forecast.status().equals("AVAILABLE_ORIGIN_ONLY") ? null : "REAL_FORECAST_UNAVAILABLE", null);
         issues.add(new Problem("WEATHER_ADVISORY", false, null, forecast.status().equals("AVAILABLE_ORIGIN_ONLY")
                 ? "Thời tiết chỉ tham khảo tại tọa độ xuất phát; chưa xác minh theo từng điểm/khung tham quan, không bảo đảm an toàn hoạt động."
                 : "Chưa có dự báo thật đầy đủ; không dùng dữ liệu thời tiết mô phỏng để đánh giá lịch."));
@@ -171,8 +225,8 @@ public class DraftService {
 
     private Response response(String status, DraftController.Request request, TravelIntentService.TextSearchResult search,
                               List<Day> days, List<Unassigned> unassigned, List<Problem> issues, WeatherAdvice forecast, Map<String, String> metadata) {
-        return new Response(status, request.startDate(), "Asia/Ho_Chi_Minh", search.analysis(), search.candidates(),
-                List.copyOf(days), unassigned, List.copyOf(issues), forecast, Map.copyOf(metadata));
+        return new Response(status, request.startDate(), "Asia/Ho_Chi_Minh", search == null ? null : search.analysis(), search == null ? null : search.candidates(),
+                List.copyOf(days), unassigned, List.copyOf(issues), forecast, Map.copyOf(metadata), context.report());
     }
 
     private WeatherAdvice unknownWeather() {

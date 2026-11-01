@@ -36,7 +36,7 @@ Ví dụ hai ngày:
 
 Điểm xuất phát ở ví dụ chỉ là điểm neo người dùng chọn, không phải một khách sạn được xác minh. Origin không cần và không nhận placeId giả. startDate là ngày kế hoạch do người dùng chọn, không được AI đoán từ hôm nay. Demo giữ cùng origin cho mỗi ngày; không hỗ trợ đổi nơi lưu trú giữa ngày.
 
-- text bắt buộc, tối đa 1.000 ký tự. Câu cần nói rõ 1–2 ngày và khung giờ mỗi ngày.
+- Cung cấp đúng một trong text hoặc preferences. text tối đa 1.000 ký tự; câu cần nói rõ 1–2 ngày và khung giờ mỗi ngày. Đầu vào preferences và cách kiểm tra nguồn AI/fallback được mô tả trong [hướng dẫn AI/fallback](./RAG_AI_FALLBACK_DEMO.md).
 - startDate và origin bắt buộc; latitude/longitude hợp lệ, origin trong vùng demo Đà Nẵng (15.8–16.3, 107.9–108.4).
 - roundTrip mặc định true, tính cả chặng quay về vào giờ kết thúc và tổng di chuyển.
 - restMinutes mặc định 45, nhận 0–90; thêm nghỉ sau hai điểm nếu còn điểm tiếp theo. Đây là nghỉ giữa buổi, không cam kết khung ăn trưa cố định.
@@ -52,7 +52,7 @@ Ví dụ hai ngày:
 6. Sau lịch cuối, AI chọn chủ đề và điểm nhấn. Backend kiểm tra ref thuộc đúng ngày và chủ đề có căn cứ trong tags; tự dựng title/summary từ tên điểm thật. Không nhận đoạn văn tự do có thể thêm giá vé/thời tiết/sự kiện không có nguồn.
 7. Lấy một dự báo tham khảo tại origin cho khoảng ngày; kết quả mock/nguồn không được nhận diện hoặc thiếu ngày được trả UNKNOWN. Không gọi thời tiết lặp trong từng lượt solver.
 
-Luồng dùng tối đa ba generation calls (intent, allocation, themes) và một query embedding; không tự retry. Nếu intent lỗi thì trả lỗi AI như API cũ. Nếu allocation/themes lỗi hoặc không qua validation thì dùng fallback xác định, có nhãn nguồn rõ. Không gọi Copilot lần nữa cho từng ngày.
+Luồng text có tối đa ba tác vụ generation (intent, allocation, themes) và một query embedding; chỉ cho phép thêm một lần retry dùng chung toàn request khi lỗi tạm thời và còn ngân sách AI. Luồng preferences bỏ qua tác vụ intent. Nếu intent lỗi, draft trả NEEDS_STRUCTURED_INPUT và yêu cầu gửi lại preferences; không suy đoán intent. Nếu embedding/allocation/themes lỗi thì dùng fallback có ghi rõ nguồn và lý do. Không gọi Copilot lần nữa cho từng ngày.
 
 ## Đọc response
 
@@ -60,7 +60,7 @@ Trong data:
 
 | Field | Ý nghĩa |
 |---|---|
-| status | READY_WITH_WARNINGS / NEEDS_INPUT / INFEASIBLE / CONFLICTS_DETECTED / NO_CANDIDATES / UNSUPPORTED_DESTINATION |
+| status | READY_WITH_WARNINGS / NEEDS_INPUT / NEEDS_STRUCTURED_INPUT / INFEASIBLE / CONFLICTS_DETECTED / NO_CANDIDATES / UNSUPPORTED_DESTINATION |
 | analysis | Cách hiểu yêu cầu, câu hỏi, sở thích và điểm bắt buộc |
 | candidates | Kết quả truy xuất làm căn cứ |
 | days | Lịch cuối theo ngày, chủ đề/tóm tắt, điểm dừng, khoảng nghỉ và chặng về |
@@ -68,6 +68,7 @@ Trong data:
 | issues | blocking=true là vấn đề chưa giải quyết; false là cảnh báo/dữ liệu thiếu |
 | weather | Dự báo tham khảo và phạm vi bao phủ; UNKNOWN nếu chưa có dữ liệu thật đầy đủ |
 | metadata | Model, nguồn phân bổ, giới hạn tối ưu, số lượt sửa, chính sách nghỉ và nhãn PREVIEW_ONLY |
+| executionReport | Nguồn từng bước, model đã gọi, số attempt/retry, lý do fallback và quyết định retry |
 
 Mỗi days[].stops[] có:
 
@@ -104,9 +105,9 @@ Payload thiếu origin/startDate, tọa độ sai hoặc restMinutes ngoài 0–
 - Chưa xử lý ngân sách bằng tiền, yêu cầu vận động/khả năng tiếp cận, giờ hẹn cố định tại một điểm, giờ nghỉ trưa cụ thể, đặt vé hoặc thay đổi ngày từ mô tả tự nhiên. Chỉ các trường intent được hiển thị mới đang được dùng để lập lịch.
 - Không lưu Trip/itinerary. Bước xác nhận Apply, revision và giao diện là giai đoạn tiếp theo.
 
-## Kết quả kiểm tra ngày 01/11/2026
+## Kết quả kiểm tra trước khi bổ sung retry/provenance (01/11/2026)
 
 - Toàn bộ suite backend ở lượt cuối: 296 tests, 0 failures, 0 errors, 0 skipped; sau đó chạy riêng service để kiểm tra thêm nhánh không chọn được điểm nào. Có kiểm tra hai ngày qua HTTP/security chain, PostgreSQL + pgvector thật, solver và timeline thật; chỉ các ranh giới AI/embedding/weather được mô phỏng trong kiểm thử.
 - Kiểm tra provider thật với cấu hình local gemini-3.5-flash: request một ngày trả READY_WITH_WARNINGS, chủ đề “Văn hóa và nghệ thuật”, weather AVAILABLE_ORIGIN_ONLY. Bước phân bổ ở lần chạy này dùng RULE_BASED_FALLBACK vì provider 503; chủ đề dùng AI_GROUNDED_TEMPLATE. Sau smoke test, fallback được siết để không thêm ứng viên tùy chọn không có tag sở thích tích cực; có regression test riêng. Đây là một kết quả quan sát, không phải lịch hard-code.
-- Các lần thử hai ngày với provider thật bị 503 ở bước intent; chưa xác nhận được luồng hai ngày chạy trọn với provider thật. Backend trả AI_001/503, không dựng intent giả. Bản hai ngày và tình huống không đủ giờ đã được kiểm tra tích hợp.
+- Ở phiên bản trước, các lần thử hai ngày với provider thật bị 503 ở bước intent; backend trả AI_001/503. Sau thay đổi hiện tại, draft sẽ trả NEEDS_STRUCTURED_INPUT khi không lấy được intent sau chính sách retry; các API intent/search-from-text riêng vẫn trả lỗi provider. Không dựng intent giả.
 - Server kiểm tra dùng cổng tạm 18081 và được dừng sau kiểm tra; không để tiến trình nền chiếm cổng khi người dùng chạy lại demo.

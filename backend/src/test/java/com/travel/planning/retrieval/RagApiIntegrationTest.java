@@ -192,11 +192,109 @@ class RagApiIntegrationTest {
                 .andExpect(status().isBadRequest());
     }
 
+    @Test void failedIntentRequestsStructuredInputAndDoesNotInventAnItinerary() throws Exception {
+        when(intents.extract("provider unavailable")).thenThrow(new com.travel.planning.ai.resilience.AiCallFailure("QUOTA_EXHAUSTED", 429));
+        mvc.perform(post("/api/v1/public/planning/generate-draft").contentType(MediaType.APPLICATION_JSON)
+                        .content(draftBody("provider unavailable", "2026-11-02")))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("NEEDS_STRUCTURED_INPUT"))
+                .andExpect(jsonPath("$.data.analysis").isEmpty()).andExpect(jsonPath("$.data.days").isEmpty())
+                .andExpect(jsonPath("$.data.executionReport.overallMode").value("UNAVAILABLE"))
+                .andExpect(jsonPath("$.data.executionReport.stages[0].source").value("UNAVAILABLE"))
+                .andExpect(jsonPath("$.data.executionReport.stages[0].reason").value("QUOTA_EXHAUSTED"))
+                .andExpect(jsonPath("$.data.executionReport.stages[1].source").value("SKIPPED"));
+        org.mockito.Mockito.verifyNoInteractions(embeddings, structured, weather);
+    }
+
+    @Test void structuredInputWorksWithAllAiUnavailableAndLabelsEveryStageTruthfully() throws Exception {
+        when(embeddings.embed(anyString(), anyBoolean())).thenThrow(new com.travel.planning.ai.resilience.AiCallFailure("MISSING_API_KEY", null));
+        when(structured.generate(any(com.travel.planning.ai.resilience.AiRequestContext.Stage.class), anyString(), anyString(), anyMap()))
+                .thenThrow(new com.travel.planning.ai.resilience.AiCallFailure("MISSING_API_KEY", null));
+        int before = jdbc.queryForObject("SELECT count(*) FROM itineraries", Integer.class);
+        var result = mvc.perform(post("/api/v1/public/planning/generate-draft").contentType(MediaType.APPLICATION_JSON).content(structuredBody()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("READY_WITH_WARNINGS"))
+                .andExpect(jsonPath("$.data.days.length()").value(2))
+                .andExpect(jsonPath("$.data.analysis.model").isEmpty())
+                .andExpect(jsonPath("$.data.executionReport.overallMode").value("FALLBACK"))
+                .andExpect(jsonPath("$.data.executionReport.stages[0].source").value("USER_PROVIDED"))
+                .andExpect(jsonPath("$.data.executionReport.stages[1].source").value("FALLBACK"))
+                .andExpect(jsonPath("$.data.executionReport.stages[1].reason").value("MISSING_API_KEY"))
+                .andExpect(jsonPath("$.data.executionReport.stages[2].source").value("FALLBACK"))
+                .andExpect(jsonPath("$.data.executionReport.stages[3].source").value("DETERMINISTIC"))
+                .andExpect(jsonPath("$.data.executionReport.stages[4].source").value("FALLBACK"))
+                .andReturn();
+        var root = new com.fasterxml.jackson.databind.ObjectMapper().readTree(result.getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
+        var names = new java.util.ArrayList<String>();
+        for (var day : root.at("/data/days")) for (var stop : day.get("stops")) {
+            names.add(stop.at("/place/name").asText());
+            org.assertj.core.api.Assertions.assertThat(stop.at("/place/tags").toString()).doesNotContain("BEACH");
+            org.assertj.core.api.Assertions.assertThat(jdbc.queryForObject("SELECT count(*) FROM places WHERE id=?", Integer.class,
+                    java.util.UUID.fromString(stop.at("/place/placeId").asText()))).isEqualTo(1);
+        }
+        org.assertj.core.api.Assertions.assertThat(names).contains("Bảo tàng Điêu khắc Chăm");
+        org.assertj.core.api.Assertions.assertThat(names.size()).isGreaterThanOrEqualTo(3);
+        org.assertj.core.api.Assertions.assertThat(jdbc.queryForObject("SELECT count(*) FROM itineraries", Integer.class)).isEqualTo(before);
+        org.mockito.Mockito.verifyNoInteractions(intents);
+    }
+
+    @Test void structuredInputRejectsMissingOrConflictingModesInvalidTagsTimesAndDayCount() throws Exception {
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        var base = (com.fasterxml.jackson.databind.node.ObjectNode) mapper.readTree(structuredBody());
+        var both = base.deepCopy().put("text", "Đà Nẵng");
+        var neither = base.deepCopy(); neither.remove("preferences");
+        var invalidTime = base.deepCopy(); ((com.fasterxml.jackson.databind.node.ObjectNode) invalidTime.get("preferences")).put("dailyStartTime", "25:00");
+        var invalidTag = base.deepCopy(); ((com.fasterxml.jackson.databind.node.ObjectNode) invalidTag.get("preferences")).putArray("interests").add("INVENTED_TAG");
+        var tooManyDays = base.deepCopy(); ((com.fasterxml.jackson.databind.node.ObjectNode) tooManyDays.get("preferences")).put("numberOfDays", 3);
+        for (var body : java.util.List.of(both, neither, invalidTime, invalidTag, tooManyDays))
+            mvc.perform(post("/api/v1/public/planning/generate-draft").contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+                    .andExpect(status().isBadRequest());
+        org.mockito.Mockito.verifyNoInteractions(intents, embeddings, structured);
+    }
+
+    @Test void structuredPreferencesStillEnforceBusinessConflicts() throws Exception {
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        var root = (com.fasterxml.jackson.databind.node.ObjectNode) mapper.readTree(structuredBody());
+        ((com.fasterxml.jackson.databind.node.ObjectNode) root.get("preferences")).putArray("excludedTags").add("MUSEUM");
+        mvc.perform(post("/api/v1/public/planning/generate-draft").contentType(MediaType.APPLICATION_JSON).content(root.toString()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("NEEDS_INPUT"))
+                .andExpect(jsonPath("$.data.days").isEmpty())
+                .andExpect(jsonPath("$.data.executionReport.stages[0].source").value("USER_PROVIDED"));
+        org.mockito.Mockito.verifyNoInteractions(intents, embeddings, structured);
+    }
+
+    @Test void successfulAiAllocationAndThemesAreLabelledAiWhileSolverRemainsDeterministic() throws Exception {
+        float[] vector = new float[768]; vector[0] = 1;
+        when(embeddings.embed(anyString(), anyBoolean())).thenReturn(vector); retrieval.index();
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        when(structured.generate(eq(com.travel.planning.ai.resilience.AiRequestContext.Stage.ALLOCATION), anyString(), anyString(), anyMap()))
+                .thenReturn(mapper.readTree("{\"days\":[{\"dayIndex\":1,\"placeRefs\":[\"P1\"]},{\"dayIndex\":2,\"placeRefs\":[\"P2\"]}]}"));
+        when(structured.generate(eq(com.travel.planning.ai.resilience.AiRequestContext.Stage.THEMES), anyString(), anyString(), anyMap()))
+                .thenReturn(mapper.readTree("{\"days\":[{\"dayIndex\":1,\"theme\":\"MIXED\",\"highlightRefs\":[\"P1\"]},{\"dayIndex\":2,\"theme\":\"MIXED\",\"highlightRefs\":[\"P2\"]}]}"));
+        mvc.perform(post("/api/v1/public/planning/generate-draft").contentType(MediaType.APPLICATION_JSON).content(structuredBody()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("READY_WITH_WARNINGS"))
+                .andExpect(jsonPath("$.data.executionReport.overallMode").value("AI_ASSISTED"))
+                .andExpect(jsonPath("$.data.executionReport.stages[0].source").value("USER_PROVIDED"))
+                .andExpect(jsonPath("$.data.executionReport.stages[1].source").value("AI"))
+                .andExpect(jsonPath("$.data.executionReport.stages[2].source").value("AI"))
+                .andExpect(jsonPath("$.data.executionReport.stages[3].source").value("DETERMINISTIC"))
+                .andExpect(jsonPath("$.data.executionReport.stages[4].source").value("AI"))
+                .andExpect(jsonPath("$.data.days[0].summarySource").value("AI_GROUNDED_TEMPLATE"));
+        org.mockito.Mockito.verifyNoInteractions(intents);
+    }
+
+    private String structuredBody() {
+        return """
+                {"startDate":"2026-11-02","origin":{"name":"Điểm neo demo","latitude":16.065,"longitude":108.223},
+                 "preferences":{"destination":"Đà Nẵng","numberOfDays":2,"dailyStartTime":"08:00","dailyEndTime":"17:00",
+                  "interests":["MUSEUM","HISTORY","ART","LOCAL"],"excludedTags":["BEACH"],"travelPace":"RELAXED",
+                  "mustVisitNames":["Bảo tàng Điêu khắc Chăm"]}}
+                """;
+    }
+
     private void prepareDraft(TravelIntent intent) {
         float[] vector = new float[768]; vector[0] = 1;
         when(embeddings.embed(anyString(), anyBoolean())).thenReturn(vector); retrieval.index();
         when(intents.extract("full draft")).thenReturn(intent);
-        when(structured.generate(anyString(), anyString(), anyMap())).thenThrow(new AppException(ErrorCode.AI_SERVICE_UNAVAILABLE));
+        when(structured.generate(any(com.travel.planning.ai.resilience.AiRequestContext.Stage.class), anyString(), anyString(), anyMap())).thenThrow(new AppException(ErrorCode.AI_SERVICE_UNAVAILABLE));
     }
     private String draftBody(String text, String date) throws Exception {
         return new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(java.util.Map.of("text", text, "startDate", date,

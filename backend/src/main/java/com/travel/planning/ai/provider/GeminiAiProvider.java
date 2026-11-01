@@ -126,7 +126,7 @@ public class GeminiAiProvider implements AiProvider {
             return fallbackGenerator.generateFallback(context);
         }
 
-        String model = config.getModel() != null ? config.getModel() : "gemini-3.8-flash";
+        String model = config.getModel() != null ? config.getModel() : "gemini-3.5-flash";
         String baseUrl = config.getBaseUrl() != null ? config.getBaseUrl() : "https://generativelanguage.googleapis.com/v1beta";
         String endpoint = String.format("%s/models/%s:generateContent?key=%s", baseUrl, model, apiKey);
 
@@ -197,7 +197,7 @@ public class GeminiAiProvider implements AiProvider {
             return fallbackCopilotGenerator.generateFallback(context);
         }
 
-        String model = config.getModel() != null ? config.getModel() : "gemini-3.8-flash";
+        String model = config.getModel() != null ? config.getModel() : "gemini-3.5-flash";
         String baseUrl = config.getBaseUrl() != null ? config.getBaseUrl() : "https://generativelanguage.googleapis.com/v1beta";
         String endpoint = String.format("%s/models/%s:generateContent?key=%s", baseUrl, model, apiKey);
 

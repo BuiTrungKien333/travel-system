@@ -1,0 +1,187 @@
+{
+  "type": "object",
+  "properties": {
+    "destination": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "numberOfDays": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1,
+      "maximum": 30
+    },
+    "interests": {
+      "type": "array",
+      "maxItems": 10,
+      "items": {
+        "type": "string",
+        "enum": [
+          "MUSEUM",
+          "HISTORY",
+          "CULTURE",
+          "ART",
+          "LOCAL",
+          "MARKET",
+          "SHOPPING",
+          "BEACH",
+          "SCENERY",
+          "RELAX",
+          "OUTDOOR",
+          "PARK",
+          "ARCHITECTURE",
+          "TEMPLE"
+        ]
+      }
+    },
+    "excludedTags": {
+      "type": "array",
+      "maxItems": 10,
+      "items": {
+        "type": "string",
+        "enum": [
+          "MUSEUM",
+          "HISTORY",
+          "CULTURE",
+          "ART",
+          "LOCAL",
+          "MARKET",
+          "SHOPPING",
+          "BEACH",
+          "SCENERY",
+          "RELAX",
+          "OUTDOOR",
+          "PARK",
+          "ARCHITECTURE",
+          "TEMPLE"
+        ]
+      }
+    },
+    "dailyStartTime": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "dailyEndTime": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "travelPace": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "RELAXED",
+        "BALANCED",
+        "ACTIVE",
+        null
+      ]
+    },
+    "mustVisitNames": {
+      "type": "array",
+      "maxItems": 10,
+      "items": {
+        "type": "string"
+      }
+    },
+    "excludedPlaceNames": {
+      "type": "array",
+      "maxItems": 10,
+      "items": {
+        "type": "string"
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "properties": {
+        "destination": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "numberOfDays": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "interests": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "excludedTags": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "dailyStartTime": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "dailyEndTime": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "travelPace": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "mustVisitNames": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "excludedPlaceNames": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "destination",
+        "numberOfDays",
+        "interests",
+        "excludedTags",
+        "dailyStartTime",
+        "dailyEndTime",
+        "travelPace",
+        "mustVisitNames",
+        "excludedPlaceNames"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "destination",
+    "numberOfDays",
+    "interests",
+    "excludedTags",
+    "dailyStartTime",
+    "dailyEndTime",
+    "travelPace",
+    "mustVisitNames",
+    "excludedPlaceNames",
+    "evidence"
+  ],
+  "additionalProperties": false
+}

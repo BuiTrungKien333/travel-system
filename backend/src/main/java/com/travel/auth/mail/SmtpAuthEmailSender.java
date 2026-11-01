@@ -27,6 +27,8 @@ public class SmtpAuthEmailSender implements AuthEmailSender {
         String link = (google ? email.linkOverride() : verify ? properties.verifyEmailUrl() : properties.resetPasswordUrl()) + "#token=" + email.token();
         String subject = vietnamese ? (verify ? "Tripzy — Xác thực email" : "Tripzy — Đặt lại mật khẩu")
                 : (verify ? "Tripzy — Verify your email" : "Tripzy — Reset your password");
+        String action = vietnamese ? (google ? "Xác nhận đăng nhập Google" : verify ? "Xác thực email" : "Đặt lại mật khẩu")
+                : (google ? "Confirm Google sign-in" : verify ? "Verify email" : "Reset password");
 
         String intro = vietnamese ? (verify ? "Mở liên kết và chọn Xác thực email để hoàn tất đăng ký."
                 : "Mở liên kết để tạo mật khẩu mới. Sau khi đổi mật khẩu, mọi phiên cũ sẽ bị thu hồi.")
@@ -45,15 +47,26 @@ public class SmtpAuthEmailSender implements AuthEmailSender {
                 : "This single-use link expires after " + minutes + " minutes. If you did not request it, ignore this email.";
         try {
             var message = sender.createMimeMessage();
-            var helper = new MimeMessageHelper(message, "UTF-8");
+            var helper = new MimeMessageHelper(message, true, "UTF-8");
             helper.setValidateAddresses(true);
             helper.setFrom(properties.from(), "Tripzy");
             helper.setTo(email.recipient());
             helper.setSubject(subject);
-            helper.setText(intro + "\n\n" + link + "\n\n" + details, false);
+            String plainText = intro + "\n\n" + link + "\n\n" + details;
+            String html = "<!doctype html><html><body><p>" + escapeHtml(intro) + "</p><p><a href=\""
+                    + escapeHtml(link) + "\" style=\"display:inline-block;padding:12px 20px;border-radius:6px;"
+                    + "background:#168c97;color:#ffffff;text-decoration:none;font-weight:600\">"
+                    + escapeHtml(action) + "</a></p><p>" + escapeHtml(details)
+                    + "</p><p><small>" + escapeHtml(link) + "</small></p></body></html>";
+            helper.setText(plainText, html);
             sender.send(message);
         } catch (MessagingException | UnsupportedEncodingException exception) {
             throw new MailPreparationException("Cannot prepare auth email");
         }
+    }
+
+    private static String escapeHtml(String value) {
+        return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                .replace("\"", "&quot;").replace("'", "&#39;");
     }
 }

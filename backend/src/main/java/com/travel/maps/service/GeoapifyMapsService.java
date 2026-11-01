@@ -1,6 +1,6 @@
 package com.travel.maps.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import com.travel.maps.dto.PlaceSearchResult;
 import com.travel.maps.dto.RoutePoint;
 import com.travel.maps.dto.RouteRequest;

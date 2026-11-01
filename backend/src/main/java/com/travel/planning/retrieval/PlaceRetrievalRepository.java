@@ -18,7 +18,9 @@ import java.util.UUID;
 @Repository
 @Profile("rag-demo")
 public class PlaceRetrievalRepository {
+
     private final JdbcTemplate jdbc;
+
     private static final String JOINS = """
              FROM places p JOIN place_retrieval_profiles r ON r.place_id = p.id
              JOIN provinces province ON province.id = p.province_id
@@ -47,6 +49,7 @@ public class PlaceRetrievalRepository {
     public List<UUID> lexical(String query) {
         String textVector = "to_tsvector('simple', unaccent(" + DOCUMENT + "))";
         String textQuery = "websearch_to_tsquery('simple', unaccent(?))";
+
         return jdbc.query("SELECT p.id " + JOINS + " WHERE r.approved AND province.code = '48' AND "
                         + textVector + " @@ " + textQuery + " ORDER BY ts_rank(" + textVector + ", "
                         + textQuery + ") DESC, p.id LIMIT 40",

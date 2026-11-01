@@ -13,6 +13,7 @@ import java.util.List;
 @Profile("rag-demo")
 @RequestMapping("/api/v1/public/planning/retrieval")
 public class PlaceRetrievalController {
+
     private final PlaceRetrievalService service;
 
     public PlaceRetrievalController(PlaceRetrievalService service) {

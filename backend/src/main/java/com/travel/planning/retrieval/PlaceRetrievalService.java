@@ -23,22 +23,31 @@ public class PlaceRetrievalService {
         this.properties = properties;
     }
 
-    public List<PlaceCandidate> catalog() { return repository.catalog(); }
+    public List<PlaceCandidate> catalog() {
+        return repository.catalog();
+    }
 
     public IndexResult index() {
         if (!indexing.compareAndSet(false, true)) throw new AppException(ErrorCode.AI_RATE_LIMIT_EXCEEDED);
         int updated = 0, skipped = 0, failed = 0;
         try {
             for (var place : repository.catalog()) {
-                if (repository.indexed(place, properties.getEmbeddingModel())) { skipped++; continue; }
+                if (repository.indexed(place, properties.getEmbeddingModel())) {
+                    skipped++;
+                    continue;
+                }
                 try {
                     float[] vector = embeddings.embed(place.document(), true);
                     if (repository.saveEmbedding(place, properties.getEmbeddingModel(), vector)) updated++;
                     else failed++;
-                } catch (AppException ex) { failed++; }
+                } catch (AppException ex) {
+                    failed++;
+                }
             }
             return new IndexResult(updated, skipped, failed, properties.getEmbeddingModel());
-        } finally { indexing.set(false); }
+        } finally {
+            indexing.set(false);
+        }
     }
 
     public SearchResult search(String positiveQuery, List<String> excludedTags, int limit) {
@@ -71,7 +80,12 @@ public class PlaceRetrievalService {
         for (int i = 0; i < ids.size(); i++) scores.merge(ids.get(i), 1.0 / (60 + i + 1), Double::sum);
     }
 
-    public record Match(PlaceCandidate place, double rankScore, boolean lexicalMatch, boolean semanticMatch) {}
-    public record SearchResult(String retrievalMode, String embeddingModel, List<Match> matches) {}
-    public record IndexResult(int updated, int skipped, int failed, String model) {}
+    public record Match(PlaceCandidate place, double rankScore, boolean lexicalMatch, boolean semanticMatch) {
+    }
+
+    public record SearchResult(String retrievalMode, String embeddingModel, List<Match> matches) {
+    }
+
+    public record IndexResult(int updated, int skipped, int failed, String model) {
+    }
 }

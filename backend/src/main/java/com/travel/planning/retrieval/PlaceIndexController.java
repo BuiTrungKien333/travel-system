@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.*;
 @Profile("rag-demo")
 @RequestMapping("/api/v1/public/planning/retrieval")
 public class PlaceIndexController {
+
     private final PlaceRetrievalService service;
 
     public PlaceIndexController(PlaceRetrievalService service) {

@@ -14,6 +14,9 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
+import com.travel.planning.ai.intent.GeminiIntentClient;
+import com.travel.planning.ai.intent.IntentFixtures;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
@@ -38,6 +41,9 @@ class RagApiIntegrationTest {
 
     @Autowired WebApplicationContext context;
     @MockitoBean GeminiEmbeddingClient embeddings;
+    @MockitoBean GeminiIntentClient intents;
+    @Autowired JdbcTemplate jdbc;
+    @Autowired PlaceRetrievalService retrieval;
     MockMvc mvc;
 
     @BeforeEach void setup() { mvc = MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build(); }
@@ -74,6 +80,53 @@ class RagApiIntegrationTest {
     @Test void searchRejectsEmptyQueryAndExcessiveLimit() throws Exception {
         mvc.perform(post("/api/v1/public/planning/retrieval/search")
                         .contentType(MediaType.APPLICATION_JSON).content("{\"positiveQuery\":\"\",\"limit\":99}"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test void naturalTextReturnsValidatedIntentAndDatabaseCandidatesWithExclusions() throws Exception {
+        float[] vector = new float[768]; vector[0] = 1;
+        when(embeddings.embed(anyString(), anyBoolean())).thenReturn(vector);
+        retrieval.index();
+        when(intents.extract(IntentFixtures.TEXT)).thenReturn(IntentFixtures.extracted());
+        var response = mvc.perform(post("/api/v1/public/planning/retrieval/search-from-text")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(java.util.Map.of("text", IntentFixtures.TEXT))))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("CANDIDATES_FOUND"))
+                .andExpect(jsonPath("$.data.analysis.intent.numberOfDays").value(2))
+                .andExpect(jsonPath("$.data.analysis.intent.excludedTags[0]").value("BEACH"))
+                .andExpect(jsonPath("$.data.candidates.retrievalMode").value("HYBRID"))
+                .andReturn();
+        var json = new com.fasterxml.jackson.databind.ObjectMapper().readTree(response.getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8));
+        for (var match : json.at("/data/candidates/matches")) {
+            var id = java.util.UUID.fromString(match.at("/place/placeId").asText());
+            org.assertj.core.api.Assertions.assertThat(jdbc.queryForObject("SELECT count(*) FROM places WHERE id=?", Integer.class, id)).isEqualTo(1);
+            org.assertj.core.api.Assertions.assertThat(match.at("/place/tags").toString()).doesNotContain("BEACH");
+        }
+    }
+
+    @Test void beachPreferenceExcludesAllMuseums() throws Exception {
+        float[] vector = new float[768]; vector[0] = 1;
+        when(embeddings.embed(anyString(), anyBoolean())).thenReturn(vector); retrieval.index();
+        when(intents.extract("beach request")).thenReturn(IntentFixtures.intent("Đà Nẵng", java.util.List.of("BEACH"), java.util.List.of("MUSEUM"), java.util.List.of(), java.util.List.of()));
+        mvc.perform(post("/api/v1/public/planning/retrieval/search-from-text").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"text\":\"beach request\",\"limit\":4}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("CANDIDATES_FOUND"))
+                .andExpect(jsonPath("$.data.candidates.matches[*].place.tags[*]", org.hamcrest.Matchers.not(org.hamcrest.Matchers.hasItem("MUSEUM"))));
+    }
+
+    @Test void absentDestinationReturnsNeedsInputAndKeepsNullFields() throws Exception {
+        when(intents.extract("xem tranh")).thenReturn(IntentFixtures.intent(null, java.util.List.of("ART"), java.util.List.of(), java.util.List.of(), java.util.List.of()));
+        mvc.perform(post("/api/v1/public/planning/retrieval/search-from-text").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"text\":\"xem tranh\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("NEEDS_INPUT"))
+                .andExpect(jsonPath("$.data.analysis.missingFields", org.hamcrest.Matchers.hasItem("destination")))
+                .andExpect(jsonPath("$.data.candidates").isEmpty());
+    }
+
+    @Test void invalidNaturalTextIsRejectedBeforeCallingProvider() throws Exception {
+        mvc.perform(post("/api/v1/public/planning/retrieval/intent").contentType(MediaType.APPLICATION_JSON).content("{\"text\":\" \"}"))
+                .andExpect(status().isBadRequest());
+        mvc.perform(post("/api/v1/public/planning/retrieval/search-from-text").contentType(MediaType.APPLICATION_JSON).content("{\"text\":\"test\",\"limit\":9}"))
                 .andExpect(status().isBadRequest());
     }
 }

@@ -35,6 +35,10 @@ public enum ErrorCode {
     GOOGLE_NOT_CONFIGURED("AUTH_013", "error.auth.google-not-configured", HttpStatus.SERVICE_UNAVAILABLE),
     GOOGLE_ACCOUNT_CONFLICT("AUTH_014", "error.auth.google-conflict", HttpStatus.CONFLICT),
 
+    TRIP_NOT_FOUND("TRIP_001", "error.trip.not-found", HttpStatus.NOT_FOUND),
+    TRIP_REQUEST_CONFLICT("TRIP_004", "error.trip.request-conflict", HttpStatus.CONFLICT),
+    TRIP_INVALID_REFERENCE("TRIP_005", "error.trip.invalid-reference", HttpStatus.BAD_REQUEST),
+
     // --- PLANNING & ALGORITHM CODES ---
     TSP_EXCEEDS_MAX_LOCATIONS("PLANNING_001", "error.planning.tsp-exceeds-max-locations", HttpStatus.BAD_REQUEST),
     INVALID_TSP_LOCATIONS("PLANNING_002", "error.planning.invalid-tsp-locations", HttpStatus.BAD_REQUEST),

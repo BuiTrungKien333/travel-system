@@ -261,7 +261,7 @@ public class GlobalExceptionHandler {
         ErrorCode errorCode = e.getErrorCode();
         log.warn("Business exception [{}]: uri={}, messageKey={}",
                 errorCode.getCode(), request.getRequestURI(), errorCode.getMessageKey());
-        return buildErrorResponse(errorCode, null);
+        return buildErrorResponse(errorCode, e.getFieldErrors());
     }
 
     /*

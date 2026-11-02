@@ -26,7 +26,7 @@ public class TripCrudRepository {
           (SELECT count(*) FROM trip_places tp WHERE tp.trip_id=t.id) AS stop_count,
           (SELECT count(*) FROM trip_places tp WHERE tp.trip_id=t.id AND NOT EXISTS
             (SELECT 1 FROM itineraries i JOIN itinerary_items ii ON ii.itinerary_id=i.id
-             WHERE i.trip_id=t.id AND ii.place_id=tp.place_id)) AS unscheduled_count,
+             WHERE i.trip_id=t.id AND ii.place_id=tp.place_id AND ii.removed_at IS NULL)) AS unscheduled_count,
           (SELECT count(*) FROM memories m WHERE m.trip_id=t.id AND m.deleted_at IS NULL) AS memory_count
         FROM trips t
         """;
@@ -45,6 +45,54 @@ public class TripCrudRepository {
     }
     public Optional<Row> byCreateKey(UUID owner, UUID key) {
         return jdbc.query(PROJECTION + " WHERE t.user_id=? AND t.client_request_id=?", this::map, owner, key).stream().findFirst();
+    }
+    public Optional<Row> lockOwned(UUID owner, UUID id) {
+        return jdbc.query(PROJECTION + " WHERE t.user_id=? AND t.id=? FOR UPDATE OF t", this::map, owner, id).stream().findFirst();
+    }
+    public boolean provinceExists(UUID provinceId) {
+        return provinceId == null || Boolean.TRUE.equals(jdbc.queryForObject(
+                "SELECT EXISTS(SELECT 1 FROM provinces WHERE id=?)", Boolean.class, provinceId));
+    }
+    public record Metadata(String title, String destination, UUID provinceId, LocalDate start, LocalDate end,
+                           Long budget, String preferences, String accommodation, String notes) { }
+    public boolean update(UUID id, long version, Metadata value, java.time.Instant now) {
+        return jdbc.update("""
+            UPDATE trips SET name=?, destination=?, destination_province_id=?, start_date=?, end_date=?,
+                budget_amount=?, budget_currency=?, preferences=?, accommodation=?, notes=?, version=version+1, updated_at=?
+            WHERE id=? AND version=? AND deleted_at IS NULL
+            """, value.title(), value.destination(), value.provinceId(), value.start(), value.end(), value.budget(),
+                value.budget() == null ? null : "VND", value.preferences(), value.accommodation(), value.notes(),
+                java.sql.Timestamp.from(now), id, version) == 1;
+    }
+    public long movedToPoolCount(UUID id, LocalDate start, LocalDate end) {
+        return Objects.requireNonNull(jdbc.queryForObject("""
+            SELECT count(DISTINCT ii.place_id) FROM itinerary_items ii JOIN itineraries i ON i.id=ii.itinerary_id
+            WHERE i.trip_id=? AND ii.removed_at IS NULL AND (ii.date<? OR ii.date>?) AND NOT EXISTS (
+                SELECT 1 FROM itinerary_items kept JOIN itineraries ki ON ki.id=kept.itinerary_id
+                WHERE ki.trip_id=i.trip_id AND kept.place_id=ii.place_id AND kept.removed_at IS NULL AND kept.date BETWEEN ? AND ?)
+            """, Long.class, id, start, end, start, end));
+    }
+    public void changeDates(UUID id, LocalDate start, LocalDate end, java.time.Instant now) {
+        // Preserve legacy memberships missing from trip_places; never overwrite its canonical notes/duration/visited.
+        jdbc.update("""
+            INSERT INTO trip_places(trip_id,place_id)
+            SELECT DISTINCT i.trip_id, ii.place_id FROM itineraries i JOIN itinerary_items ii ON ii.itinerary_id=i.id
+            WHERE i.trip_id=? AND ii.removed_at IS NULL AND (ii.date<? OR ii.date>?)
+            ON CONFLICT (trip_id,place_id) DO NOTHING
+            """, id, start, end);
+        jdbc.update("""
+            UPDATE itinerary_items ii SET removed_at=?, updated_at=? FROM itineraries i
+            WHERE i.id=ii.itinerary_id AND i.trip_id=? AND ii.removed_at IS NULL AND (ii.date<? OR ii.date>?)
+            """, java.sql.Timestamp.from(now), java.sql.Timestamp.from(now), id, start, end);
+        jdbc.update("DELETE FROM trip_days WHERE trip_id=? AND (date<? OR date>?)", id, start, end);
+        var dates = start.datesUntil(end.plusDays(1)).toList();
+        jdbc.batchUpdate("INSERT INTO trip_days(trip_id,date) VALUES (?,?) ON CONFLICT (trip_id,date) DO NOTHING", dates, 100,
+                (ps, date) -> { ps.setObject(1,id); ps.setObject(2,date); });
+    }
+    public void softDelete(UUID id, java.time.Instant now) {
+        var timestamp = java.sql.Timestamp.from(now);
+        jdbc.update("UPDATE trips SET deleted_at=?, updated_at=?, version=version+1 WHERE id=? AND deleted_at IS NULL", timestamp, timestamp, id);
+        jdbc.update("UPDATE memories SET deleted_at=?, updated_at=? WHERE trip_id=? AND deleted_at IS NULL", timestamp, timestamp, id);
     }
     public boolean referencesExist(CreateTripRequest r) {
         if (r.destination().provinceId() != null && !Boolean.TRUE.equals(jdbc.queryForObject(

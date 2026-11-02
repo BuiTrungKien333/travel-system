@@ -2,6 +2,8 @@ package com.travel.trip.controller;
 
 import com.travel.common.response.ApiResponse;
 import com.travel.trip.dto.CreateTripRequest;
+import com.travel.trip.dto.UpdateTripRequest;
+import com.travel.trip.dto.TripDateChangeRequest;
 import com.travel.trip.dto.TripResponses;
 import com.travel.trip.service.TripCrudService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -38,4 +40,18 @@ public class TripController {
     }
     @GetMapping("/{tripId}")
     public ApiResponse<TripResponses.Read> get(@PathVariable UUID tripId) { return ApiResponse.success(service.get(tripId)); }
+
+    @PatchMapping("/{tripId}")
+    public ApiResponse<TripResponses.Read> update(@PathVariable UUID tripId, @Valid @RequestBody UpdateTripRequest request) {
+        return ApiResponse.success(service.update(tripId, request));
+    }
+    @PostMapping("/{tripId}/date-change-preview")
+    public ApiResponse<TripResponses.DateImpact> preview(@PathVariable UUID tripId, @Valid @RequestBody TripDateChangeRequest request) {
+        return ApiResponse.success(service.previewDates(tripId, request));
+    }
+    @DeleteMapping("/{tripId}")
+    public ResponseEntity<Void> delete(@PathVariable UUID tripId, @RequestParam long version) {
+        service.delete(tripId, version);
+        return ResponseEntity.noContent().build();
+    }
 }

@@ -28,4 +28,7 @@ public final class TripResponses {
     public record Read(Detail trip, Context context) { }
     public record Page<T>(List<T> content, int page, int size, long totalElements, long totalPages, Context context) { }
     public record Created(Read result, boolean created) { }
+    public record DateImpact(long baseVersion, LocalDate startDate, LocalDate endDate, int dayCount,
+                             List<LocalDate> removedDates, List<LocalDate> addedDates,
+                             long movedToPoolCount, boolean requiresAcknowledgement) { }
 }

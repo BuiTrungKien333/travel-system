@@ -1,18 +1,20 @@
 package com.travel.planning.ai.resilience;
 
-import com.travel.planning.retrieval.RagDemoProperties;
+import com.travel.planning.retrieval.config.RagDemoProperties;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
-import org.springframework.beans.factory.annotation.Autowired;
+
 import java.util.*;
 import java.util.function.LongSupplier;
+import java.util.function.Supplier;
 
 @Component
 @Profile("rag-demo")
 public class AiRequestContext {
     public enum Stage { INTENT, RETRIEVAL, ALLOCATION, OPTIMIZATION, THEMES, WEATHER }
     public record StageResult(Stage stage, String source, String method, String model, int attempts,
-                              int retries, String reason, Integer lastProviderStatus, String retryDecision) {}
+                              int retries, String reason, Integer lastProviderStatus, String retryDecision, long elapsedMillis) {}
     public record Report(String overallMode, long deadlineMillis, long elapsedMillis, int retriesUsed,
                          List<StageResult> stages) {}
     private final ThreadLocal<Budget> local = new ThreadLocal<>();
@@ -51,14 +53,21 @@ public class AiRequestContext {
         record(stage, "UNAVAILABLE", "NONE", reason, status);
     }
     public String lastReason(Stage stage) { return state(stage).reason; }
+    public <T> T measure(Stage stage, Supplier<T> operation) {
+        long started = nanoTime.getAsLong();
+        try { return operation.get(); }
+        finally { state(stage).elapsedNanos += Math.max(0, nanoTime.getAsLong() - started); }
+    }
+    public void elapsedMillis(Stage stage, long millis) { state(stage).elapsedNanos = Math.max(0, millis) * 1_000_000; }
+    public void reuseModel(Stage target, Stage source) { state(target).model = state(source).model; }
     public Report report() {
         Budget b = required();
         var stages = Arrays.stream(Stage.values()).map(stage -> {
             var s = b.stages.get(stage);
-            return new StageResult(stage, s.source, s.method, s.model, s.attempts, s.retries, s.reason, s.status, s.retryDecision);
+            return new StageResult(stage, s.source, s.method, s.model, s.attempts, s.retries, s.reason, s.status, s.retryDecision, s.elapsedNanos / 1_000_000);
         }).toList();
-        boolean ai = stages.stream().anyMatch(s -> s.source().equals("AI"));
-        boolean fallback = stages.stream().anyMatch(s -> s.source().equals("FALLBACK"));
+        boolean ai = stages.stream().anyMatch(s -> s.source().equals("AI") || s.source().equals("AI_WITH_FALLBACK"));
+        boolean fallback = stages.stream().anyMatch(s -> s.source().equals("FALLBACK") || s.source().equals("AI_WITH_FALLBACK"));
         boolean input = stages.stream().anyMatch(s -> s.source().equals("USER_PROVIDED"));
         String overall = ai ? fallback ? "AI_WITH_FALLBACK" : "AI_ASSISTED"
                 : fallback ? "FALLBACK" : input ? "USER_PROVIDED" : "UNAVAILABLE";
@@ -71,6 +80,7 @@ public class AiRequestContext {
     private MutableStage state(Stage stage) { return required().stages.get(stage); }
     private static class MutableStage {
         String source = "SKIPPED", method = "NONE", model, reason, retryDecision = "NONE"; Integer status; int attempts, retries;
+        long elapsedNanos;
     }
     private static class Budget {
         final long startNanos, limitMillis; int retriesUsed;

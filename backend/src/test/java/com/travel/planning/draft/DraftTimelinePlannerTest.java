@@ -3,10 +3,14 @@ package com.travel.planning.draft;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.travel.planning.algorithm.HaversineDistanceMatrixService;
 import com.travel.planning.algorithm.HeldKarpSolver;
+import com.travel.planning.draft.dto.response.DraftResponse;
+import com.travel.planning.draft.service.DraftTimelinePlanner;
 import com.travel.planning.timeline.TimelineEngine;
 import org.junit.jupiter.api.Test;
+
 import java.time.*;
 import java.util.*;
+
 import static com.travel.planning.draft.DraftFixtures.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -18,7 +22,7 @@ class DraftTimelinePlannerTest {
         var result = planner.build(1, DATE, LocalTime.of(8,0), LocalTime.of(17,0), ORIGIN, true, 45, 10, points, entities(points));
         assertThat(result.stops()).extracting(s -> s.place().placeId()).containsExactlyInAnyOrder(points.get(0).placeId(), points.get(1).placeId());
         assertThat(result.returnToOrigin()).isNotNull(); assertThat(result.finish()).isEqualTo(result.returnToOrigin().arrival());
-        assertThat(result.totalTransitMinutes()).isEqualTo(result.stops().stream().mapToInt(DraftModels.Stop::transitMinutes).sum() + result.returnToOrigin().minutes());
+        assertThat(result.totalTransitMinutes()).isEqualTo(result.stops().stream().mapToInt(DraftResponse.Stop::transitMinutes).sum() + result.returnToOrigin().minutes());
         assertThat(result.blocked()).isFalse(); assertThat(result.totalDistanceKm()).isPositive();
     }
 
@@ -45,7 +49,7 @@ class DraftTimelinePlannerTest {
         var point = candidate(1);
         var result = planner.build(1, DATE, LocalTime.of(8,0), LocalTime.of(8,30), ORIGIN, true, 0, 0, List.of(point), entities(List.of(point)));
         assertThat(result.blocked()).isTrue();
-        assertThat(result.issues()).extracting(DraftModels.Problem::code).contains("DAY_END_EXCEEDED", "UNVERIFIED_HOURS", "APPROXIMATE_COORDINATES");
+        assertThat(result.issues()).extracting(DraftResponse.Problem::code).contains("DAY_END_EXCEEDED", "UNVERIFIED_HOURS", "APPROXIMATE_COORDINATES");
     }
 
     @Test void visitAfterClosingOrCrossingClosingIsBlocking() {
@@ -58,6 +62,6 @@ class DraftTimelinePlannerTest {
     @Test void emptyDayHasNoFabricatedVisitsOrTravel() {
         var day = planner.build(2, DATE, LocalTime.of(8,0), LocalTime.of(17,0), ORIGIN, true, 45, 15, List.of(), Map.of());
         assertThat(day.stops()).isEmpty(); assertThat(day.totalDistanceKm()).isZero(); assertThat(day.finish()).isEqualTo(day.start());
-        assertThat(day.issues()).extracting(DraftModels.Problem::code).contains("EMPTY_DAY");
+        assertThat(day.issues()).extracting(DraftResponse.Problem::code).contains("EMPTY_DAY");
     }
 }

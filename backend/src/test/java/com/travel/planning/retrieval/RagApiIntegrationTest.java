@@ -1,10 +1,20 @@
 package com.travel.planning.retrieval;
 
+import com.travel.common.exception.AppException;
+import com.travel.common.exception.ErrorCode;
+import com.travel.planning.ai.intent.IntentFixtures;
+import com.travel.planning.ai.intent.model.TravelIntent;
+import com.travel.planning.ai.intent.provider.GeminiIntentClient;
+import com.travel.planning.ai.provider.GeminiStructuredClient;
+import com.travel.planning.retrieval.provider.GeminiEmbeddingClient;
+import com.travel.planning.retrieval.service.PlaceRetrievalService;
+import com.travel.weather.service.WeatherService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -14,14 +24,6 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
-import com.travel.planning.ai.intent.GeminiIntentClient;
-import com.travel.planning.ai.intent.IntentFixtures;
-import com.travel.planning.ai.intent.TravelIntent;
-import com.travel.planning.ai.provider.GeminiStructuredClient;
-import com.travel.common.exception.AppException;
-import com.travel.common.exception.ErrorCode;
-import com.travel.weather.service.WeatherService;
-import org.springframework.jdbc.core.JdbcTemplate;
 
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
@@ -266,9 +268,7 @@ class RagApiIntegrationTest {
         when(embeddings.embed(anyString(), anyBoolean())).thenReturn(vector); retrieval.index();
         var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
         when(structured.generate(eq(com.travel.planning.ai.resilience.AiRequestContext.Stage.ALLOCATION), anyString(), anyString(), anyMap()))
-                .thenReturn(mapper.readTree("{\"days\":[{\"dayIndex\":1,\"placeRefs\":[\"P1\"]},{\"dayIndex\":2,\"placeRefs\":[\"P2\"]}]}"));
-        when(structured.generate(eq(com.travel.planning.ai.resilience.AiRequestContext.Stage.THEMES), anyString(), anyString(), anyMap()))
-                .thenReturn(mapper.readTree("{\"days\":[{\"dayIndex\":1,\"theme\":\"MIXED\",\"highlightRefs\":[\"P1\"]},{\"dayIndex\":2,\"theme\":\"MIXED\",\"highlightRefs\":[\"P2\"]}]}"));
+                .thenReturn(mapper.readTree("{\"days\":[{\"dayIndex\":1,\"placeRefs\":[\"P1\"],\"theme\":\"MIXED\",\"highlightRefs\":[\"P1\"]},{\"dayIndex\":2,\"placeRefs\":[\"P2\"],\"theme\":\"MIXED\",\"highlightRefs\":[\"P2\"]}]}"));
         mvc.perform(post("/api/v1/public/planning/generate-draft").contentType(MediaType.APPLICATION_JSON).content(structuredBody()))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("READY_WITH_WARNINGS"))
                 .andExpect(jsonPath("$.data.executionReport.overallMode").value("AI_ASSISTED"))
@@ -277,7 +277,9 @@ class RagApiIntegrationTest {
                 .andExpect(jsonPath("$.data.executionReport.stages[2].source").value("AI"))
                 .andExpect(jsonPath("$.data.executionReport.stages[3].source").value("DETERMINISTIC"))
                 .andExpect(jsonPath("$.data.executionReport.stages[4].source").value("AI"))
-                .andExpect(jsonPath("$.data.days[0].summarySource").value("AI_GROUNDED_TEMPLATE"));
+                .andExpect(jsonPath("$.data.days[0].summarySource").value("AI_GROUNDED_TEMPLATE"))
+                .andExpect(jsonPath("$.data.executionReport.stages[4].attempts").value(0));
+        org.mockito.Mockito.verify(structured, org.mockito.Mockito.never()).generate(eq(com.travel.planning.ai.resilience.AiRequestContext.Stage.THEMES), anyString(), anyString(), anyMap());
         org.mockito.Mockito.verifyNoInteractions(intents);
     }
 

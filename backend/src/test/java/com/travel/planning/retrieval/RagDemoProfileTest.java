@@ -1,9 +1,11 @@
 package com.travel.planning.retrieval;
 
+import com.travel.planning.ai.intent.controller.TravelIntentController;
+import com.travel.planning.draft.controller.DraftController;
+import com.travel.planning.retrieval.controller.PlaceIndexController;
+import com.travel.planning.retrieval.controller.PlaceRetrievalController;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
-import com.travel.planning.ai.intent.TravelIntentController;
-import com.travel.planning.draft.DraftController;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

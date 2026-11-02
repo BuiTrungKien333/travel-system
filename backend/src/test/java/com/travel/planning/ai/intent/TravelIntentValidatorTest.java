@@ -3,6 +3,7 @@ package com.travel.planning.ai.intent;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.travel.common.exception.AppException;
 import com.travel.common.exception.ErrorCode;
+import com.travel.planning.ai.intent.validator.TravelIntentValidator;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;

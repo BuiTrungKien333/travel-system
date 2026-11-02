@@ -1,19 +1,21 @@
 package com.travel.planning.ai.resilience;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.travel.planning.retrieval.RagDemoProperties;
+import com.travel.planning.retrieval.config.RagDemoProperties;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.web.client.*;
+
 import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.time.*;
 import java.util.*;
 import java.util.concurrent.atomic.*;
-import static org.assertj.core.api.Assertions.*;
+
 import static com.travel.planning.ai.resilience.AiRequestContext.Stage.*;
+import static org.assertj.core.api.Assertions.*;
 
 class AiRetryExecutorTest {
     final RagDemoProperties properties = new RagDemoProperties();

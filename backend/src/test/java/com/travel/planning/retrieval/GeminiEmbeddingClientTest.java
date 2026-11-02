@@ -1,6 +1,8 @@
 package com.travel.planning.retrieval;
 
 import com.travel.common.exception.AppException;
+import com.travel.planning.retrieval.config.RagDemoProperties;
+import com.travel.planning.retrieval.provider.GeminiEmbeddingClient;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;

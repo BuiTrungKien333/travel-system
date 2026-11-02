@@ -1,6 +1,12 @@
 package com.travel.planning.ai.intent;
 
-import com.travel.planning.retrieval.*;
+import com.travel.planning.ai.intent.model.TravelIntent;
+import com.travel.planning.ai.intent.provider.GeminiIntentClient;
+import com.travel.planning.ai.intent.service.TravelIntentService;
+import com.travel.planning.retrieval.config.RagDemoProperties;
+import com.travel.planning.retrieval.dto.response.PlaceSearchResponse;
+import com.travel.planning.retrieval.model.PlaceCandidate;
+import com.travel.planning.retrieval.service.PlaceRetrievalService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -65,7 +71,7 @@ class TravelIntentServiceTest {
 
     @Test void requiredPlaceUsesDatabaseIdAndIsKeptEvenWithNoRankedMatches() {
         when(client.extract("text")).thenReturn(IntentFixtures.intent("Da Nang", List.of(), List.of(), List.of("Mỹ Khê"), List.of()));
-        when(retrieval.search(anyString(), anyList(), eq(8))).thenReturn(new PlaceRetrievalService.SearchResult("LEXICAL", "fixture", List.of()));
+        when(retrieval.search(anyString(), anyList(), eq(8))).thenReturn(new PlaceSearchResponse("LEXICAL", "fixture", List.of()));
         var result = service.search("text", 1);
         assertThat(result.status()).isEqualTo("CANDIDATES_FOUND");
         assertThat(result.candidates().matches()).extracting(m -> m.place().placeId()).containsExactly(beach.placeId());
@@ -74,8 +80,8 @@ class TravelIntentServiceTest {
 
     @Test void excludesSpecificNameWithoutExcludingItsWholeCategory() {
         when(client.extract("text")).thenReturn(IntentFixtures.intent("Đà Nẵng", List.of("SCENERY"), List.of(), List.of(), List.of("Mỹ Khê")));
-        when(retrieval.search(anyString(), anyList(), eq(8))).thenReturn(new PlaceRetrievalService.SearchResult("fixture", "fixture", List.of(
-                new PlaceRetrievalService.Match(beach, .03, true, true), new PlaceRetrievalService.Match(museum, .02, true, true))));
+        when(retrieval.search(anyString(), anyList(), eq(8))).thenReturn(new PlaceSearchResponse("fixture", "fixture", List.of(
+                new PlaceSearchResponse.Match(beach, .03, true, true), new PlaceSearchResponse.Match(museum, .02, true, true))));
         var result = service.search("text", 4);
         assertThat(result.candidates().matches()).extracting(m -> m.place().placeId()).containsExactly(museum.placeId());
         assertThat(result.analysis().intent().excludedTags()).isEmpty();

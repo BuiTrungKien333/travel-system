@@ -1,11 +1,12 @@
 package com.travel.planning.ai.resilience;
 
-import com.travel.planning.retrieval.RagDemoProperties;
+import com.travel.planning.retrieval.config.RagDemoProperties;
 import jakarta.servlet.ServletException;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.*;
-import static org.assertj.core.api.Assertions.*;
+
 import static com.travel.planning.ai.resilience.AiRequestContext.Stage.INTENT;
+import static org.assertj.core.api.Assertions.*;
 
 class AiRequestBudgetFilterTest {
     @Test void filterCleansUpEvenWhenRequestThrows() throws Exception {

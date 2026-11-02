@@ -1,5 +1,9 @@
 package com.travel.planning.retrieval;
 
+import com.travel.planning.retrieval.config.RagDemoProperties;
+import com.travel.planning.retrieval.provider.GeminiEmbeddingClient;
+import com.travel.planning.retrieval.repository.PlaceRetrievalRepository;
+import com.travel.planning.retrieval.service.PlaceRetrievalService;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.*;
 import org.springframework.jdbc.core.JdbcTemplate;

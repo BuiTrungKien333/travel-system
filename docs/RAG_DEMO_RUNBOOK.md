@@ -12,6 +12,8 @@
 
 Đã bổ sung retry có giới hạn và executionReport phân biệt AI/fallback từng bước. Xem [kịch bản demo AI/fallback và đầu vào preferences](./RAG_AI_FALLBACK_DEMO.md). Có thể chạy `./scripts/Start-RagDemo.ps1 -WithoutAi` để kiểm tra fallback mà không sửa key trong file cấu hình.
 
+Core đã được tổ chức lại theo feature/layer, gộp allocation + chủ đề và chạy thời tiết song song. Xem [cấu trúc, timing và kết quả đo trước/sau](./RAG_CORE_OPTIMIZATION.md). Sau khi đổi package, clean output build cũ trước khi khởi động lại.
+
 ## Chất lượng dữ liệu
 
 Sự tồn tại và mô tả được đối chiếu nguồn ngày 30/10/2026; phạm vi kiểm chứng thể hiện ở `verificationScope`.

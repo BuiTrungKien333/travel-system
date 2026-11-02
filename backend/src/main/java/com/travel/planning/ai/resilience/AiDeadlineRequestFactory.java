@@ -1,7 +1,8 @@
 package com.travel.planning.ai.resilience;
 
-import com.travel.planning.retrieval.RagDemoProperties;
+import com.travel.planning.retrieval.config.RagDemoProperties;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
+
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.SocketTimeoutException;

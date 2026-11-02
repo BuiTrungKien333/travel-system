@@ -2,18 +2,20 @@ package com.travel.planning.ai.resilience;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.travel.planning.ai.provider.GeminiStructuredClient;
-import com.travel.planning.retrieval.RagDemoProperties;
+import com.travel.planning.retrieval.config.RagDemoProperties;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.*;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
+
 import java.time.Clock;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
+
+import static com.travel.planning.ai.resilience.AiRequestContext.Stage.*;
 import static org.assertj.core.api.Assertions.*;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.*;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.*;
-import static com.travel.planning.ai.resilience.AiRequestContext.Stage.*;
 
 class GeminiStructuredRetryTest {
     @Test void transportRetriesSameKeyAndSubsequentStageCannotRetryAgain() {

@@ -1,11 +1,12 @@
 package com.travel.planning.ai.resilience;
 
 import com.fasterxml.jackson.databind.*;
-import com.travel.planning.retrieval.RagDemoProperties;
+import com.travel.planning.retrieval.config.RagDemoProperties;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.*;
+
 import java.math.*;
 import java.net.*;
 import java.time.*;
@@ -13,6 +14,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.*;
+
 import static com.travel.planning.ai.resilience.AiRequestContext.Stage;
 
 @Component

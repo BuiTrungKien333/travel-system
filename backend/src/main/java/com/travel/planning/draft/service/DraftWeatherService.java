@@ -12,7 +12,9 @@ import java.util.concurrent.*;
 
 import static com.travel.planning.draft.dto.response.DraftResponse.*;
 
-/** Independent advisory I/O. Worker threads never touch the AI request context or database. */
+/**
+ * Independent advisory I/O. Worker threads never touch the AI request context or database.
+ */
 @Service
 @Profile("rag-demo")
 public class DraftWeatherService {
@@ -44,7 +46,8 @@ public class DraftWeatherService {
     private WeatherAdvice fetch(GenerateDraftRequest request, int days) {
         try {
             var forecast = weather.getForecast(request.origin().latitude(), request.origin().longitude(), request.startDate(), request.startDate().plusDays(days - 1));
-            if (forecast == null || !"open-meteo".equals(forecast.providerName()) || forecast.dailySummaries() == null) return unknown();
+            if (forecast == null || !"open-meteo".equals(forecast.providerName()) || forecast.dailySummaries() == null)
+                return unknown();
             var summaries = forecast.dailySummaries().stream()
                     .filter(d -> !d.date().isBefore(request.startDate()) && d.date().isBefore(request.startDate().plusDays(days))).toList();
             if (summaries.size() != days) return unknown();
@@ -52,21 +55,32 @@ public class DraftWeatherService {
                     .map(d -> new WeatherDay(d.date(), d.minTemperature(), d.maxTemperature(), d.maxPrecipitationProbability(),
                             d.dominantCondition() == null ? "UNKNOWN" : d.dominantCondition().name(),
                             d.highestRiskLevel() == null ? "UNKNOWN" : d.highestRiskLevel().name())).toList());
-        } catch (Exception ex) { return unknown(); }
+        } catch (Exception ex) {
+            return unknown();
+        }
     }
 
-    public static WeatherAdvice unknown() { return new WeatherAdvice("UNKNOWN", "UNAVAILABLE", "ORIGIN_COORDINATES_ONLY", List.of()); }
-    private static long elapsed(long started) { return TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started); }
-    public record Forecast(WeatherAdvice advice, long elapsedMillis, String reason) {}
+    public static WeatherAdvice unknown() {
+        return new WeatherAdvice("UNKNOWN", "UNAVAILABLE", "ORIGIN_COORDINATES_ONLY", List.of());
+    }
+
+    private static long elapsed(long started) {
+        return TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started);
+    }
+
+    public record Forecast(WeatherAdvice advice, long elapsedMillis, String reason) {
+    }
 
     public static final class PendingForecast implements AutoCloseable {
         private final Future<Forecast> future;
         private final long started, timeoutMillis;
+
         private PendingForecast(Future<Forecast> future, long started, long timeoutMillis) {
             this.future = future;
             this.started = started;
             this.timeoutMillis = timeoutMillis;
         }
+
         public Forecast await() {
             try {
                 Forecast forecast = future.get(Math.max(0, timeoutMillis - elapsed(started)), TimeUnit.MILLISECONDS);
@@ -78,8 +92,14 @@ public class DraftWeatherService {
                 return new Forecast(unknown(), elapsed(started), "WEATHER_DEADLINE_EXCEEDED");
             } catch (ExecutionException | CancellationException ex) {
                 return new Forecast(unknown(), elapsed(started), "REAL_FORECAST_UNAVAILABLE");
-            } finally { close(); }
+            } finally {
+                close();
+            }
         }
-        @Override public void close() { future.cancel(true); }
+
+        @Override
+        public void close() {
+            future.cancel(true);
+        }
     }
 }

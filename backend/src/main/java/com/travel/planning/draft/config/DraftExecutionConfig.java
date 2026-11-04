@@ -9,6 +9,7 @@ import java.util.concurrent.*;
 @Configuration
 @Profile("rag-demo")
 public class DraftExecutionConfig {
+
     @Bean(name = "ragDraftWeatherExecutor", destroyMethod = "shutdownNow")
     public ExecutorService weatherExecutor() {
         return new ThreadPoolExecutor(2, 4, 30, TimeUnit.SECONDS, new ArrayBlockingQueue<>(16),

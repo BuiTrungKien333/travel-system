@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 @Profile("rag-demo")
 @RequestMapping("/api/v1/public/planning")
 public class DraftController {
+
     private final DraftService service;
 
     public DraftController(DraftService service) {

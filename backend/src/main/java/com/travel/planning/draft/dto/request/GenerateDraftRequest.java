@@ -34,10 +34,13 @@ public record GenerateDraftRequest(
                          @NotNull @DecimalMin("-180") @DecimalMax("180") Double longitude) {
     }
 
-    public enum Tag { MUSEUM, HISTORY, CULTURE, ART, LOCAL, MARKET, SHOPPING, BEACH, SCENERY, RELAX, OUTDOOR, PARK, ARCHITECTURE, TEMPLE }
-    public enum Pace { RELAXED, BALANCED, ACTIVE }
+    public enum Tag {MUSEUM, HISTORY, CULTURE, ART, LOCAL, MARKET, SHOPPING, BEACH, SCENERY, RELAX, OUTDOOR, PARK, ARCHITECTURE, TEMPLE}
 
-    /** Explicit user input; never presented as an AI-extracted intent. */
+    public enum Pace {RELAXED, BALANCED, ACTIVE}
+
+    /**
+     * Explicit user input; never presented as an AI-extracted intent.
+     */
     public record Preferences(@NotBlank @Size(max = 160) String destination,
                               @NotNull @Min(1) @Max(2) Integer numberOfDays,
                               @Size(max = 10) List<@NotNull Tag> interests,

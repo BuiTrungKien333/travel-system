@@ -9,9 +9,10 @@ import java.time.*;
 import java.util.*;
 
 public record DraftResponse(String status, LocalDate startDate, String timezone,
-                           IntentAnalysisResponse analysis, PlaceSearchResponse candidates,
-                           List<Day> days, List<Unassigned> unassignedPlaces, List<Problem> issues,
-                           WeatherAdvice weather, Map<String, String> metadata, AiRequestContext.Report executionReport) {
+                            IntentAnalysisResponse analysis, PlaceSearchResponse candidates,
+                            List<Day> days, List<Unassigned> unassignedPlaces, List<Problem> issues,
+                            WeatherAdvice weather, Map<String, String> metadata,
+                            AiRequestContext.Report executionReport) {
     public record Problem(String code, boolean blocking, UUID placeId, String message) {
     }
 

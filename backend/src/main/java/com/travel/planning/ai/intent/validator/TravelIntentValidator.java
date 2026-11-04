@@ -22,7 +22,9 @@ public class TravelIntentValidator {
             "dailyStartTime", "dailyEndTime", "travelPace", "mustVisitNames", "excludedPlaceNames");
     private final ObjectMapper mapper;
 
-    public TravelIntentValidator(ObjectMapper mapper) { this.mapper = mapper; }
+    public TravelIntentValidator(ObjectMapper mapper) {
+        this.mapper = mapper;
+    }
 
     public TravelIntent validate(String json, String source) {
         try {
@@ -37,8 +39,10 @@ public class TravelIntentValidator {
                 if (ARRAYS.contains(field)) {
                     if (!value.isArray() || value.size() > 10) throw invalid();
                     for (JsonNode item : value) {
-                        if (!item.isTextual() || item.asText().isBlank() || item.asText().length() > 160) throw invalid();
-                        if ((field.equals("interests") || field.equals("excludedTags")) && !TAGS.contains(item.asText())) throw invalid();
+                        if (!item.isTextual() || item.asText().isBlank() || item.asText().length() > 160)
+                            throw invalid();
+                        if ((field.equals("interests") || field.equals("excludedTags")) && !TAGS.contains(item.asText()))
+                            throw invalid();
                     }
                     supplied = !value.isEmpty();
                 } else if (field.equals("numberOfDays")) {
@@ -46,10 +50,12 @@ public class TravelIntentValidator {
                             || value.intValue() < 1 || value.intValue() > 30)) throw invalid();
                     supplied = !value.isNull();
                 } else {
-                    if (!value.isNull() && (!value.isTextual() || value.asText().isBlank() || value.asText().length() > 160)) throw invalid();
+                    if (!value.isNull() && (!value.isTextual() || value.asText().isBlank() || value.asText().length() > 160))
+                        throw invalid();
                     supplied = !value.isNull();
                 }
-                if (supplied && (quote.isNull() || quote.asText().isBlank() || !source.contains(quote.asText()))) throw invalid();
+                if (supplied && (quote.isNull() || quote.asText().isBlank() || !source.contains(quote.asText())))
+                    throw invalid();
                 if (!supplied && !quote.isNull()) throw invalid();
             }
             TravelIntent intent = mapper.treeToValue(root, TravelIntent.class);
@@ -59,7 +65,8 @@ public class TravelIntentValidator {
                     LocalTime.parse(time);
                 }
             }
-            if (intent.travelPace() != null && !Set.of("RELAXED", "BALANCED", "ACTIVE").contains(intent.travelPace())) throw invalid();
+            if (intent.travelPace() != null && !Set.of("RELAXED", "BALANCED", "ACTIVE").contains(intent.travelPace()))
+                throw invalid();
             return new TravelIntent(intent.destination(), intent.numberOfDays(), unique(intent.interests()),
                     unique(intent.excludedTags()), intent.dailyStartTime(), intent.dailyEndTime(), intent.travelPace(),
                     unique(intent.mustVisitNames()), unique(intent.excludedPlaceNames()), intent.evidence());
@@ -70,6 +77,11 @@ public class TravelIntentValidator {
         }
     }
 
-    private List<String> unique(List<String> items) { return List.copyOf(new LinkedHashSet<>(items)); }
-    private AppException invalid() { return new AppException(ErrorCode.AI_VALIDATION_FAILED); }
+    private List<String> unique(List<String> items) {
+        return List.copyOf(new LinkedHashSet<>(items));
+    }
+
+    private AppException invalid() {
+        return new AppException(ErrorCode.AI_VALIDATION_FAILED);
+    }
 }

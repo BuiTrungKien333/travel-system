@@ -24,7 +24,9 @@ public class GeminiEmbeddingClient {
 
     @Autowired
     public GeminiEmbeddingClient(RagDemoProperties properties, AiRequestContext context, AiRetryExecutor retries) {
-        this.properties = properties; this.context = context; this.retries = retries;
+        this.properties = properties;
+        this.context = context;
+        this.retries = retries;
         this.client = RestClient.builder().requestFactory(new AiDeadlineRequestFactory(context, properties)).build();
     }
 
@@ -36,7 +38,8 @@ public class GeminiEmbeddingClient {
     }
 
     public GeminiEmbeddingClient(RagDemoProperties properties) {
-        this.properties = properties; this.context = new AiRequestContext(properties);
+        this.properties = properties;
+        this.context = new AiRequestContext(properties);
         this.retries = new AiRetryExecutor(properties, context, new ObjectMapper());
         this.client = RestClient.builder().requestFactory(new AiDeadlineRequestFactory(context, properties)).build();
     }
@@ -60,8 +63,11 @@ public class GeminiEmbeddingClient {
 
                 if (response == null || response.embedding() == null) throw new AiCallFailure("INVALID_RESPONSE", null);
                 float[] values = response.embedding().values();
-                try { vectorLiteral(values); }
-                catch (IllegalArgumentException ex) { throw new AiCallFailure("INVALID_RESPONSE", null); }
+                try {
+                    vectorLiteral(values);
+                } catch (IllegalArgumentException ex) {
+                    throw new AiCallFailure("INVALID_RESPONSE", null);
+                }
                 return values;
             });
         }

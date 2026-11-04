@@ -247,7 +247,7 @@ class DemoDataIntegrationTest {
 
     private int seed() {
         return Flyway.configure().dataSource(dataSource).schemas(schema).defaultSchema(schema)
-                .locations("classpath:db/migration").load().migrate().migrationsExecuted;
+                .locations("classpath:db/migration").target("11").load().migrate().migrationsExecuted;
     }
 
     private void execute(String sql) throws SQLException {

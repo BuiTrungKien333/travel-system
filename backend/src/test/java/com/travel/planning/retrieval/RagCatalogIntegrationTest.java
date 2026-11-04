@@ -46,6 +46,7 @@ class RagCatalogIntegrationTest {
 
     @Test
     void migrationAndSeed_repeatWithoutDuplicatesAndExposeProvenance() {
+        int placeCount = jdbc.queryForObject("SELECT count(*) FROM places", Integer.class);
         flyway.migrate();
         assertThat(repository.catalog()).hasSize(8).allSatisfy(p -> {
             assertThat(p.placeId()).isNotNull();
@@ -54,7 +55,7 @@ class RagCatalogIntegrationTest {
             assertThat(p.coordinatesQuality()).isEqualTo("APPROXIMATE_DEMO");
             assertThat(p.openingTime()).isNull();
         });
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM places", Integer.class)).isEqualTo(8);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM places", Integer.class)).isEqualTo(placeCount);
     }
 
     @Test

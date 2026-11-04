@@ -7,11 +7,12 @@ Ngày: 02/11/2026. Đã triển khai create/list/detail, không có draft/AI tro
 - `GET /api/v1/trips/{id}`: metadata + ngày. Không tồn tại/deleted/owner khác cùng TRIP_001/404.
 - Status lưu PLANNING, mode theo ngày tại Asia/Ho_Chi_Minh; không cron, không provider call và không thay thuật toán planning.
 - Service đặt transaction; JdbcTemplate repository dùng PostgreSQL ON CONFLICT để concurrent replay không làm transaction bị rollback-only do bắt unique exception. Read projections không load JPA graph để đếm.
-- Flyway V10 thêm metadata/version/create key/hash, trip_days và backfill range hợp lệ. Trip entity tương thích schema mới; BaseEntity không đổi.
+- Flyway V14 thêm metadata/version/create key/hash, trip_days và backfill range hợp lệ; V15 giữ các lịch hẹn bị gỡ khi đổi ngày. Các migration V1–V13 của nhánh tích hợp được giữ nguyên.
 - Preferences mới ghi JSON array; legacy free-text không được tự chuyển thành [] gây mất dữ liệu. Cần audit/backfill riêng nếu DB hiện hữu có dữ liệu không theo contract.
 - Date CHECK NOT VALID áp dụng write mới; chưa tuyên bố toàn bộ dữ liệu legacy đã sạch.
 - Errors theo envelope hiện tại; AppException bổ sung field errors optional để cross-field validation có tên field và không phá callers cũ.
-- Chưa PATCH/delete/date-change-preview/destinations; không public resource mới, không thêm dependency.
+- Đã có PATCH, DELETE có version, date-change-preview và danh mục destinations. Các API `/trips/{id}/places` vẫn được giữ từ merge-test. CRUD dùng contract mới: danh sách ở `data.content`, chi tiết ở `data.trip`; PUT cập nhật Trip cũ được thay bằng PATCH.
+- Mã lỗi Trip CRUD dùng TRIP_009 (request trùng khác payload), TRIP_010 (version), TRIP_011 (ảnh hưởng ngày), TRIP_012 (reference), TRIP_013 (read-only), tránh trùng mã Trip Place/Itinerary hiện có.
 
 ## Kiểm tra
 
@@ -24,4 +25,4 @@ Docker cần chạy để PostgreSQL17 Testcontainers tự tạo DB cô lập, k
 
 Mobile bật EXPO_PUBLIC_UI_PREVIEW=false và EXPO_PUBLIC_API_URL theo thiết bị; env không có secret. Web token hiện chỉ ở memory nên full reload có thể cần login lại; dữ liệu chuyến trong DB không mất.
 
-Đặc tả và OpenAPI trong repo mobile: `docs/TRIP-CRUD-CONTRACT.md`, `docs/api/trip-crud.openapi.json`. Hướng dẫn thử: `docs/TRIP-API-INTEGRATION.md`. Runtime chỉ3 operations nêu trên, không phải toàn bộ7 operations trong hợp đồng đích.
+Đặc tả và OpenAPI trong repo mobile: `docs/TRIP-CRUD-CONTRACT.md`, `docs/api/trip-crud.openapi.json`. Hướng dẫn thử: `docs/TRIP-API-INTEGRATION.md`. Frontend web hiện còn dùng contract/mock cũ và cần cập nhật khi kết nối trực tiếp CRUD mới.

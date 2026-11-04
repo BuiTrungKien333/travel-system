@@ -36,11 +36,11 @@ public enum ErrorCode {
     GOOGLE_ACCOUNT_CONFLICT("AUTH_014", "error.auth.google-conflict", HttpStatus.CONFLICT),
 
     TRIP_NOT_FOUND("TRIP_001", "error.trip.not-found", HttpStatus.NOT_FOUND),
-    TRIP_VERSION_CONFLICT("TRIP_007", "error.trip.version-conflict", HttpStatus.CONFLICT),
-    TRIP_DATE_IMPACT("TRIP_008", "error.trip.date-impact", HttpStatus.CONFLICT),
+    TRIP_VERSION_CONFLICT("TRIP_010", "error.trip.version-conflict", HttpStatus.CONFLICT),
+    TRIP_DATE_IMPACT("TRIP_011", "error.trip.date-impact", HttpStatus.CONFLICT),
     TRIP_REQUEST_CONFLICT("TRIP_009", "error.trip.request-conflict", HttpStatus.CONFLICT),
-    TRIP_INVALID_REFERENCE("TRIP_005", "error.trip.invalid-reference", HttpStatus.BAD_REQUEST),
-    TRIP_READ_ONLY("TRIP_006", "error.trip.read-only", HttpStatus.CONFLICT),
+    TRIP_INVALID_REFERENCE("TRIP_012", "error.trip.invalid-reference", HttpStatus.BAD_REQUEST),
+    TRIP_READ_ONLY("TRIP_013", "error.trip.read-only", HttpStatus.CONFLICT),
 
     // --- PLANNING & ALGORITHM CODES ---
     TSP_EXCEEDS_MAX_LOCATIONS("PLANNING_001", "error.planning.tsp-exceeds-max-locations", HttpStatus.BAD_REQUEST),

@@ -27,7 +27,7 @@ public class TripCrudRepository {
           (SELECT count(*) FROM trip_places tp WHERE tp.trip_id=t.id AND NOT EXISTS
             (SELECT 1 FROM itineraries i JOIN itinerary_items ii ON ii.itinerary_id=i.id
              WHERE i.trip_id=t.id AND ii.place_id=tp.place_id AND ii.removed_at IS NULL)) AS unscheduled_count,
-          (SELECT count(*) FROM memories m WHERE m.trip_id=t.id AND m.deleted_at IS NULL) AS memory_count
+          (SELECT count(*) FROM memories m WHERE m.trip_id=t.id AND m.user_id=t.user_id AND m.deleted_at IS NULL) AS memory_count
         FROM trips t
         """;
 

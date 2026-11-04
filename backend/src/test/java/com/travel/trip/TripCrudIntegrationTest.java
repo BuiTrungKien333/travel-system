@@ -104,7 +104,7 @@ class TripCrudIntegrationTest {
     }
     @Test void validationAndReferencesNeverPartiallyCreate() throws Exception {
         var body=request(); body.put("initialPlaceIds",List.of(UUID.randomUUID()));
-        create(body).andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("TRIP_005"));
+        create(body).andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("TRIP_012"));
         body=request(); body.put("startDate","2026-11-01");
         create(body).andExpect(status().isBadRequest()).andExpect(jsonPath("$.errors.startDate").exists());
         body=request(); body.put("preferences",List.of("nature","nature"));

@@ -10,6 +10,9 @@ import com.travel.memory.entity.Memory;
 import com.travel.memory.mapper.MemoryMapper;
 import com.travel.memory.repository.MemoryRepository;
 import com.travel.memory.service.impl.MemoryServiceImpl;
+import com.travel.trip.entity.Trip;
+import com.travel.trip.repository.TripRepository;
+import com.travel.trip.repository.TripPlaceRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -38,6 +41,9 @@ class MemoryServiceTest {
 
     @Mock
     private MemoryRepository memoryRepository;
+
+    @Mock private TripRepository tripRepository;
+    @Mock private TripPlaceRepository tripPlaceRepository;
 
     @Spy
     private MemoryMapper memoryMapper = new MemoryMapper();
@@ -77,6 +83,8 @@ class MemoryServiceTest {
                 .build();
 
         when(memoryRepository.save(any(Memory.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(tripRepository.findByIdAndUserIdAndDeletedAtIsNull(tripId, userId)).thenReturn(Optional.of(new Trip()));
+        when(tripPlaceRepository.existsByTripIdAndPlaceId(tripId, placeId)).thenReturn(true);
 
         MemoryResponse response = memoryService.createMemory(userId, request);
 

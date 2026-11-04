@@ -116,7 +116,7 @@ class TripMutationIntegrationTest {
     }
     @Test void cancelledTripIsReadOnlyButDeletable() throws Exception {
         String id=create().path("id").asText(); jdbc.update("UPDATE trips SET status='CANCELLED' WHERE id=?",UUID.fromString(id));
-        patchTrip(id,Map.of("version",0,"title","No")).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("TRIP_006"));
+        patchTrip(id,Map.of("version",0,"title","No")).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("TRIP_013"));
         preview(id,0,"2026-11-21","2026-11-22").andExpect(status().isConflict());
         deleteTrip(id,0).andExpect(status().isNoContent());
     }
@@ -127,7 +127,7 @@ class TripMutationIntegrationTest {
         preview(id,0,"2026-11-21","2026-11-23").andExpect(status().isOk()).andExpect(jsonPath("$.data.movedToPoolCount").value(1))
                 .andExpect(jsonPath("$.data.requiresAcknowledgement").value(true));
         var body=new HashMap<String,Object>(Map.of("version",0,"startDate","2026-11-21","endDate","2026-11-23"));
-        patchTrip(id,body).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("TRIP_008"));
+        patchTrip(id,body).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("TRIP_011"));
         assertThat(jdbc.queryForObject("SELECT removed_at FROM itinerary_items WHERE id=?",java.sql.Timestamp.class,item)).isNull();
         body.put("acknowledgeDateImpact",true);
         var changed=read(patchTrip(id,body).andExpect(status().isOk())).path("trip");
@@ -140,6 +140,8 @@ class TripMutationIntegrationTest {
         assertThat(jdbc.queryForObject("SELECT visited FROM trip_places WHERE trip_id=? AND place_id=?",Boolean.class,UUID.fromString(id),place)).isTrue();
         assertThat(jdbc.queryForObject("SELECT end_time FROM itinerary_items WHERE id=?",java.sql.Time.class,item).toString()).isEqualTo("10:30:00");
         assertThat(jdbc.queryForObject("SELECT return_to_start FROM trip_days WHERE id=?",Boolean.class,day)).isTrue();
+        mvc.perform(get("/api/v1/trips/"+id+"/itinerary").header("Authorization","Bearer "+token))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.days").isEmpty());
     }
     @Test void aPlaceStillScheduledOnAKeptDateDoesNotRequirePoolAcknowledgement() throws Exception {
         String id=create().path("id").asText(); UUID place=place(); schedule(id,place,"2026-11-20",true); schedule(id,place,"2026-11-21",true);
@@ -154,7 +156,7 @@ class TripMutationIntegrationTest {
     @Test void stalePreviewAndEditsRequireReloadRatherThanOverwriting() throws Exception {
         String id=create().path("id").asText();
         patchTrip(id,Map.of("version",0,"notes","Changed")).andExpect(status().isOk());
-        patchTrip(id,Map.of("version",0,"title","No")).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("TRIP_007"));
+        patchTrip(id,Map.of("version",0,"title","No")).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("TRIP_010"));
         preview(id,0,"2026-11-21","2026-11-22").andExpect(status().isConflict());
         deleteTrip(id,0).andExpect(status().isConflict());
     }

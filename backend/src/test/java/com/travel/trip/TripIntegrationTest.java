@@ -85,66 +85,6 @@ class TripIntegrationTest {
     }
 
     @Test
-    void createReadUpdateAndListPersistTripFields() throws Exception {
-        var body = tripBody();
-        body.put("transportation", "DRIVING");
-        body.put("preferences", List.of("nature", "food"));
-        body.put("budget", 2500000);
-        body.put("constraints", "Avoid stairs");
-        body.put("description", "Family holiday");
-        body.put("coverImage", "https://example.com/cover.jpg");
-        body.put("userId", UUID.randomUUID());
-        JsonNode created = data(send(post(TRIPS), body).andExpect(status().isCreated())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.passwordHash").doesNotExist()));
-        String path = TRIPS + "/" + created.path("id").asText();
-        assertThat(created.path("userId").asText()).isEqualTo(owner.getId().toString());
-        assertThat(created.path("preferences").get(0).asText()).isEqualTo("nature");
-        assertThat(created.path("budget").asInt()).isEqualTo(2500000);
-        send(get(path)).andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.transportation").value("DRIVING"))
-                .andExpect(jsonPath("$.data.description").value("Family holiday"))
-                .andExpect(jsonPath("$.data.coverImage").value("https://example.com/cover.jpg"));
-        send(put(path), Map.of("name", "Updated holiday", "status", "READY"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.data.name").value("Updated holiday"))
-                .andExpect(jsonPath("$.data.destination").value("Da Nang"))
-                .andExpect(jsonPath("$.data.startDate").value("2027-01-10"))
-                .andExpect(jsonPath("$.data.status").value("READY"))
-                .andExpect(jsonPath("$.data.preferences[1]").value("food"));
-        JsonNode list = data(send(get(TRIPS)).andExpect(status().isOk()));
-        assertThat(list.isArray()).isTrue();
-        assertThat(list).hasSize(1);
-        assertThat(list.get(0).path("id").asText()).isEqualTo(created.path("id").asText());
-        assertThat(trips.findById(UUID.fromString(created.path("id").asText())).orElseThrow().getName())
-                .isEqualTo("Updated holiday");
-    }
-
-    @Test
-    void partialDateUpdateValidatesAgainstStoredDatesAndRollsBack() throws Exception {
-        String path = TRIPS + "/" + createTrip();
-        send(put(path), Map.of("name", "Must roll back", "endDate", "2027-01-09"))
-                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("TRIP_004"));
-        send(put(path), Map.of("startDate", "2027-01-13"))
-                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("TRIP_004"));
-        send(get(path)).andExpect(status().isOk()).andExpect(jsonPath("$.data.name").value("Weekend trip"))
-                .andExpect(jsonPath("$.data.endDate").value("2027-01-12"));
-        send(put(path), Map.of("endDate", "2027-01-10"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.data.endDate").value("2027-01-10"));
-    }
-
-    @Test
-    void createRejectsBlankMissingFieldsInvalidDatesAndNegativeBudget() throws Exception {
-        var blank = tripBody(); blank.put("name", "   ");
-        var missing = tripBody(); missing.remove("startDate");
-        var dates = tripBody(); dates.put("endDate", "2027-01-09");
-        var budget = tripBody(); budget.put("budget", -1);
-        for (var invalid : List.of(blank, missing, dates, budget)) {
-            send(post(TRIPS), invalid).andExpect(status().isBadRequest());
-        }
-        assertThat(data(send(get(TRIPS)).andExpect(status().isOk()))).isEmpty();
-    }
-
-    @Test
     void foreignAndMissingTripsArePrivateAcrossAllOperations() throws Exception {
         String otherPassword = UUID.randomUUID().toString();
         User other = users.saveAndFlush(User.builder().fullName("Other Owner")
@@ -157,7 +97,7 @@ class TripIntegrationTest {
         for (String id : List.of(tripId, UUID.randomUUID().toString())) {
             String path = TRIPS + "/" + id;
             List<MockHttpServletRequestBuilder> requests = List.of(
-                    get(path), put(path).content(json.writeValueAsString(Map.of("name", "Stolen"))), delete(path),
+                    get(path), patch(path).content(json.writeValueAsString(Map.of("version", 0, "title", "Stolen"))), delete(path).param("version", "0"),
                     get(path + "/places"), post(path + "/places").content(json.writeValueAsString(Map.of("placeId", place.getId()))),
                     put(path + "/places/" + place.getId()).content(json.writeValueAsString(Map.of("visited", true))),
                     delete(path + "/places/" + place.getId()));
@@ -165,16 +105,16 @@ class TripIntegrationTest {
                 send(request, otherToken).andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("TRIP_001"));
             }
         }
-        assertThat(data(send(get(TRIPS), otherToken).andExpect(status().isOk()))).isEmpty();
+        assertThat(data(send(get(TRIPS), otherToken).andExpect(status().isOk())).path("content")).isEmpty();
         send(get(TRIPS + "/" + tripId)).andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.name").value("Weekend trip"));
+                .andExpect(jsonPath("$.data.trip.title").value("Weekend trip"));
     }
 
     @Test
     void unauthenticatedRequestsCannotReadOrMutateTrips() throws Exception {
         String path = TRIPS + "/" + createTrip();
         for (var request : List.of(get(TRIPS), get(path), post(TRIPS).content(json.writeValueAsString(tripBody())),
-                put(path).content("{}"), delete(path), get(path + "/places"),
+                patch(path).content("{}"), delete(path), get(path + "/places"),
                 post(path + "/places").content("{}"), put(path + "/places/" + UUID.randomUUID()).content("{}"),
                 delete(path + "/places/" + UUID.randomUUID()))) {
             mvc.perform(request.contentType(MediaType.APPLICATION_JSON)).andExpect(status().isUnauthorized());
@@ -204,7 +144,7 @@ class TripIntegrationTest {
         assertThat(list).hasSize(2);
         assertThat(list.get(0).path("placeId").asText()).isEqualTo(existing.getId().toString());
         send(get(TRIPS + "/" + tripId)).andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.placeCount").value(2)).andExpect(jsonPath("$.data.visitedCount").value(1));
+                .andExpect(jsonPath("$.data.trip.stopCount").value(2));
         assertThat(places.findById(existing.getId()).orElseThrow().getName()).isEqualTo(existing.getName());
     }
 
@@ -333,8 +273,8 @@ class TripIntegrationTest {
                 .email(UUID.randomUUID() + "@example.com").role(Role.USER).emailVerifiedAt(Instant.now()).build());
         memories.saveAndFlush(Memory.create(other.getId(), id, place.getId(), "Not the trip owner's memory", Instant.now()));
 
-        send(get(TRIPS + "/" + tripId)).andExpect(status().isOk()).andExpect(jsonPath("$.data.memoryCount").value(1));
-        send(get(TRIPS)).andExpect(status().isOk()).andExpect(jsonPath("$.data[0].memoryCount").value(1));
+        send(get(TRIPS + "/" + tripId)).andExpect(status().isOk()).andExpect(jsonPath("$.data.trip.memoryCount").value(1));
+        send(get(TRIPS)).andExpect(status().isOk()).andExpect(jsonPath("$.data.content[0].memoryCount").value(1));
     }
 
     @Test
@@ -349,35 +289,16 @@ class TripIntegrationTest {
         assertThat(places.findById(place.getId())).isPresent();
         assertThat(memories.findByIdAndDeletedAtIsNull(memory.getId())).isPresent();
         send(get(TRIPS + "/" + tripId)).andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.placeCount").value(0)).andExpect(jsonPath("$.data.memoryCount").value(1));
-    }
-
-    @Test
-    void deletingTripPreservesMemoriesAndPlacesButHidesAllTripOperations() throws Exception {
-        String tripId = createTrip();
-        Place place = place();
-        String path = TRIPS + "/" + tripId;
-        send(post(path + "/places"), Map.of("placeId", place.getId())).andExpect(status().isCreated());
-        Memory memory = memories.saveAndFlush(Memory.create(owner.getId(), UUID.fromString(tripId),
-                place.getId(), "Trip deletion must preserve this", Instant.now()));
-        send(delete(path)).andExpect(status().isNoContent());
-        assertThat(trips.findById(UUID.fromString(tripId)).orElseThrow().isDeleted()).isTrue();
-        assertThat(places.findById(place.getId())).isPresent();
-        assertThat(memories.findByIdAndDeletedAtIsNull(memory.getId())).isPresent();
-        assertThat(data(send(get(TRIPS)).andExpect(status().isOk()))).isEmpty();
-        for (var request : List.of(get(path), get(path + "/places"), put(path).content("{}"), delete(path),
-                post(path + "/places").content(json.writeValueAsString(Map.of("placeId", place.getId()))))) {
-            send(request).andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("TRIP_001"));
-        }
+                .andExpect(jsonPath("$.data.trip.stopCount").value(0)).andExpect(jsonPath("$.data.trip.memoryCount").value(1));
     }
 
     private Map<String, Object> tripBody() {
-        return new LinkedHashMap<>(Map.of("name", "Weekend trip", "destination", "Da Nang",
+        return new LinkedHashMap<>(Map.of("clientRequestId", UUID.randomUUID(), "title", "Weekend trip", "destination", Map.of("name", "Da Nang"),
                 "startDate", "2027-01-10", "endDate", "2027-01-12"));
     }
 
     private String createTrip() throws Exception {
-        return data(send(post(TRIPS), tripBody()).andExpect(status().isCreated())).path("id").asText();
+        return data(send(post(TRIPS), tripBody()).andExpect(status().isCreated())).path("trip").path("id").asText();
     }
 
     private Place place() {

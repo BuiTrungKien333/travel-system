@@ -41,11 +41,12 @@ class TravelBackendApplicationTests {
 					.map(migration -> migration.getVersion() + ":" + migration.getChecksum()).toList();
 
 			Flyway latest = config.target(MigrationVersion.LATEST).load();
-			assertThat(latest.migrate().migrationsExecuted).isEqualTo(5);
+			assertThat(latest.migrate().migrationsExecuted).isEqualTo(7);
 			assertThat(latest.info().applied()).extracting(MigrationInfo::getScript).endsWith(
 					"V7__auth_refresh_tokens.sql", "V8__email_verification_and_password_reset.sql",
 					"V9__google_authentication.sql", "V10__trip_details_and_place_category.sql",
-					"V11__seed_local_demo.sql");
+					"V11__seed_local_demo.sql", "V12__persist_multi_day_itinerary.sql",
+					"V13__place_retrieval_profiles.sql");
 			assertThat(Arrays.stream(latest.info().applied()).limit(history.size())
 					.map(migration -> migration.getVersion() + ":" + migration.getChecksum()).toList())
 					.isEqualTo(history);

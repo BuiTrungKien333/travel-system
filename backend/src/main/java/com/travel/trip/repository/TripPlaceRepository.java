@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Collection;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -24,5 +25,8 @@ public interface TripPlaceRepository extends JpaRepository<TripPlace, UUID> {
 
     @EntityGraph(attributePaths = {"place", "place.province"})
     List<TripPlace> findByTripIdOrderByPlannedOrderAscCreatedAtAscIdAsc(UUID tripId);
+
+    @EntityGraph(attributePaths = {"place", "place.province"})
+    List<TripPlace> findByTripIdAndPlaceIdIn(UUID tripId, Collection<UUID> placeIds);
 
 }

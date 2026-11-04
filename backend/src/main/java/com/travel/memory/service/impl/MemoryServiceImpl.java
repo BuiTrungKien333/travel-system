@@ -8,6 +8,8 @@ import com.travel.memory.entity.Memory;
 import com.travel.memory.mapper.MemoryMapper;
 import com.travel.memory.repository.MemoryRepository;
 import com.travel.memory.service.MemoryService;
+import com.travel.trip.repository.TripPlaceRepository;
+import com.travel.trip.repository.TripRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -26,10 +28,22 @@ public class MemoryServiceImpl implements MemoryService {
 
     private final MemoryRepository memoryRepository;
     private final MemoryMapper memoryMapper;
+    private final TripRepository tripRepository;
+    private final TripPlaceRepository tripPlaceRepository;
 
     @Override
     @Transactional
     public MemoryResponse createMemory(UUID currentUserId, CreateMemoryRequest request) {
+        if (request.getTripId() != null) {
+            tripRepository.findByIdAndUserIdAndDeletedAtIsNull(request.getTripId(), currentUserId)
+                    .orElseThrow(() -> new AppException(ErrorCode.TRIP_NOT_FOUND));
+            if (request.getPlaceId() != null
+                    && !tripPlaceRepository.existsByTripIdAndPlaceId(request.getTripId(), request.getPlaceId())) {
+                throw new AppException(ErrorCode.TRIP_PLACE_NOT_FOUND);
+            }
+        } else if (request.getPlaceId() != null) {
+            throw new AppException(ErrorCode.TRIP_NOT_FOUND);
+        }
         Memory memory = memoryMapper.toEntity(currentUserId, request);
         Memory saved = memoryRepository.save(memory);
         log.info("Memory created: id={}, userId={}, mediaCount={}", saved.getId(), saved.getUserId(), saved.getMedia().size());

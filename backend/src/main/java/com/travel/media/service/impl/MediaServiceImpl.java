@@ -46,13 +46,10 @@ public class MediaServiceImpl implements MediaService {
     @Transactional
     public UploadResponse uploadImage(MultipartFile file, UUID userId, UUID tripId, UUID memoryId) {
         validateFile(file);
+        Memory memory = findOwnedMemory(userId, tripId, memoryId);
         String folder = CloudinaryPathBuilder.memoryFolder(userId, tripId, memoryId);
         String publicId = CloudinaryPathBuilder.generateMemoryFileName(1);
         UploadResponse response = doUpload(file, folder, publicId);
-
-        Memory memory = memoryRepository.findByIdAndDeletedAtIsNull(memoryId)
-                .orElseThrow(() -> new AppException(ErrorCode.MEMORY_NOT_FOUND));
-
         return mediaPersistenceHelper.saveAndBuildResponse(response, memory, memory.getMedia().size());
     }
     @Override
@@ -61,8 +58,7 @@ public class MediaServiceImpl implements MediaService {
         validateFileList(files);
         String folder = CloudinaryPathBuilder.memoryFolder(userId, tripId, memoryId);
 
-        Memory memory = memoryRepository.findByIdAndDeletedAtIsNull(memoryId)
-                .orElseThrow(() -> new AppException(ErrorCode.MEMORY_NOT_FOUND));
+        Memory memory = findOwnedMemory(userId, tripId, memoryId);
 
         int baseOrder = memory.getMedia().size();
         List<UploadResponse> responses = new ArrayList<>();
@@ -72,6 +68,17 @@ public class MediaServiceImpl implements MediaService {
             responses.add(mediaPersistenceHelper.saveAndBuildResponse(response, memory, baseOrder + i));
         }
         return responses;
+    }
+
+    private Memory findOwnedMemory(UUID userId, UUID tripId, UUID memoryId) {
+        Memory memory = memoryRepository.findByIdAndDeletedAtIsNull(memoryId)
+                .orElseThrow(() -> new AppException(ErrorCode.MEMORY_NOT_FOUND));
+        if (!memory.getUserId().equals(userId)
+                || memory.getTripId() == null
+                || !memory.getTripId().equals(tripId)) {
+            throw new AppException(ErrorCode.MEMORY_ACCESS_DENIED);
+        }
+        return memory;
     }
     @Override
     public UploadResponse uploadImage(MultipartFile file, UUID userId) {

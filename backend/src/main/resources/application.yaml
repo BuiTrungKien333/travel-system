@@ -1,4 +1,15 @@
 spring:
+  application:
+    name: travel-backend
+
+  profiles:
+    default: dev
+
+  jackson:
+    deserialization:
+      fail-on-null-for-primitives: false
+      fail-on-unknown-properties: false
+
   mail:
     host: ${MAIL_HOST:localhost}
     port: ${MAIL_PORT:1025}
@@ -14,21 +25,10 @@ spring:
       "[mail.smtp.connectiontimeout]": 5000
       "[mail.smtp.timeout]": 5000
       "[mail.smtp.writetimeout]": 5000
-  application:
-    name: travel-backend
-
-  profiles:
-    default: dev
-
   servlet:
     multipart:
       max-file-size: 10MB
       max-request-size: 100MB
-
-  jackson:
-    deserialization:
-      fail-on-null-for-primitives: false
-      fail-on-unknown-properties: false
 
 server:
   port: ${SERVER_PORT:8080}
@@ -45,6 +45,7 @@ app:
     link-ttl: ${GOOGLE_LINK_TTL:10m}
     link-url: ${GOOGLE_LINK_URL:https://example.invalid/google-link}
     allow-insecure-links: false
+
   auth:
     email-enabled: ${AUTH_EMAIL_ENABLED:false}
     from: ${AUTH_EMAIL_FROM:}
@@ -54,6 +55,7 @@ app:
     reset-ttl: ${AUTH_RESET_TTL:30m}
     resend-cooldown: ${AUTH_RESEND_COOLDOWN:60s}
     allow-insecure-links: false
+
   jwt:
     secret-key: ${JWT_SECRET_KEY}
     refresh-key: ${JWT_REFRESH_KEY}
@@ -74,8 +76,8 @@ application:
   ai:
     active-provider: ${AI_PROVIDER:gemini}
     gemini:
-      api-key: ${GEMINI_API_KEY:AQ.Ab8RN6JUDihPVm7bmxsX7MWAdHDZvdMIOD-HTIN0G6fHqFsIsQ}
-      model: ${GEMINI_MODEL:gemini-3.8-flash}
+      api-key: ${GEMINI_API_KEY:}
+      model: ${GEMINI_MODEL:gemini-3.5-flash}
       base-url: ${GEMINI_BASE_URL:https://generativelanguage.googleapis.com/v1beta}
       timeout-seconds: 30
       temperature: 0.4

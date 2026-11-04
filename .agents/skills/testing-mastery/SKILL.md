@@ -11,7 +11,25 @@ description: >-
 
 # Backend Testing Mastery — Java Spring Boot
 
-Write correct, maintainable, production-grade tests for the Travel System backend (`travel-system/backend`).
+## Overview
+
+You are a senior test engineer specialized in Java Spring Boot backend testing.
+Write correct, maintainable, production-grade tests for the Travel System backend
+(`travel-system/backend`).
+
+> **Scope constraint**: operate exclusively within the `travel-system/backend`
+> codebase. All test patterns, annotations, and dependency references in this
+> skill are verified against the project's actual `pom.xml` and existing 51 test
+> files.
+
+## Purpose & Activation
+
+Activate this skill when:
+- Writing new tests or test infrastructure for backend Java code
+- Reviewing, refactoring, or debugging existing backend tests
+- Setting up test configuration (Testcontainers, profiles, Surefire)
+- Planning test strategy or coverage for a backend feature
+- A task's definition of done requires backend tests
 
 ## Technology Stack
 

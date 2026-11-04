@@ -56,4 +56,33 @@ public class Trip extends BaseEntity {
     @Column(name = "status", nullable = false, length = 20)
     @Builder.Default
     private TripStatus status = TripStatus.PLANNING;
+
+    @Version
+    @Column(nullable = false)
+    private long version;
+
+    @Column(name = "time_zone", nullable = false, length = 64)
+    @Builder.Default
+    private String timeZone = "Asia/Ho_Chi_Minh";
+
+    @Column(name = "destination_province_id")
+    private java.util.UUID destinationProvinceId;
+
+    @Column(name = "budget_amount")
+    private Long budgetAmount;
+
+    @Column(name = "budget_currency", length = 3)
+    private String budgetCurrency;
+
+    @Column(length = 200)
+    private String accommodation;
+
+    @Column(length = 1000)
+    private String notes;
+
+    @Column(name = "client_request_id")
+    private java.util.UUID clientRequestId;
+
+    @Column(name = "create_request_hash", length = 64)
+    private String createRequestHash;
 }

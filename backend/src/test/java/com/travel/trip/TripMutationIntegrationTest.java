@@ -76,6 +76,124 @@ class TripMutationIntegrationTest {
         jdbc.update("INSERT INTO itinerary_items(id,itinerary_id,place_id,date,start_time,end_time,sequence,note) VALUES (?,?,?,?::date,'09:00','10:30',0,'Appointment note')",item,itinerary,place,date);
         return item;
     }
+    Map<String,Object> dayBody(long version) {
+        Map<String,Object> body = new LinkedHashMap<>();
+        body.put("version", version); body.put("startLocation", "  Hotel  "); body.put("startTime", "07:45");
+        body.put("returnToStart", true); body.put("transport", "MOTORCYCLE");
+        return body;
+    }
+    ResultActions putDay(String id, String date, Map<String,?> body) throws Exception {
+        return mvc.perform(put("/api/v1/trips/"+id+"/days/"+date).header("Authorization","Bearer "+token)
+                .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(body)));
+    }
+    java.time.Instant scheduleUpdatedAt(String id) {
+        return jdbc.queryForObject("SELECT updated_at FROM itineraries WHERE trip_id=?", java.sql.Timestamp.class, UUID.fromString(id)).toInstant();
+    }
+    @Test void emptyDaySettingsRoundTripWithoutLosingOtherDaysAndNoOpPreservesVersion() throws Exception {
+        String id = create().path("id").asText();
+        var before = scheduleUpdatedAt(id);
+        var changed = read(putDay(id, "2026-11-20", dayBody(0)).andExpect(status().isOk())).path("trip");
+        assertThat(changed.path("version").asLong()).isEqualTo(1);
+        assertThat(changed.path("days").get(0).path("startLocation").asText()).isEqualTo("Hotel");
+        assertThat(changed.path("days").get(0).path("startTime").asText()).isEqualTo("07:45");
+        assertThat(changed.path("days").get(0).path("returnToStart").asBoolean()).isTrue();
+        assertThat(changed.path("days").get(0).path("transport").asText()).isEqualTo("MOTORCYCLE");
+        assertThat(changed.path("days").get(1).path("startLocation").isNull()).isTrue();
+        assertThat(changed.path("days").get(1).path("transport").asText()).isEqualTo("CAR");
+        assertThat(scheduleUpdatedAt(id)).isAfter(before);
+        mvc.perform(get("/api/v1/trips/"+id).header("Authorization","Bearer "+token))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.trip.days[0].startLocation").value("Hotel"));
+        putDay(id, "2026-11-20", dayBody(1)).andExpect(status().isOk()).andExpect(jsonPath("$.data.trip.version").value(1));
+        var clear = dayBody(1); clear.put("startLocation", " "); clear.put("startTime", null);
+        clear.put("returnToStart", false); clear.put("transport", "WALK");
+        putDay(id, "2026-11-20", clear).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.trip.days[0].startLocation").isEmpty())
+                .andExpect(jsonPath("$.data.trip.days[0].startTime").isEmpty())
+                .andExpect(jsonPath("$.data.trip.days[0].transport").value("WALK"));
+    }
+    @Test void dayAndDurationsSaveTogetherWithoutReplacingScheduleOrPlaceMetadata() throws Exception {
+        String id = create().path("id").asText(); UUID place = place(); UUID item = schedule(id, place, "2026-11-20", true);
+        var body = dayBody(0);
+        body.put("expectedItineraryUpdatedAt", scheduleUpdatedAt(id).toString());
+        body.put("durations", List.of(Map.of("stopId", place, "durationMinutes", 95)));
+        putDay(id, "2026-11-20", body).andExpect(status().isOk()).andExpect(jsonPath("$.data.trip.version").value(1));
+        assertThat(jdbc.queryForObject("SELECT duration_minutes FROM itinerary_items WHERE id=?", Integer.class, item)).isEqualTo(95);
+        assertThat(jdbc.queryForObject("SELECT end_time FROM itinerary_items WHERE id=?", java.sql.Time.class, item).toString()).isEqualTo("10:35:00");
+        assertThat(jdbc.queryForObject("SELECT note FROM itinerary_items WHERE id=?", String.class, item)).isEqualTo("Appointment note");
+        assertThat(jdbc.queryForObject("SELECT notes FROM trip_places WHERE trip_id=? AND place_id=?", String.class, UUID.fromString(id), place)).isEqualTo("Place note");
+        assertThat(jdbc.queryForObject("SELECT visited FROM trip_places WHERE trip_id=? AND place_id=?", Boolean.class, UUID.fromString(id), place)).isTrue();
+        mvc.perform(get("/api/v1/trips/"+id+"/itinerary").header("Authorization","Bearer "+token))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.days[0].stops[0].durationMinutes").value(95));
+        var extended = read(patchTrip(id, Map.of("version", 1, "startDate", "2026-11-20", "endDate", "2026-11-23"))
+                .andExpect(status().isOk())).path("trip");
+        assertThat(extended.path("days").get(0).path("transport").asText()).isEqualTo("MOTORCYCLE");
+        assertThat(extended.path("days").get(3).path("transport").asText()).isEqualTo("CAR");
+    }
+    @Test void dayRejectsInvalidInputOrDatesWithoutChangingVersion() throws Exception {
+        String id = create().path("id").asText();
+        for (var invalid : List.of(Map.of("startTime", "24:00"), Map.of("startTime", "8:00"), Map.of("transport", "FLY"),
+                Map.of("version", -1), Map.of("version", 0.5), Map.of("version", "0"), Map.of("startLocation", ""),
+                Map.of("startLocation", "X".repeat(201)))) {
+            var body = dayBody(0); body.putAll(invalid);
+            putDay(id, "2026-11-20", body).andExpect(status().isBadRequest());
+        }
+        var missing = dayBody(0); missing.remove("version");
+        putDay(id, "2026-11-20", missing).andExpect(status().isBadRequest());
+        putDay(id, "2026-11-19", dayBody(0)).andExpect(status().isBadRequest());
+        putDay(id, "2026-11-23", dayBody(0)).andExpect(status().isBadRequest());
+        assertThat(jdbc.queryForObject("SELECT version FROM trips WHERE id=?", Long.class, UUID.fromString(id))).isZero();
+    }
+    @Test void staleScheduleOrMissingStopDoesNotPartiallySaveDaySettings() throws Exception {
+        String id = create().path("id").asText(); UUID place = place(); schedule(id, place, "2026-11-20", true);
+        var body = dayBody(0);
+        body.put("durations", List.of(Map.of("stopId", place, "durationMinutes", 95)));
+        putDay(id, "2026-11-20", body).andExpect(status().isBadRequest());
+        body.put("expectedItineraryUpdatedAt", scheduleUpdatedAt(id).minusSeconds(1).toString());
+        putDay(id, "2026-11-20", body).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("TRIP_010"));
+        body.put("expectedItineraryUpdatedAt", scheduleUpdatedAt(id).toString());
+        body.put("durations", List.of(Map.of("stopId", UUID.randomUUID(), "durationMinutes", 95)));
+        putDay(id, "2026-11-20", body).andExpect(status().isConflict());
+        body.put("durations", List.of(Map.of("stopId", place, "durationMinutes", 95), Map.of("stopId", place, "durationMinutes", 100)));
+        putDay(id, "2026-11-20", body).andExpect(status().isBadRequest());
+        assertThat(jdbc.queryForObject("SELECT start_location FROM trip_days WHERE trip_id=? AND date='2026-11-20'", String.class, UUID.fromString(id))).isNull();
+        assertThat(jdbc.queryForObject("SELECT version FROM trips WHERE id=?", Long.class, UUID.fromString(id))).isZero();
+    }
+    @Test void dayEditsEnforceOwnershipAuthenticationCancellationAndVersions() throws Exception {
+        String id = create().path("id").asText();
+        mvc.perform(put("/api/v1/trips/"+id+"/days/2026-11-20").contentType(MediaType.APPLICATION_JSON)
+                .content(json.writeValueAsString(dayBody(0)))).andExpect(status().isUnauthorized());
+        putDay(UUID.randomUUID().toString(), "2026-11-20", dayBody(0)).andExpect(status().isNotFound());
+        putDay(id, "2026-11-20", dayBody(0)).andExpect(status().isOk());
+        putDay(id, "2026-11-21", dayBody(0)).andExpect(status().isConflict());
+        jdbc.update("UPDATE trips SET status='CANCELLED' WHERE id=?", UUID.fromString(id));
+        putDay(id, "2026-11-20", dayBody(1)).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("TRIP_013"));
+        var other = users.saveAndFlush(User.builder().email(UUID.randomUUID()+"@example.com").fullName("Other")
+                .passwordHash(encoder.encode("fixture-password")).build());
+        jdbc.update("UPDATE trips SET user_id=? WHERE id=?", other.getId(), UUID.fromString(id));
+        putDay(id, "2026-11-20", dayBody(1)).andExpect(status().isNotFound());
+    }
+    @Test void durationWriteFailureRollsBackDaySettingsAndVersion() throws Exception {
+        String id = create().path("id").asText(); UUID place = place(); UUID item = schedule(id, place, "2026-11-20", true);
+        var before = scheduleUpdatedAt(id);
+        var body = dayBody(0); body.put("expectedItineraryUpdatedAt", before.toString());
+        body.put("durations", List.of(Map.of("stopId", place, "durationMinutes", 95)));
+        jdbc.execute("ALTER TABLE itinerary_items ADD CONSTRAINT day_duration_test_failure CHECK (id <> '"+item+"'::uuid OR duration_minutes <> 95)");
+        try {
+            putDay(id, "2026-11-20", body).andExpect(status().is5xxServerError());
+            assertThat(jdbc.queryForObject("SELECT start_location FROM trip_days WHERE trip_id=? AND date='2026-11-20'", String.class, UUID.fromString(id))).isNull();
+            assertThat(jdbc.queryForObject("SELECT version FROM trips WHERE id=?", Long.class, UUID.fromString(id))).isZero();
+            assertThat(scheduleUpdatedAt(id)).isEqualTo(before);
+        } finally { jdbc.execute("ALTER TABLE itinerary_items DROP CONSTRAINT day_duration_test_failure"); }
+    }
+    @Test void concurrentDayEditsWithSameVersionHaveOneWinner() throws Exception {
+        String id = create().path("id").asText(); var start = new CountDownLatch(1);
+        try (var pool = Executors.newFixedThreadPool(2)) {
+            Callable<Integer> first = () -> { assertThat(start.await(5,TimeUnit.SECONDS)).isTrue(); return putDay(id,"2026-11-20",dayBody(0)).andReturn().getResponse().getStatus(); };
+            Callable<Integer> second = () -> { assertThat(start.await(5,TimeUnit.SECONDS)).isTrue(); return putDay(id,"2026-11-21",dayBody(0)).andReturn().getResponse().getStatus(); };
+            var a = pool.submit(first); var b = pool.submit(second); start.countDown();
+            assertThat(List.of(a.get(20,TimeUnit.SECONDS),b.get(20,TimeUnit.SECONDS))).containsExactlyInAnyOrder(200,409);
+        }
+    }
     @Test void patchPreservesOmittedFieldsAndSupportsExplicitNull() throws Exception {
         var trip=create(); String id=trip.path("id").asText();
         Map<String,Object> body=new LinkedHashMap<>(); body.put("version",0); body.put("title","  Gia đình  "); body.put("budget",null); body.put("accommodation"," Hotel ");

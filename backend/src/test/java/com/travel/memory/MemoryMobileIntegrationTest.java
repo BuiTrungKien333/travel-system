@@ -151,11 +151,17 @@ class MemoryMobileIntegrationTest {
                         "title", "Mobile contract", "destination", Map.of("name", "Đà Lạt"), "startDate", date.toString(), "endDate", date.toString()))))
                 .andExpect(status().isCreated());
         String tripId = data(created).path("trip").path("id").asText();
+        ResultActions dayUpdated = mvc.perform(put("/api/v1/trips/" + tripId + "/days/" + date)
+                .header("Authorization", "Bearer " + token).contentType(MediaType.APPLICATION_JSON)
+                .content(json.writeValueAsString(Map.of("version", 0, "startLocation", "Mobile hotel", "startTime", "07:45",
+                        "returnToStart", true, "transport", "MOTORCYCLE", "durations", List.of()))))
+                .andExpect(status().isOk());
         var memoryBody = new java.util.HashMap<>(memoryRequest()); memoryBody.put("tripId", tripId);
         ResultActions memory = create(memoryBody).andExpect(status().isCreated());
         String memoryId = data(memory).path("id").asText();
         Map<String, JsonNode> responses = new java.util.LinkedHashMap<>();
         responses.put("tripCreate", json.readTree(created.andReturn().getResponse().getContentAsString()));
+        responses.put("tripDayUpdate", json.readTree(dayUpdated.andReturn().getResponse().getContentAsString()));
         for (var entry : Map.of("tripDetail", "/api/v1/trips/" + tripId, "tripList", "/api/v1/trips?size=100",
                 "destinations", "/api/v1/destinations?size=100", "limits", "/api/v1/media/limits",
                 "memoryDetail", "/api/v1/journal/memories/detail?memoryId=" + memoryId, "memoryList", "/api/v1/journal/memories").entrySet()) {

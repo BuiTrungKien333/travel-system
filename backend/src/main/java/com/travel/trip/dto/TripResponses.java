@@ -10,7 +10,9 @@ public final class TripResponses {
     private TripResponses() { }
     public record Context(Instant serverTime, LocalDate evaluatedDate) { }
     public record Readiness(boolean hasDates, boolean hasPlaces, long unscheduledCount) { }
-    public record Day(UUID id, LocalDate date, int dayNumber) { }
+    @JsonInclude(JsonInclude.Include.ALWAYS)
+    public record Day(UUID id, LocalDate date, int dayNumber, String startLocation,
+                      String startTime, boolean returnToStart, String transport) { }
     @JsonInclude(JsonInclude.Include.ALWAYS)
     public record Destination(String name, UUID provinceId) { }
     public record Budget(long amount, String currency) { }

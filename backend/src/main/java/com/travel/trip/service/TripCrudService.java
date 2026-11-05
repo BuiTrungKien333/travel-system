@@ -9,6 +9,7 @@ import com.travel.trip.dto.CreateTripRequest;
 import com.travel.trip.dto.UpdateTripRequest;
 import com.travel.trip.dto.TripDateChangeRequest;
 import com.travel.trip.dto.TripResponses.*;
+import com.travel.trip.dto.UpdateTripDayRequest;
 import com.travel.trip.repository.TripCrudRepository;
 import com.travel.security.util.SecurityUtils;
 import lombok.RequiredArgsConstructor;
@@ -98,6 +99,45 @@ public class TripCrudService {
             repository.changeDates(id, next.start(), next.end(), now);
         }
         if (!repository.update(id, row.version(), next, now)) throw new AppException(ErrorCode.TRIP_VERSION_CONFLICT);
+        return read(repository.find(SecurityUtils.getCurrentUserId(), id).orElseThrow(), now);
+    }
+    @Transactional
+    public Read updateDay(UUID id, LocalDate date, UpdateTripDayRequest request) {
+        var row = ownedLocked(id);
+        requireWritable(row);
+        requireVersion(row, request.getVersion());
+        if (row.start() == null || row.end() == null || date.isBefore(row.start()) || date.isAfter(row.end())) invalid("date");
+        var day = repository.days(id, row.start()).stream().filter(value -> value.date().equals(date)).findFirst()
+                .orElseThrow(() -> new AppException(ErrorCode.VALIDATION_ERROR, Map.of("date", "Day is not in this trip")));
+        if (request.getReturnToStart() && request.getStartLocation() == null) invalid("startLocation");
+        var schedule = repository.schedule(id);
+        boolean changedDuration = false;
+        if (!request.getDurations().isEmpty()) {
+            if (request.getExpectedItineraryUpdatedAt() == null) invalid("expectedItineraryUpdatedAt");
+            if (schedule.isEmpty() || !schedule.get().updatedAt().equals(request.getExpectedItineraryUpdatedAt()))
+                throw new AppException(ErrorCode.TRIP_VERSION_CONFLICT);
+            var durations = repository.durations(schedule.get().id(), date);
+            Set<UUID> seen = new HashSet<>();
+            for (var value : request.getDurations()) {
+                if (!seen.add(value.stopId())) invalid("durations");
+                if (!durations.containsKey(value.stopId())) throw new AppException(ErrorCode.TRIP_VERSION_CONFLICT);
+                changedDuration |= !value.durationMinutes().equals(durations.get(value.stopId()));
+            }
+        }
+        boolean changed = !Objects.equals(day.startLocation(), request.getStartLocation())
+                || !Objects.equals(day.startTime(), request.getStartTime())
+                || day.returnToStart() != request.getReturnToStart()
+                || !day.transport().equals(request.getTransport().name());
+        if (!changed && !changedDuration) return read(row, clock.instant());
+        Instant now = clock.instant();
+        // A day-setting change must also invalidate optimization proposals based on the previous schedule.
+        if (schedule.isPresent() && !now.isAfter(schedule.get().updatedAt())) now = schedule.get().updatedAt().plusNanos(1000);
+        repository.updateDay(id, date, request, now);
+        if (schedule.isPresent()) {
+            for (var value : request.getDurations()) repository.updateDuration(schedule.get().id(), date, value, now);
+            repository.touchSchedule(schedule.get().id(), now);
+        }
+        repository.touchTrip(id, now);
         return read(repository.find(SecurityUtils.getCurrentUserId(), id).orElseThrow(), now);
     }
     @Transactional(readOnly=true, isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)

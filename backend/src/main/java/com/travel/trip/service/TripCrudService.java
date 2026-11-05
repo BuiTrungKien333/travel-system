@@ -110,6 +110,9 @@ public class TripCrudService {
         var day = repository.days(id, row.start()).stream().filter(value -> value.date().equals(date)).findFirst()
                 .orElseThrow(() -> new AppException(ErrorCode.VALIDATION_ERROR, Map.of("date", "Day is not in this trip")));
         if (request.getReturnToStart() && request.getStartLocation() == null) invalid("startLocation");
+        if (!request.hasStartCoordinate()) request.setStartCoordinate(
+                Objects.equals(day.startLocation(), request.getStartLocation()) ? day.startCoordinate() : null);
+        if (request.getStartCoordinate() != null && request.getStartLocation() == null) invalid("startLocation");
         var schedule = repository.schedule(id);
         boolean changedDuration = false;
         if (!request.getDurations().isEmpty()) {
@@ -125,6 +128,7 @@ public class TripCrudService {
             }
         }
         boolean changed = !Objects.equals(day.startLocation(), request.getStartLocation())
+                || !Objects.equals(day.startCoordinate(), request.getStartCoordinate())
                 || !Objects.equals(day.startTime(), request.getStartTime())
                 || day.returnToStart() != request.getReturnToStart()
                 || !day.transport().equals(request.getTransport().name());

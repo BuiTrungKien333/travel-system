@@ -17,6 +17,10 @@ import java.util.UUID;
 public class UpdateTripDayRequest {
     @NotNull @PositiveOrZero private Long version;
     @Size(max = 200) private String startLocation;
+    @Valid private TripCoordinate startCoordinate;
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    @Getter(lombok.AccessLevel.NONE) @Setter(lombok.AccessLevel.NONE)
+    private boolean coordinateProvided;
     @Pattern(regexp = "^([01]\\d|2[0-3]):[0-5]\\d$") private String startTime;
     @NotNull private Boolean returnToStart;
     @NotNull private Transport transport;
@@ -29,6 +33,9 @@ public class UpdateTripDayRequest {
     public void setStartLocation(String value) {
         startLocation = value == null || value.isBlank() ? null : value.trim();
     }
+    public void setStartCoordinate(TripCoordinate value) { startCoordinate = value; coordinateProvided = true; }
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    public boolean hasStartCoordinate() { return coordinateProvided; }
 
     @JsonSetter(nulls = Nulls.FAIL)
     public void setDurations(List<VisitDuration> value) { durations = value; }

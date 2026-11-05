@@ -154,7 +154,7 @@ class MemoryMobileIntegrationTest {
         ResultActions dayUpdated = mvc.perform(put("/api/v1/trips/" + tripId + "/days/" + date)
                 .header("Authorization", "Bearer " + token).contentType(MediaType.APPLICATION_JSON)
                 .content(json.writeValueAsString(Map.of("version", 0, "startLocation", "Mobile hotel", "startTime", "07:45",
-                        "returnToStart", true, "transport", "MOTORCYCLE", "durations", List.of()))))
+                        "returnToStart", true, "transport", "MOTORCYCLE", "startCoordinate", Map.of("latitude",11.94,"longitude",108.44), "durations", List.of()))))
                 .andExpect(status().isOk());
         ResultActions addedPlace = mvc.perform(post("/api/v1/trips/" + tripId + "/places")
                 .header("Authorization", "Bearer " + token).contentType(MediaType.APPLICATION_JSON)

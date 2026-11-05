@@ -115,7 +115,8 @@ public class HeldKarpSolver {
             for (int node = 0; node < n; node++) {
                 if (!allowedPosition(node, 0, positionByNode, nodeByPosition)) continue;
                 TspResult result = solve(TspRequest.builder().places(inputPlaces).roundTrip(true)
-                        .startPlaceId(places.get(node).getId()).endPlaceId(request.getEndPlaceId()).fixedPositions(fixed).build());
+                        .startPlaceId(places.get(node).getId()).endPlaceId(request.getEndPlaceId()).fixedPositions(fixed)
+                        .travelMode(request.getTravelMode()).build());
                 if (best == null || result.getTotalDistanceMeters() < best.getTotalDistanceMeters()) best = result;
             }
             if (best == null) throw new AppException(ErrorCode.INVALID_TSP_LOCATIONS);
@@ -138,7 +139,7 @@ public class HeldKarpSolver {
             return handleSinglePlace(places.get(0), request.isRoundTrip());
         }
         if (n == 2 && fixed.isEmpty()) {
-            return handleTwoPlaces(places.get(0), places.get(1), request.isRoundTrip(), fixedEndIndex);
+            return handleTwoPlaces(places.get(0), places.get(1), request.isRoundTrip(), fixedEndIndex, request.getTravelMode());
         }
 
         // Xây dựng ma trận khoảng cách N x N
@@ -221,7 +222,7 @@ public class HeldKarpSolver {
             optimalPathIndices = reconstructOneWayPath(n, fullMask, dp, parent, fixedEndIndex);
         }
 
-        return buildTspResult(places, optimalPathIndices, dist, request.isRoundTrip());
+        return buildTspResult(places, optimalPathIndices, dist, request.isRoundTrip(), request.getTravelMode());
     }
 
     private List<Place> arrangePlacesWithStartNode(List<Place> originalPlaces, UUID startPlaceId) {
@@ -317,7 +318,8 @@ public class HeldKarpSolver {
         return path;
     }
 
-    private TspResult buildTspResult(List<Place> places, List<Integer> pathIndices, double[][] dist, boolean isRoundTrip) {
+    private TspResult buildTspResult(List<Place> places, List<Integer> pathIndices, double[][] dist, boolean isRoundTrip,
+            com.travel.planning.enums.PlanningTravelMode mode) {
         List<Place> orderedPlaces = new ArrayList<>(pathIndices.size());
         for (int idx : pathIndices) {
             orderedPlaces.add(places.get(idx));
@@ -332,7 +334,7 @@ public class HeldKarpSolver {
             int toIdx = pathIndices.get(i + 1);
 
             double legDistance = dist[fromIdx][toIdx];
-            long legDuration = DistanceCalculator.calculateDurationSeconds(legDistance);
+            long legDuration = DistanceCalculator.calculateDurationSeconds(legDistance, mode);
 
             legs.add(RouteLeg.builder()
                     .fromPlace(places.get(fromIdx))
@@ -372,12 +374,13 @@ public class HeldKarpSolver {
                 .build();
     }
 
-    private TspResult handleTwoPlaces(Place p0, Place p1, boolean isRoundTrip, Integer fixedEndIndex) {
+    private TspResult handleTwoPlaces(Place p0, Place p1, boolean isRoundTrip, Integer fixedEndIndex,
+            com.travel.planning.enums.PlanningTravelMode mode) {
         double dist = DistanceCalculator.calculateDistanceMeters(
                 p0.getLatitude(), p0.getLongitude(),
                 p1.getLatitude(), p1.getLongitude()
         );
-        long dur = DistanceCalculator.calculateDurationSeconds(dist);
+        long dur = DistanceCalculator.calculateDurationSeconds(dist, mode);
 
         if (fixedEndIndex != null && fixedEndIndex == 0) {
             // Điểm kết thúc là p0 -> lộ trình p1 -> p0

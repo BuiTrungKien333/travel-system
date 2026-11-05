@@ -159,4 +159,59 @@ class ItineraryPinsIntegrationTest {
         save(stale).andExpect(status().isConflict());
         readItinerary().andExpect(status().isOk()).andExpect(jsonPath("$.data.days[0].stops[1].pinned").value(true));
     }
+
+    Map<String,Object> daySettings(long version, String transport) {
+        return new LinkedHashMap<>(Map.of("version",version,"startLocation","Hotel","startTime","07:45",
+                "returnToStart",true,"transport",transport,"startCoordinate",Map.of("latitude",11.94,"longitude",108.44)));
+    }
+    ResultActions saveDay(Map<String,?> request) throws Exception {
+        return mvc.perform(put("/api/v1/trips/"+tripId+"/days/"+date).header("Authorization","Bearer "+token)
+                .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(request)));
+    }
+    @Test void optimizerUsesTheSavedOriginDepartureModeAndReturnSettingAlongsidePins() throws Exception {
+        var saved = data(save(schedule(true)).andExpect(status().isOk()));
+        saveDay(daySettings(0,"WALK")).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.trip.days[0].startCoordinate.latitude").value(11.94));
+        var current = data(readItinerary().andExpect(status().isOk()));
+        assertThat(current.path("updatedAt").asText()).isNotEqualTo(saved.path("updatedAt").asText());
+        when(optimizer.optimizeAndAuditMultiDay(any())).thenReturn(proposal(places,11));
+        mvc.perform(post("/api/v1/trips/"+tripId+"/itinerary/optimize").header("Authorization","Bearer "+token))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.sourceUpdatedAt").value(current.path("updatedAt").asText()));
+        var capture = ArgumentCaptor.forClass(MultiDayOptimizeAndAuditRequest.class);
+        verify(optimizer).optimizeAndAuditMultiDay(capture.capture());
+        var request = capture.getValue().days().getFirst();
+        assertThat(request.startTime()).isEqualTo(LocalTime.of(7,45));
+        assertThat(request.roundTrip()).isTrue();
+        assertThat(request.travelMode()).isEqualTo(com.travel.planning.enums.PlanningTravelMode.WALK);
+        assertThat(request.originPlace().latitude()).isEqualTo(11.94);
+        assertThat(request.originPlace().longitude()).isEqualTo(108.44);
+        assertThat(request.originPlace().id()).isNotIn(places); // Picking a visit as origin still uses a distinct routing node.
+        assertThat(request.locations().get(1).pinnedSequence()).isEqualTo(1);
+    }
+    @Test void coordinatesRoundTripAndLegacyTransportEditsPreserveOrClearThemAccordingToTheLabel() throws Exception {
+        save(schedule(false)).andExpect(status().isOk());
+        saveDay(daySettings(0,"CAR")).andExpect(status().isOk());
+        saveDay(daySettings(1,"CAR")).andExpect(status().isOk()).andExpect(jsonPath("$.data.trip.version").value(1));
+        var legacy = daySettings(1,"WALK"); legacy.remove("startCoordinate");
+        saveDay(legacy).andExpect(status().isOk()).andExpect(jsonPath("$.data.trip.days[0].startCoordinate.longitude").value(108.44));
+        legacy.put("version",2); legacy.put("startLocation","Other hotel");
+        saveDay(legacy).andExpect(status().isOk()).andExpect(jsonPath("$.data.trip.days[0].startCoordinate").isEmpty());
+        mvc.perform(post("/api/v1/trips/"+tripId+"/itinerary/optimize").header("Authorization","Bearer "+token))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("TRIP_015"));
+        verifyNoInteractions(optimizer);
+        var clear = daySettings(3,"MOTORCYCLE"); clear.put("startLocation",null); clear.put("startCoordinate",null); clear.put("returnToStart",false);
+        saveDay(clear).andExpect(status().isOk()).andExpect(jsonPath("$.data.trip.days[0].startCoordinate").isEmpty())
+                .andExpect(jsonPath("$.data.trip.days[0].startLocation").isEmpty());
+    }
+    @Test void invalidCoordinatesDoNotWriteAndZeroCoordinatesAreValid() throws Exception {
+        for (var point : List.of(Map.of("latitude",91,"longitude",0),Map.of("latitude",0,"longitude",181),Map.of("latitude",0))) {
+            var request = daySettings(0,"CAR"); request.put("startCoordinate",point);
+            saveDay(request).andExpect(status().isBadRequest());
+        }
+        var missingName = daySettings(0,"CAR"); missingName.put("startLocation",null);
+        saveDay(missingName).andExpect(status().isBadRequest());
+        var zero = daySettings(0,"CAR"); zero.put("startCoordinate",Map.of("latitude",0,"longitude",0));
+        saveDay(zero).andExpect(status().isOk()).andExpect(jsonPath("$.data.trip.version").value(1))
+                .andExpect(jsonPath("$.data.trip.days[0].startCoordinate.latitude").value(0));
+    }
 }

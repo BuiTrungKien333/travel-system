@@ -130,7 +130,9 @@ public class TripCrudRepository {
             return new TripResponses.Day(rs.getObject("id",UUID.class),day,
                 start == null ? n + 1 : Math.toIntExact(java.time.temporal.ChronoUnit.DAYS.between(start,day) + 1),
                 rs.getString("start_location"), time == null ? null : time.toLocalTime().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm")),
-                rs.getBoolean("return_to_start"), rs.getString("transport"));
+                rs.getBoolean("return_to_start"), rs.getString("transport"),
+                rs.getObject("start_latitude") == null ? null : new com.travel.trip.dto.TripCoordinate(
+                        rs.getObject("start_latitude", Double.class), rs.getObject("start_longitude", Double.class)));
         },id);
     }
     public record Schedule(UUID id, java.time.Instant updatedAt) { }
@@ -148,10 +150,12 @@ public class TripCrudRepository {
     }
     public void updateDay(UUID tripId, LocalDate date, UpdateTripDayRequest request, java.time.Instant now) {
         jdbc.update("""
-            UPDATE trip_days SET start_location=?,start_time=?,return_to_start=?,transport=?,updated_at=?
+            UPDATE trip_days SET start_location=?,start_time=?,return_to_start=?,transport=?,updated_at=?,start_latitude=?,start_longitude=?
             WHERE trip_id=? AND date=?
             """, request.getStartLocation(), request.getStartTime() == null ? null : java.sql.Time.valueOf(request.getStartTime() + ":00"),
-                request.getReturnToStart(), request.getTransport().name(), java.sql.Timestamp.from(now), tripId, date);
+                request.getReturnToStart(), request.getTransport().name(), java.sql.Timestamp.from(now),
+                request.getStartCoordinate() == null ? null : request.getStartCoordinate().latitude(),
+                request.getStartCoordinate() == null ? null : request.getStartCoordinate().longitude(), tripId, date);
     }
     public void updateDuration(UUID itineraryId, LocalDate date, UpdateTripDayRequest.VisitDuration value, java.time.Instant now) {
         jdbc.update("""

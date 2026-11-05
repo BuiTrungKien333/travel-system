@@ -12,7 +12,7 @@ public final class TripResponses {
     public record Readiness(boolean hasDates, boolean hasPlaces, long unscheduledCount) { }
     @JsonInclude(JsonInclude.Include.ALWAYS)
     public record Day(UUID id, LocalDate date, int dayNumber, String startLocation,
-                      String startTime, boolean returnToStart, String transport) { }
+                      String startTime, boolean returnToStart, String transport, TripCoordinate startCoordinate) { }
     @JsonInclude(JsonInclude.Include.ALWAYS)
     public record Destination(String name, UUID provinceId) { }
     public record Budget(long amount, String currency) { }

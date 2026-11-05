@@ -164,6 +164,7 @@ public class TripOptimizationServiceImpl implements TripOptimizationService {
                     .places(visitPlaces)
                     .startPlaceId(request.startPlaceId())
                     .fixedPositions(pinnedPositions)
+                    .travelMode(request.travelMode())
                     .roundTrip(request.isRoundTrip())
                     .build();
             TspResult tspResult = heldKarpSolver.solve(tspRequest);
@@ -175,7 +176,7 @@ public class TripOptimizationServiceImpl implements TripOptimizationService {
         LocalDate tripDate = request.tripDate();
         LocalTime startTime = request.startTime();
         List<ScheduleItemContext> scheduleItems = timelineEngine.buildTimelineForDay(
-                tripDate, startTime, request.originPlace(), orderedPlaces, requestMap, legs);
+                tripDate, startTime, request.originPlace(), orderedPlaces, requestMap, legs, request.travelMode());
 
         // 4. Thẩm định quy tắc xác định bằng RuleEvaluatorService (Gatekeeper)
         ItineraryEvaluationResult evaluationResult = ruleEvaluatorService.evaluateItinerary(scheduleItems);
@@ -264,7 +265,8 @@ public class TripOptimizationServiceImpl implements TripOptimizationService {
                     dayPlan.originPlace(),
                     dayPlan.isRoundTrip(),
                     dayPlan.locations(),
-                    request.userNotes()
+                    request.userNotes(),
+                    dayPlan.travelMode()
             );
 
             TripOptimizationResponse dayResponse = optimizeAndAuditItinerary(dayReq);
@@ -407,6 +409,7 @@ public class TripOptimizationServiceImpl implements TripOptimizationService {
                 .places(allPlaces)
                 .startPlaceId(originId)
                 .fixedPositions(pinnedPositions(request, 1))
+                .travelMode(request.travelMode())
                 .roundTrip(request.isRoundTrip())
                 .build();
 
@@ -476,6 +479,7 @@ public class TripOptimizationServiceImpl implements TripOptimizationService {
                 TspRequest tspReq = TspRequest.builder()
                         .places(toSolve)
                         .startPlaceId(anchorPlace.getId())
+                        .travelMode(request.travelMode())
                         .roundTrip(false)
                         .build();
 
@@ -488,6 +492,7 @@ public class TripOptimizationServiceImpl implements TripOptimizationService {
             } else {
                 TspRequest tspReq = TspRequest.builder()
                         .places(notVisitedPlaces)
+                        .travelMode(request.travelMode())
                         .roundTrip(request.isRoundTrip())
                         .build();
                 TspResult tspRes = heldKarpSolver.solve(tspReq);

@@ -27,5 +27,7 @@ public class TspRequest {
     /** Zero-based visit positions that cannot be moved by the solver. */
     @Builder.Default
     private java.util.Map<Integer, UUID> fixedPositions = java.util.Map.of();
+    @Builder.Default
+    private com.travel.planning.enums.PlanningTravelMode travelMode = com.travel.planning.enums.PlanningTravelMode.DRIVE;
 
 }

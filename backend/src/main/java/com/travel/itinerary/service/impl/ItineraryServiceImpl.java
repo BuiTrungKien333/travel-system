@@ -47,6 +47,7 @@ public class ItineraryServiceImpl implements ItineraryService {
     private final ItineraryRepository itineraries;
     private final TripOptimizationService optimizer;
     private final jakarta.persistence.EntityManager entityManager;
+    private final com.travel.trip.repository.TripCrudRepository tripSettings;
 
     @Override
     public ItineraryResponse get(UUID userId, UUID tripId) {
@@ -113,6 +114,9 @@ public class ItineraryServiceImpl implements ItineraryService {
         Itinerary itinerary = itineraries.findFirstByTripIdOrderByUpdatedAtDescIdAsc(tripId)
                 .orElseThrow(() -> new AppException(ErrorCode.ITINERARY_NOT_FOUND));
         if (itinerary.getItems().isEmpty()) throw new AppException(ErrorCode.INVALID_ITINERARY);
+        if (trip.getStatus() == com.travel.trip.enums.TripStatus.CANCELLED) throw new AppException(ErrorCode.TRIP_READ_ONLY);
+        var settingsByDate = tripSettings.days(tripId, trip.getStartDate()).stream()
+                .collect(Collectors.toMap(com.travel.trip.dto.TripResponses.Day::date, value -> value));
 
         Map<LocalDate, List<ItineraryItem>> byDate = itinerary.getItems().stream()
                 .sorted(Comparator.comparing(ItineraryItem::getDate)
@@ -121,14 +125,30 @@ public class ItineraryServiceImpl implements ItineraryService {
         List<DayPlanRequest> days = new ArrayList<>(byDate.size());
         for (var entry : byDate.entrySet()) {
             List<ItineraryItem> items = entry.getValue();
+            var settings = settingsByDate.get(entry.getKey());
             LocalTime startTime = items.stream()
                     .map(ItineraryItem::getArrivalAt)
                     .filter(Objects::nonNull)
                     .map(LocalDateTime::toLocalTime)
                     .findFirst()
                     .orElse(DEFAULT_START_TIME);
+            if (settings != null && settings.startTime() != null) startTime = LocalTime.parse(settings.startTime());
+            TspLocationRequest origin = null;
+            if (settings != null) {
+                if ((settings.startLocation() != null || settings.returnToStart()) && settings.startCoordinate() == null)
+                    throw new AppException(ErrorCode.ITINERARY_ORIGIN_REQUIRED);
+                if (settings.startCoordinate() != null) origin = new TspLocationRequest(
+                        UUID.nameUUIDFromBytes(("trip-day-origin:" + settings.id()).getBytes(java.nio.charset.StandardCharsets.UTF_8)),
+                        settings.startLocation(), settings.startCoordinate().latitude(), settings.startCoordinate().longitude());
+            }
+            var mode = settings == null ? com.travel.planning.enums.PlanningTravelMode.DRIVE
+                    : switch (settings.transport()) {
+                        case "WALK" -> com.travel.planning.enums.PlanningTravelMode.WALK;
+                        case "MOTORCYCLE" -> com.travel.planning.enums.PlanningTravelMode.TWO_WHEELER;
+                        default -> com.travel.planning.enums.PlanningTravelMode.DRIVE;
+                    };
             List<TspLocationRequest> locations = items.stream().map(this::toLocation).toList();
-            days.add(new DayPlanRequest(entry.getKey(), startTime, null, locations, false));
+            days.add(new DayPlanRequest(entry.getKey(), startTime, origin, locations, settings != null && settings.returnToStart(), mode));
         }
 
         String notes = trip.getConstraints() != null && !trip.getConstraints().isBlank()

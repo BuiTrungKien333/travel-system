@@ -56,6 +56,9 @@ public class ItineraryItem {
     @Column(name = "sequence", nullable = false)
     private int sequence;
 
+    @Column(nullable = false)
+    private boolean pinned;
+
     @Column(name = "distance_from_previous")
     private Double distanceFromPrevious;
 

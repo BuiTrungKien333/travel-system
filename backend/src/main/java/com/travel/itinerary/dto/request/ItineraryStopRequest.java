@@ -13,6 +13,10 @@ public record ItineraryStopRequest(
         @NotNull @Min(0) Integer sequence,
         LocalDateTime arrivalTime,
         @NotNull @Min(1) @Max(1440) Integer durationMinutes,
-        @Size(max = 2000) String note
+        @Size(max = 2000) String note,
+        Boolean pinned
 ) {
+    public ItineraryStopRequest(UUID placeId, Integer sequence, LocalDateTime arrivalTime, Integer durationMinutes, String note) {
+        this(placeId, sequence, arrivalTime, durationMinutes, note, null);
+    }
 }

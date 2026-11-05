@@ -46,7 +46,13 @@ public record TspLocationRequest(
         com.travel.planning.enums.VisitStatus visitStatus,
 
         @Schema(description = "Lịch hoạt động theo từng thứ trong tuần (tùy chọn)")
-        com.travel.place.model.WeeklyOpeningHours weeklyOpeningHours
+        com.travel.place.model.WeeklyOpeningHours weeklyOpeningHours,
+
+        @Schema(description = "Fixed zero-based visit position; requires pinnedArrivalTime")
+        Integer pinnedSequence,
+
+        @Schema(description = "Appointment time to preserve when the visit is pinned")
+        java.time.LocalDateTime pinnedArrivalTime
 ) {
     public TspLocationRequest {
         if (visitStatus == null) {
@@ -56,6 +62,13 @@ public record TspLocationRequest(
 
     public TspLocationRequest(UUID id, String name, Double latitude, Double longitude) {
         this(id, name, latitude, longitude, null, null, null, null, null, null);
+    }
+
+    public TspLocationRequest(UUID id, String name, Double latitude, Double longitude,
+            com.travel.place.enums.PlaceType placeType, java.time.LocalTime openingTime, java.time.LocalTime closingTime,
+            Integer durationMinutes, com.travel.planning.enums.VisitStatus visitStatus,
+            com.travel.place.model.WeeklyOpeningHours weeklyOpeningHours) {
+        this(id, name, latitude, longitude, placeType, openingTime, closingTime, durationMinutes, visitStatus, weeklyOpeningHours, null, null);
     }
 
     public TspLocationRequest(UUID id, String name, Double latitude, Double longitude,

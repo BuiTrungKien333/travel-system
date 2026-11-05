@@ -116,6 +116,12 @@ public class TimelineEngine {
                 arrivalTime = currentTime.plusMinutes(transitFromPrev);
             }
 
+            if (locReq != null && locReq.pinnedArrivalTime() != null) {
+                if (arrivalTime.isAfter(locReq.pinnedArrivalTime()))
+                    throw new com.travel.common.exception.AppException(com.travel.common.exception.ErrorCode.ITINERARY_PIN_CONFLICT);
+                arrivalTime = locReq.pinnedArrivalTime();
+            }
+
             // Tính toán ngày hiển thị và thời gian chờ
             LocalDate displayDate = arrivalTime.toLocalDate();
             boolean isSpillover = displayDate.isAfter(dayDate);

@@ -156,6 +156,16 @@ class MemoryMobileIntegrationTest {
                 .content(json.writeValueAsString(Map.of("version", 0, "startLocation", "Mobile hotel", "startTime", "07:45",
                         "returnToStart", true, "transport", "MOTORCYCLE", "durations", List.of()))))
                 .andExpect(status().isOk());
+        ResultActions addedPlace = mvc.perform(post("/api/v1/trips/" + tripId + "/places")
+                .header("Authorization", "Bearer " + token).contentType(MediaType.APPLICATION_JSON)
+                .content(json.writeValueAsString(Map.of("name", "Pinned fixture", "latitude", 11.94, "longitude", 108.44))))
+                .andExpect(status().isCreated());
+        String placeId = data(addedPlace).path("placeId").asText();
+        mvc.perform(put("/api/v1/trips/" + tripId + "/itinerary").header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of("days", List.of(Map.of("date", date.toString(),
+                        "stops", List.of(Map.of("placeId", placeId, "sequence", 0, "arrivalTime", date.atTime(10,0).toString(),
+                                "durationMinutes", 45, "pinned", true))))))))
+                .andExpect(status().isOk());
         var memoryBody = new java.util.HashMap<>(memoryRequest()); memoryBody.put("tripId", tripId);
         ResultActions memory = create(memoryBody).andExpect(status().isCreated());
         String memoryId = data(memory).path("id").asText();
@@ -164,7 +174,8 @@ class MemoryMobileIntegrationTest {
         responses.put("tripDayUpdate", json.readTree(dayUpdated.andReturn().getResponse().getContentAsString()));
         for (var entry : Map.of("tripDetail", "/api/v1/trips/" + tripId, "tripList", "/api/v1/trips?size=100",
                 "destinations", "/api/v1/destinations?size=100", "limits", "/api/v1/media/limits",
-                "memoryDetail", "/api/v1/journal/memories/detail?memoryId=" + memoryId, "memoryList", "/api/v1/journal/memories").entrySet()) {
+                "memoryDetail", "/api/v1/journal/memories/detail?memoryId=" + memoryId, "memoryList", "/api/v1/journal/memories",
+                "tripPlaces", "/api/v1/trips/" + tripId + "/places", "itinerary", "/api/v1/trips/" + tripId + "/itinerary").entrySet()) {
             responses.put(entry.getKey(), json.readTree(mvc.perform(get(entry.getValue()).header("Authorization", "Bearer " + token))
                     .andExpect(status().isOk()).andReturn().getResponse().getContentAsString()));
         }

@@ -96,6 +96,31 @@ public class HeldKarpSolver {
 
         // Xử lý thứ tự places để đưa startPlace lên đầu (index 0) nếu có
         List<Place> places = arrangePlacesWithStartNode(inputPlaces, request.getStartPlaceId());
+        Map<Integer, UUID> fixed = request.getFixedPositions() == null ? Map.of() : request.getFixedPositions();
+        int[] positionByNode = new int[n];
+        int[] nodeByPosition = new int[n];
+        Arrays.fill(positionByNode, -1);
+        Arrays.fill(nodeByPosition, -1);
+        for (var entry : fixed.entrySet()) {
+            Integer position = entry.getKey();
+            Integer node = entry.getValue() == null ? null : findPlaceIndex(places, entry.getValue());
+            if (position == null || position < 0 || position >= n || node == null || positionByNode[node] != -1)
+                throw new AppException(ErrorCode.INVALID_TSP_LOCATIONS);
+            positionByNode[node] = position;
+            nodeByPosition[position] = node;
+        }
+        // With fixed visit slots, rotating a cycle is no longer equivalent. Compare all permitted starts.
+        if (request.isRoundTrip() && request.getStartPlaceId() == null && !fixed.isEmpty()) {
+            TspResult best = null;
+            for (int node = 0; node < n; node++) {
+                if (!allowedPosition(node, 0, positionByNode, nodeByPosition)) continue;
+                TspResult result = solve(TspRequest.builder().places(inputPlaces).roundTrip(true)
+                        .startPlaceId(places.get(node).getId()).endPlaceId(request.getEndPlaceId()).fixedPositions(fixed).build());
+                if (best == null || result.getTotalDistanceMeters() < best.getTotalDistanceMeters()) best = result;
+            }
+            if (best == null) throw new AppException(ErrorCode.INVALID_TSP_LOCATIONS);
+            return best;
+        }
 
         // Kiểm tra endPlaceId nếu có
         Integer fixedEndIndex = null;
@@ -109,9 +134,10 @@ public class HeldKarpSolver {
 
         // Xử lý các trường hợp biên N = 1, N = 2
         if (n == 1) {
+            if (!allowedPosition(0, 0, positionByNode, nodeByPosition)) throw new AppException(ErrorCode.INVALID_TSP_LOCATIONS);
             return handleSinglePlace(places.get(0), request.isRoundTrip());
         }
-        if (n == 2) {
+        if (n == 2 && fixed.isEmpty()) {
             return handleTwoPlaces(places.get(0), places.get(1), request.isRoundTrip(), fixedEndIndex);
         }
 
@@ -142,12 +168,13 @@ public class HeldKarpSolver {
 
         // Khởi tạo trạng thái cơ sở
         if (startFixed) {
+            if (!allowedPosition(0, 0, positionByNode, nodeByPosition)) throw new AppException(ErrorCode.INVALID_TSP_LOCATIONS);
             // Cố định đỉnh xuất phát tại index 0 (với Round-trip, chu trình khép kín bất biến với điểm bắt đầu)
             dp[1][0] = 0.0;
         } else {
             // Điểm xuất phát tự do trong bài toán một chiều
             for (int i = 0; i < n; i++) {
-                dp[1 << i][i] = 0.0;
+                if (allowedPosition(i, 0, positionByNode, nodeByPosition)) dp[1 << i][i] = 0.0;
             }
         }
 
@@ -163,7 +190,7 @@ public class HeldKarpSolver {
                 }
 
                 for (int v = 0; v < n; v++) { // logic sang điểm mới (từ u sang v) và cập nhật kỷ lục
-                    if ((mask & (1 << v)) == 0) { // v chưa được đi qua, thì giờ có thể qua từ u
+                    if ((mask & (1 << v)) == 0 && allowedPosition(v, Integer.bitCount(mask), positionByNode, nodeByPosition)) {
                         int nextMask = mask | (1 << v); // bật bit v: đánh dấu là đã đi thêm v
                         double newCost = dp[mask][u] + dist[u][v]; // Chi phí cũ + đường đi từ u sang v
 
@@ -222,6 +249,11 @@ public class HeldKarpSolver {
         return arranged;
     }
 
+    private boolean allowedPosition(int node, int position, int[] positionByNode, int[] nodeByPosition) {
+        return (positionByNode[node] == -1 || positionByNode[node] == position)
+                && (nodeByPosition[position] == -1 || nodeByPosition[position] == node);
+    }
+
     private Integer findPlaceIndex(List<Place> places, UUID placeId) {
         for (int i = 0; i < places.size(); i++) {
             if (places.get(i).getId().equals(placeId)) {
@@ -243,6 +275,7 @@ public class HeldKarpSolver {
             }
         }
 
+        if (bestEndNode == -1) throw new AppException(ErrorCode.INVALID_TSP_LOCATIONS);
         List<Integer> path = backtrackPath(bestEndNode, fullMask, parent);
         path.add(0); // Khép vòng quay lại điểm xuất phát index 0
         return path;
@@ -264,6 +297,7 @@ public class HeldKarpSolver {
             }
         }
 
+        if (Double.isInfinite(dp[fullMask][bestEndNode])) throw new AppException(ErrorCode.INVALID_TSP_LOCATIONS);
         return backtrackPath(bestEndNode, fullMask, parent);
     }
 

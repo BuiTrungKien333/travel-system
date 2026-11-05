@@ -24,4 +24,8 @@ public class TspRequest {
 
     private UUID endPlaceId;
 
+    /** Zero-based visit positions that cannot be moved by the solver. */
+    @Builder.Default
+    private java.util.Map<Integer, UUID> fixedPositions = java.util.Map.of();
+
 }

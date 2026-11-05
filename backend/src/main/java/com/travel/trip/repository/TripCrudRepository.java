@@ -86,6 +86,8 @@ public class TripCrudRepository {
             WHERE i.id=ii.itinerary_id AND i.trip_id=? AND ii.removed_at IS NULL AND (ii.date<? OR ii.date>?)
             """, java.sql.Timestamp.from(now), java.sql.Timestamp.from(now), id, start, end);
         jdbc.update("DELETE FROM trip_days WHERE trip_id=? AND (date<? OR date>?)", id, start, end);
+        jdbc.update("UPDATE itineraries SET updated_at=GREATEST(?, updated_at + interval '1 microsecond') WHERE trip_id=?",
+                java.sql.Timestamp.from(now), id);
         var dates = start.datesUntil(end.plusDays(1)).toList();
         jdbc.batchUpdate("INSERT INTO trip_days(trip_id,date) VALUES (?,?) ON CONFLICT (trip_id,date) DO NOTHING", dates, 100,
                 (ps, date) -> { ps.setObject(1,id); ps.setObject(2,date); });

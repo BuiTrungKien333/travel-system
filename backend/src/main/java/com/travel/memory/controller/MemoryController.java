@@ -2,6 +2,7 @@ package com.travel.memory.controller;
 
 import com.travel.common.response.ApiResponse;
 import com.travel.memory.dto.request.CreateMemoryRequest;
+import com.travel.memory.dto.request.UpdateMemoryRequest;
 import com.travel.memory.dto.response.MemoryResponse;
 import com.travel.memory.service.MemoryService;
 import com.travel.security.util.SecurityUtils;
@@ -28,6 +29,12 @@ import java.util.UUID;
 public class MemoryController {
 
     private final MemoryService memoryService;
+
+    @PatchMapping("/{memoryId}")
+    @Operation(summary = "Update a memory note with optimistic version checking")
+    public ApiResponse<MemoryResponse> update(@PathVariable UUID memoryId, @Valid @RequestBody UpdateMemoryRequest request) {
+        return ApiResponse.success(memoryService.updateMemory(memoryId, SecurityUtils.getCurrentUserId(), request));
+    }
 
     /**
      * Create a new travel memory with optional attached media.

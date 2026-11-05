@@ -57,6 +57,11 @@ class MediaServiceTest {
     }
 
     @Test
+    void publishedFileLimitMatchesUploadValidation() {
+        assertThat(mediaService.limits().maxFileBytes()).isEqualTo(10 * 1024 * 1024);
+    }
+
+    @Test
     @DisplayName("Delete media succeeds when owned by user")
     void deleteMedia_Success() {
         Memory memory = Memory.create(userId, tripId, placeId, "Memory with media", Instant.now());

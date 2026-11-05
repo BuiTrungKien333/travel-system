@@ -2,6 +2,7 @@ package com.travel.media.controller;
 
 import com.travel.common.response.ApiResponse;
 import com.travel.media.dto.UploadResponse;
+import com.travel.media.dto.UploadLimitsResponse;
 import com.travel.media.service.MediaService;
 import com.travel.security.util.SecurityUtils;
 import io.swagger.v3.oas.annotations.Operation;
@@ -24,6 +25,8 @@ import java.util.UUID;
 public class MediaController {
 
     private final MediaService mediaService;
+    @GetMapping("/limits")
+    public ApiResponse<UploadLimitsResponse> limits() { return ApiResponse.success(mediaService.limits()); }
     /**
      * Upload a single image to Cloudinary.
      * If tripId & memoryId are provided, stores in organized folder:

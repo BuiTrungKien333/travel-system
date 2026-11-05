@@ -5,6 +5,7 @@ import com.cloudinary.utils.ObjectUtils;
 import com.travel.common.exception.AppException;
 import com.travel.common.exception.ErrorCode;
 import com.travel.media.dto.UploadResponse;
+import com.travel.media.dto.UploadLimitsResponse;
 import com.travel.media.entity.Media;
 import com.travel.media.repository.MediaRepository;
 import com.travel.media.service.MediaService;
@@ -35,6 +36,8 @@ public class MediaServiceImpl implements MediaService {
     private final MemoryRepository memoryRepository;
     private final MediaPersistenceHelper mediaPersistenceHelper;
     private static final long MAX_FILE_SIZE = 10 * 1024 * 1024;
+    @Override
+    public UploadLimitsResponse limits() { return new UploadLimitsResponse(MAX_FILE_SIZE); }
     private static final int MAX_FILES_PER_REQUEST = 10;
     private static final Set<String> ALLOWED_MIME_TYPES = Set.of(
             "image/jpeg",

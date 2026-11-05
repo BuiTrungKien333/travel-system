@@ -3,6 +3,13 @@ package com.travel.memory.service.impl;
 import com.travel.common.exception.AppException;
 import com.travel.common.exception.ErrorCode;
 import com.travel.memory.dto.request.CreateMemoryRequest;
+import com.travel.memory.dto.request.UpdateMemoryRequest;
+import com.travel.user.repository.UserRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.Arrays;
+import java.util.Objects;
+import java.util.HexFormat;
+import java.security.MessageDigest;
 import com.travel.memory.dto.response.MemoryResponse;
 import com.travel.memory.entity.Memory;
 import com.travel.memory.mapper.MemoryMapper;
@@ -30,10 +37,25 @@ public class MemoryServiceImpl implements MemoryService {
     private final MemoryMapper memoryMapper;
     private final TripRepository tripRepository;
     private final TripPlaceRepository tripPlaceRepository;
+    private final UserRepository userRepository;
+    private final ObjectMapper json;
 
     @Override
     @Transactional
     public MemoryResponse createMemory(UUID currentUserId, CreateMemoryRequest request) {
+        String requestHash = null;
+        if (request.getClientRequestId() != null) {
+            // Reuse the existing per-user database lock to serialize concurrent replays.
+            userRepository.lockById(currentUserId).orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+            requestHash = hash(request);
+            var existing = memoryRepository.findByUserIdAndClientRequestId(currentUserId, request.getClientRequestId());
+            if (existing.isPresent()) {
+                Memory memory = existing.get();
+                if (!Objects.equals(memory.getCreateRequestHash(), requestHash)) throw new AppException(ErrorCode.MEMORY_REQUEST_CONFLICT);
+                if (memory.isDeleted()) throw new AppException(ErrorCode.MEMORY_NOT_FOUND);
+                return memoryMapper.toResponse(memory);
+            }
+        }
         if (request.getTripId() != null) {
             tripRepository.findByIdAndUserIdAndDeletedAtIsNull(request.getTripId(), currentUserId)
                     .orElseThrow(() -> new AppException(ErrorCode.TRIP_NOT_FOUND));
@@ -45,9 +67,30 @@ public class MemoryServiceImpl implements MemoryService {
             throw new AppException(ErrorCode.TRIP_NOT_FOUND);
         }
         Memory memory = memoryMapper.toEntity(currentUserId, request);
+        if (request.getClientRequestId() != null) memory.identifyCreateRequest(request.getClientRequestId(), requestHash);
         Memory saved = memoryRepository.save(memory);
         log.info("Memory created: id={}, userId={}, mediaCount={}", saved.getId(), saved.getUserId(), saved.getMedia().size());
         return memoryMapper.toResponse(saved);
+    }
+
+    private String hash(CreateMemoryRequest request) {
+        try {
+            byte[] payload = json.writeValueAsBytes(Arrays.asList(request.getTripId(), request.getPlaceId(),
+                    request.getNote(), request.getExperiencedAt() == null ? null : request.getExperiencedAt().toString(), request.getMedia()));
+            return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(payload));
+        } catch (java.io.IOException | java.security.NoSuchAlgorithmException error) {
+            throw new IllegalStateException("Cannot identify memory request", error);
+        }
+    }
+
+    @Override
+    @Transactional
+    public MemoryResponse updateMemory(UUID id, UUID userId, UpdateMemoryRequest request) {
+        Memory memory = memoryRepository.lockActiveById(id).orElseThrow(() -> new AppException(ErrorCode.MEMORY_NOT_FOUND));
+        checkOwnership(memory, userId);
+        if (memory.getVersion() != request.version()) throw new AppException(ErrorCode.MEMORY_VERSION_CONFLICT);
+        memory.updateNote(request.note());
+        return memoryMapper.toResponse(memoryRepository.saveAndFlush(memory));
     }
 
     @Override

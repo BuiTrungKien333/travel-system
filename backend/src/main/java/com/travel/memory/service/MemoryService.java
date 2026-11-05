@@ -1,6 +1,7 @@
 package com.travel.memory.service;
 
 import com.travel.memory.dto.request.CreateMemoryRequest;
+import com.travel.memory.dto.request.UpdateMemoryRequest;
 import com.travel.memory.dto.response.MemoryResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -8,6 +9,7 @@ import org.springframework.data.domain.Pageable;
 import java.util.UUID;
 
 public interface MemoryService {
+    MemoryResponse updateMemory(UUID id, UUID userId, UpdateMemoryRequest request);
 
     /**
      * Create a new Memory along with its attached media list.

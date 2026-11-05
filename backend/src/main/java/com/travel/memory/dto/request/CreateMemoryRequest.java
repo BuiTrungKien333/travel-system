@@ -21,6 +21,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 public class CreateMemoryRequest {
+    private UUID clientRequestId;
 
     private UUID tripId;
 

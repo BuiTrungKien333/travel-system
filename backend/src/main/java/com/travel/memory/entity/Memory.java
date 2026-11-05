@@ -16,6 +16,21 @@ import java.util.UUID;
 @Getter
 @NoArgsConstructor
 public class Memory extends BaseEntity {
+    @Version
+    @Column(nullable = false)
+    private long version;
+
+    @Column(name = "client_request_id", updatable = false)
+    private UUID clientRequestId;
+
+    @Column(name = "create_request_hash", length = 64, updatable = false)
+    private String createRequestHash;
+
+    public void identifyCreateRequest(UUID requestId, String hash) {
+        if (clientRequestId != null) throw new IllegalStateException("Memory request identity is immutable");
+        clientRequestId = requestId;
+        createRequestHash = hash;
+    }
 
     @Column(name = "user_id", nullable = false)
     private UUID userId;

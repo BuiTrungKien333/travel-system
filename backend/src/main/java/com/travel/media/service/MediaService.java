@@ -1,12 +1,14 @@
 package com.travel.media.service;
 
 import com.travel.media.dto.UploadResponse;
+import com.travel.media.dto.UploadLimitsResponse;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.UUID;
 
 public interface MediaService {
+    UploadLimitsResponse limits();
 
     /**
      * Upload a single image file to Cloudinary into organized folder:

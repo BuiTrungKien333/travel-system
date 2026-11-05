@@ -64,6 +64,8 @@ public enum ErrorCode {
 
     MEMORY_NOT_FOUND("MEMORY_001", "error.memory.not-found", HttpStatus.NOT_FOUND),
     MEMORY_ACCESS_DENIED("MEMORY_002", "error.memory.access-denied", HttpStatus.FORBIDDEN),
+    MEMORY_VERSION_CONFLICT("MEMORY_003", "error.memory.version-conflict", HttpStatus.CONFLICT),
+    MEMORY_REQUEST_CONFLICT("MEMORY_004", "error.memory.request-conflict", HttpStatus.CONFLICT),
     MEDIA_NOT_FOUND("MEDIA_001", "error.media.not-found", HttpStatus.NOT_FOUND),
 
     // --- UPLOAD ---

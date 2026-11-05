@@ -87,7 +87,8 @@ public class PlaceRetrievalService {
     public record Match(PlaceCandidate place, double rankScore, boolean lexicalMatch, boolean semanticMatch) {
     }
 
-    public record SearchResult(String retrievalMode, String embeddingModel, List<Match> matches, String fallbackReason) {
+    public record SearchResult(String retrievalMode, String embeddingModel, List<Match> matches,
+                               String fallbackReason) {
         public SearchResult(String retrievalMode, String embeddingModel, List<Match> matches) {
             this(retrievalMode, embeddingModel, matches, null);
         }

@@ -16,6 +16,7 @@ import java.util.Map;
 @Component
 @Profile("rag-demo")
 public class GeminiIntentClient {
+
     private final GeminiStructuredClient client;
     private final TravelIntentValidator validator;
     private final Map<String, Object> schema;
@@ -40,9 +41,11 @@ public class GeminiIntentClient {
     @Autowired
     public GeminiIntentClient(RagDemoProperties properties, ObjectMapper mapper,
                               TravelIntentValidator validator, GeminiStructuredClient client) throws IOException {
-        this.validator = validator; this.client = client;
+        this.validator = validator;
+        this.client = client;
         try (var input = new ClassPathResource("ai/travel-intent-schema.json").getInputStream()) {
-            this.schema = mapper.readValue(input, new TypeReference<Map<String, Object>>() {});
+            this.schema = mapper.readValue(input, new TypeReference<Map<String, Object>>() {
+            });
         }
     }
 

@@ -25,6 +25,7 @@ public class PlaceRetrievalRepository {
              FROM places p JOIN place_retrieval_profiles r ON r.place_id = p.id
              JOIN provinces province ON province.id = p.province_id
             """;
+
     private static final String DOCUMENT = "(p.name || E'\\n' || r.description || E'\\n' || array_to_string(r.tags, ', '))";
     private static final String HASH = "encode(sha256(convert_to(" + DOCUMENT + ", 'UTF8')), 'hex')";
 

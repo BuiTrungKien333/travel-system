@@ -25,7 +25,9 @@ public class TravelIntentService {
 
     public TravelIntentService(GeminiIntentClient client, PlaceRetrievalService retrieval,
                                RagDemoProperties properties) {
-        this.client = client; this.retrieval = retrieval; this.properties = properties;
+        this.client = client;
+        this.retrieval = retrieval;
+        this.properties = properties;
     }
 
     public IntentAnalysis analyze(String text) {
@@ -35,36 +37,47 @@ public class TravelIntentService {
     private IntentAnalysis analyze(TravelIntent intent, String model) {
         List<String> missing = new ArrayList<>(), questions = new ArrayList<>(), warnings = new ArrayList<>();
         if (intent.destination() == null) {
-            missing.add("destination"); questions.add("Bạn muốn đi tỉnh/thành nào? Demo hiện có dữ liệu Đà Nẵng.");
+            missing.add("destination");
+            questions.add("Bạn muốn đi tỉnh/thành nào? Demo hiện có dữ liệu Đà Nẵng.");
         }
         if (intent.numberOfDays() == null) missing.add("numberOfDays");
         if (intent.dailyStartTime() == null) missing.add("dailyStartTime");
         if (intent.dailyEndTime() == null) missing.add("dailyEndTime");
         if (intent.travelPace() == null) missing.add("travelPace");
-        if (intent.numberOfDays() != null && intent.numberOfDays() > 2) warnings.add("Demo lập lịch tiếp theo giới hạn 1–2 ngày; hiện chỉ truy xuất ứng viên.");
+        if (intent.numberOfDays() != null && intent.numberOfDays() > 2)
+            warnings.add("Demo lập lịch tiếp theo giới hạn 1–2 ngày; hiện chỉ truy xuất ứng viên.");
+
         if (intent.dailyStartTime() != null && intent.dailyEndTime() != null
                 && !LocalTime.parse(intent.dailyStartTime()).isBefore(LocalTime.parse(intent.dailyEndTime()))) {
             questions.add("Khung giờ trong ngày chưa hợp lệ. Bạn xác nhận lại giờ bắt đầu và kết thúc; demo chưa hỗ trợ khung qua đêm.");
         }
-        Set<String> overlap = new HashSet<>(intent.interests()); overlap.retainAll(intent.excludedTags());
-        if (!overlap.isEmpty()) questions.add("Bạn vừa muốn vừa loại trừ nhóm " + String.join(", ", new TreeSet<>(overlap)) + ". Hãy xác nhận lại.");
+
+        Set<String> overlap = new HashSet<>(intent.interests());
+        overlap.retainAll(intent.excludedTags());
+        if (!overlap.isEmpty())
+            questions.add("Bạn vừa muốn vừa loại trừ nhóm " + String.join(", ", new TreeSet<>(overlap)) + ". Hãy xác nhận lại.");
 
         boolean supported = intent.destination() != null && Set.of("da nang", "danang", "tp da nang", "thanh pho da nang")
                 .contains(normalize(intent.destination()));
         String status = supported ? "READY_FOR_RETRIEVAL" : intent.destination() == null ? "NEEDS_INPUT" : "UNSUPPORTED_DESTINATION";
-        if (intent.destination() != null && !supported) questions.add("Kho demo chỉ có Đà Nẵng; chưa truy xuất cho điểm đến bạn yêu cầu.");
-        List<PlaceCandidate> required = new ArrayList<>(); Set<UUID> excludedIds = new LinkedHashSet<>();
+        if (intent.destination() != null && !supported)
+            questions.add("Kho demo chỉ có Đà Nẵng; chưa truy xuất cho điểm đến bạn yêu cầu.");
+        List<PlaceCandidate> required = new ArrayList<>();
+        Set<UUID> excludedIds = new LinkedHashSet<>();
         // Resolve names only against the curated DB catalog, never via LLM identifiers.
         if (supported) {
             List<PlaceCandidate> catalog = retrieval.catalog();
             for (String name : intent.mustVisitNames()) {
                 List<PlaceCandidate> found = resolve(name, catalog);
-                if (found.size() != 1) questions.add("Điểm bắt buộc '" + name + "' chưa xác định duy nhất trong kho demo. Hãy chọn lại từ catalog.");
-                else if (required.stream().noneMatch(p -> p.placeId().equals(found.getFirst().placeId()))) required.add(found.getFirst());
+                if (found.size() != 1)
+                    questions.add("Điểm bắt buộc '" + name + "' chưa xác định duy nhất trong kho demo. Hãy chọn lại từ catalog.");
+                else if (required.stream().noneMatch(p -> p.placeId().equals(found.getFirst().placeId())))
+                    required.add(found.getFirst());
             }
             for (String name : intent.excludedPlaceNames()) {
                 List<PlaceCandidate> found = resolve(name, catalog);
-                if (found.size() != 1) questions.add("Điểm loại trừ '" + name + "' chưa xác định duy nhất trong kho demo. Hãy xác nhận lại.");
+                if (found.size() != 1)
+                    questions.add("Điểm loại trừ '" + name + "' chưa xác định duy nhất trong kho demo. Hãy xác nhận lại.");
                 else excludedIds.add(found.getFirst().placeId());
             }
             for (PlaceCandidate place : required) {
@@ -79,10 +92,12 @@ public class TravelIntentService {
         positiveGroups.addAll(required.stream().map(PlaceCandidate::name).toList());
         String positiveQuery = String.join(" OR ", positiveGroups);
         if (intent.interests().isEmpty() && intent.mustVisitNames().isEmpty()) {
-            missing.add("interests"); questions.add("Bạn muốn trải nghiệm gì: văn hóa, nghệ thuật, đi chợ hay ngắm biển/cảnh quan?");
+            missing.add("interests");
+            questions.add("Bạn muốn trải nghiệm gì: văn hóa, nghệ thuật, đi chợ hay ngắm biển/cảnh quan?");
         }
         if (supported && !questions.isEmpty()) status = "NEEDS_INPUT";
-        if (!missing.isEmpty()) warnings.add("Thông tin chưa cung cấp được giữ trống. Truy xuất chỉ cần điểm đến và sở thích/điểm ghé rõ ràng; luồng lập lịch kiểm tra riêng các trường bắt buộc và công bố chính sách cho trường tùy chọn.");
+        if (!missing.isEmpty())
+            warnings.add("Thông tin chưa cung cấp được giữ trống. Truy xuất chỉ cần điểm đến và sở thích/điểm ghé rõ ràng; luồng lập lịch kiểm tra riêng các trường bắt buộc và công bố chính sách cho trường tùy chọn.");
         return new IntentAnalysis(status, intent, supported ? "48" : null, missing, questions, warnings,
                 positiveQuery, required, List.copyOf(excludedIds), model);
     }
@@ -96,9 +111,11 @@ public class TravelIntentService {
     }
 
     private TextSearchResult search(IntentAnalysis analysis, int limit) {
-        if (!analysis.status().equals("READY_FOR_RETRIEVAL")) return new TextSearchResult(analysis.status(), analysis, null);
+        if (!analysis.status().equals("READY_FOR_RETRIEVAL"))
+            return new TextSearchResult(analysis.status(), analysis, null);
         if (analysis.mustVisitPlaces().size() > limit) {
-            var questions = new ArrayList<>(analysis.questions()); questions.add("Số điểm bắt buộc lớn hơn limit. Hãy tăng limit hoặc giảm số điểm bắt buộc.");
+            var questions = new ArrayList<>(analysis.questions());
+            questions.add("Số điểm bắt buộc lớn hơn limit. Hãy tăng limit hoặc giảm số điểm bắt buộc.");
             var revised = new IntentAnalysis("NEEDS_INPUT", analysis.intent(), analysis.provinceCode(), analysis.missingFields(),
                     questions, analysis.warnings(), analysis.positiveQuery(), analysis.mustVisitPlaces(), analysis.excludedPlaceIds(), analysis.model());
             return new TextSearchResult("NEEDS_INPUT", revised, null);
@@ -133,7 +150,12 @@ public class TravelIntentService {
     }
 
     public record IntentAnalysis(String status, TravelIntent intent, String provinceCode, List<String> missingFields,
-            List<String> questions, List<String> warnings, String positiveQuery, List<PlaceCandidate> mustVisitPlaces,
-            List<UUID> excludedPlaceIds, String model) {}
-    public record TextSearchResult(String status, IntentAnalysis analysis, PlaceRetrievalService.SearchResult candidates) {}
+                                 List<String> questions, List<String> warnings, String positiveQuery,
+                                 List<PlaceCandidate> mustVisitPlaces,
+                                 List<UUID> excludedPlaceIds, String model) {
+    }
+
+    public record TextSearchResult(String status, IntentAnalysis analysis,
+                                   PlaceRetrievalService.SearchResult candidates) {
+    }
 }

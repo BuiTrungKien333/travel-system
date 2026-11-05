@@ -11,8 +11,12 @@ import org.springframework.web.bind.annotation.*;
 @Profile("rag-demo")
 @RequestMapping("/api/v1/public/planning/retrieval")
 public class TravelIntentController {
+
     private final TravelIntentService service;
-    public TravelIntentController(TravelIntentService service) { this.service = service; }
+
+    public TravelIntentController(TravelIntentService service) {
+        this.service = service;
+    }
 
     @PostMapping("/intent")
     @Operation(summary = "Extract and validate travel preferences from Vietnamese text; no itinerary is written")
@@ -26,8 +30,12 @@ public class TravelIntentController {
         return ApiResponse.success(service.search(request.text(), request.limit()));
     }
 
-    public record IntentRequest(@NotBlank @Size(max=1000) String text) {}
-    public record TextSearchRequest(@NotBlank @Size(max=1000) String text, @Min(1) @Max(8) Integer limit) {
-        public TextSearchRequest { if (limit == null) limit = 4; }
+    public record IntentRequest(@NotBlank @Size(max = 1000) String text) {
+    }
+
+    public record TextSearchRequest(@NotBlank @Size(max = 1000) String text, @Min(1) @Max(8) Integer limit) {
+        public TextSearchRequest {
+            if (limit == null) limit = 4;
+        }
     }
 }

@@ -47,6 +47,35 @@ public class MediaServiceImpl implements MediaService {
     );
     @Override
     @Transactional
+    public UploadResponse uploadImage(MultipartFile file, UUID userId, UUID tripId, UUID memoryId, UUID clientRequestId) {
+          if (clientRequestId == null) return uploadImage(file, userId, tripId, memoryId);
+        validateFile(file);
+        // Serialize retries of one capture, including a retry while an earlier HTTP request is still running.
+        Memory memory = memoryRepository.lockActiveById(memoryId)
+                .orElseThrow(() -> new AppException(ErrorCode.MEMORY_NOT_FOUND));
+        if (!memory.getUserId().equals(userId) || !java.util.Objects.equals(memory.getTripId(), tripId))
+            throw new AppException(ErrorCode.MEMORY_ACCESS_DENIED);
+        String digest;
+        try {
+            var hash = java.security.MessageDigest.getInstance("SHA-256");
+            hash.update(file.getContentType().toLowerCase(java.util.Locale.ROOT).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            digest = java.util.HexFormat.of().formatHex(hash.digest(file.getBytes()));
+        } catch (IOException | java.security.NoSuchAlgorithmException error) {
+            throw new AppException(ErrorCode.UPLOAD_FAILED);
+        }
+        var existing = mediaRepository.findByMemoryIdAndClientRequestId(memoryId, clientRequestId);
+        if (existing.isPresent()) {
+            Media saved = existing.get();
+            if (!digest.equals(saved.getUploadSha256())) throw new AppException(ErrorCode.UPLOAD_REQUEST_CONFLICT);
+            return UploadResponse.builder().mediaId(saved.getId()).url(saved.getUrl()).mimeType(saved.getMimeType())
+                    .fileSize(saved.getFileSize()).width(saved.getWidth()).height(saved.getHeight()).build();
+        }
+        String folder = CloudinaryPathBuilder.memoryFolder(userId, tripId, memoryId);
+        UploadResponse response = doUpload(file, folder, "capture-" + clientRequestId);
+        return mediaPersistenceHelper.saveAndBuildResponse(response, memory, memory.getMedia().size(), clientRequestId, digest);
+    }
+    @Override
+    @Transactional
     public UploadResponse uploadImage(MultipartFile file, UUID userId, UUID tripId, UUID memoryId) {
         validateFile(file);
         Memory memory = findOwnedMemory(userId, tripId, memoryId);

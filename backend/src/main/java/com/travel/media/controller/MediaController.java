@@ -47,7 +47,8 @@ public class MediaController {
     public ApiResponse<UploadResponse> uploadImage(
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "tripId", required = false) UUID tripId,
-            @RequestParam(value = "memoryId", required = false) UUID memoryId
+            @RequestParam(value = "memoryId", required = false) UUID memoryId,
+            @RequestParam(value = "clientRequestId", required = false) UUID clientRequestId
     ) {
         UUID currentUserId = SecurityUtils.getCurrentUserId();
         log.info("User [{}] uploading image: name={}, type={}, size={} bytes, tripId={}, memoryId={}",
@@ -60,8 +61,10 @@ public class MediaController {
 
         UploadResponse response;
         if (tripId != null && memoryId != null) {
-            response = mediaService.uploadImage(file, currentUserId, tripId, memoryId);
+            response = clientRequestId == null ? mediaService.uploadImage(file, currentUserId, tripId, memoryId)
+                    : mediaService.uploadImage(file, currentUserId, tripId, memoryId, clientRequestId);
         } else {
+            if (clientRequestId != null) throw new com.travel.common.exception.AppException(com.travel.common.exception.ErrorCode.VALIDATION_ERROR);
             response = mediaService.uploadImage(file, currentUserId);
         }
         return ApiResponse.success("Image uploaded successfully", response);

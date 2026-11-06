@@ -28,6 +28,10 @@ public class MediaPersistenceHelper {
      * @return UploadResponse bổ sung thêm mediaId từ DB
      */
     public UploadResponse saveAndBuildResponse(UploadResponse response, Memory memory, int displayOrder) {
+        return saveAndBuildResponse(response, memory, displayOrder, null, null);
+    }
+    public UploadResponse saveAndBuildResponse(UploadResponse response, Memory memory, int displayOrder,
+                                              java.util.UUID clientRequestId, String digest) {
         Media media = Media.create(
                 response.getUrl(),
                 response.getMimeType(),
@@ -37,6 +41,8 @@ public class MediaPersistenceHelper {
                 displayOrder
         );
         memory.addMedia(media);
+        media.setClientRequestId(clientRequestId);
+        media.setUploadSha256(digest);
         mediaRepository.save(media);
 
         log.info("Media saved to DB: mediaId={}, memoryId={}, url={}",

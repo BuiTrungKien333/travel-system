@@ -84,6 +84,24 @@ public class ItineraryServiceImpl implements ItineraryService {
                 .orElseGet(() -> newItinerary(trip));
         if (request.expectedUpdatedAt() != null && !request.expectedUpdatedAt().equals(itinerary.getUpdatedAt()))
             throw new AppException(ErrorCode.ITINERARY_CHANGED);
+        if (request.poolUpdates() != null && !request.poolUpdates().isEmpty()) {
+            // A pool metadata edit and removal from the schedule must succeed or roll back together.
+            if (request.expectedUpdatedAt() == null) throw new AppException(ErrorCode.INVALID_ITINERARY);
+            Set<UUID> poolIds = new HashSet<>();
+            for (var update : request.poolUpdates()) {
+                if (!poolIds.add(update.placeId()) || requestedPlaceIds.contains(update.placeId()))
+                    throw new AppException(ErrorCode.INVALID_ITINERARY);
+            }
+            var links = tripPlaces.findByTripIdAndPlaceIdIn(tripId, poolIds);
+            if (links.size() != poolIds.size()) throw new AppException(ErrorCode.ITINERARY_PLACE_NOT_IN_TRIP);
+            var updates = request.poolUpdates().stream().collect(Collectors.toMap(
+                    com.travel.itinerary.dto.request.PoolPlaceUpdateRequest::placeId, value -> value));
+            for (var link : links) {
+                var update = updates.get(link.getPlace().getId());
+                link.setEstimatedDuration(update.durationMinutes());
+                link.setNotes(trim(update.note()));
+            }
+        }
         Map<PlannedStopKey, ItineraryItem> previousItems = itinerary.getItems().stream()
                 .collect(Collectors.toMap(item -> new PlannedStopKey(item.getDate(), item.getPlace().getId()), item -> item));
         List<ItineraryItem> replacement = new ArrayList<>(stops.size());

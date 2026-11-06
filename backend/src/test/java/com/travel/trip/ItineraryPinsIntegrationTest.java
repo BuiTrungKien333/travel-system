@@ -214,4 +214,52 @@ class ItineraryPinsIntegrationTest {
         saveDay(zero).andExpect(status().isOk()).andExpect(jsonPath("$.data.trip.version").value(1))
                 .andExpect(jsonPath("$.data.trip.days[0].startCoordinate.latitude").value(0));
     }
+
+    Map<String,Object> returnLastToPool(String stamp) {
+        var request = schedule(true);
+        var stops = new ArrayList<Map<String,Object>>();
+        for (int i = 0; i < 2; i++) stops.add(new LinkedHashMap<>(Map.of("placeId", places.get(i), "sequence", i,
+                "arrivalTime", date.atTime(10+i,0).toString(), "durationMinutes", 30, "note", "Note "+i, "pinned", i == 1)));
+        request.put("days", List.of(Map.of("date", date.toString(), "stops", stops)));
+        request.put("expectedUpdatedAt", stamp);
+        request.put("poolUpdates", List.of(Map.of("placeId", places.get(2), "durationMinutes", 95, "note", "Pool edit")));
+        return request;
+    }
+
+    @Test void returningVisitToPoolPersistsMetadataAndScheduleInOneSave() throws Exception {
+        var first = data(save(schedule(true)).andExpect(status().isOk()));
+        var request = returnLastToPool(first.path("updatedAt").asText());
+        save(request).andExpect(status().isOk()).andExpect(jsonPath("$.data.days[0].stops.length()").value(2))
+                .andExpect(jsonPath("$.data.days[0].stops[1].pinned").value(true));
+        assertThat(jdbc.queryForObject("select estimated_duration from trip_places where trip_id=? and place_id=?",
+                Integer.class, tripId, places.get(2))).isEqualTo(95);
+        assertThat(jdbc.queryForObject("select notes from trip_places where trip_id=? and place_id=?",
+                String.class, tripId, places.get(2))).isEqualTo("Pool edit");
+    }
+
+    @Test void stalePoolMoveDoesNotPartiallyEditMetadataOrSchedule() throws Exception {
+        save(schedule(true)).andExpect(status().isOk());
+        jdbc.update("update trip_places set notes='Original', estimated_duration=50 where trip_id=? and place_id=?", tripId, places.get(2));
+        save(returnLastToPool("2000-01-01T00:00:00Z")).andExpect(status().isConflict());
+        readItinerary().andExpect(status().isOk()).andExpect(jsonPath("$.data.days[0].stops.length()").value(3));
+        assertThat(jdbc.queryForObject("select notes from trip_places where trip_id=? and place_id=?", String.class, tripId, places.get(2)))
+                .isEqualTo("Original");
+        assertThat(jdbc.queryForObject("select estimated_duration from trip_places where trip_id=? and place_id=?", Integer.class, tripId, places.get(2)))
+                .isEqualTo(50);
+    }
+
+    @Test void invalidPoolUpdatesCannotWriteForeignOrStillScheduledPlaces() throws Exception {
+        var first = data(save(schedule(true)).andExpect(status().isOk()));
+        var request = returnLastToPool(first.path("updatedAt").asText());
+        for (var invalid : List.of(
+                List.of(Map.of("placeId", UUID.randomUUID(), "durationMinutes", 45)),
+                List.of(Map.of("placeId", places.get(0), "durationMinutes", 45)),
+                List.of(Map.of("placeId", places.get(2), "durationMinutes", 45), Map.of("placeId", places.get(2), "durationMinutes", 60)))) {
+            request.put("poolUpdates", invalid);
+            save(request).andExpect(status().is4xxClientError());
+        }
+        request.put("poolUpdates", Collections.singletonList(null));
+        save(request).andExpect(status().isBadRequest());
+        readItinerary().andExpect(status().isOk()).andExpect(jsonPath("$.data.days[0].stops.length()").value(3));
+    }
 }

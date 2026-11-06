@@ -49,6 +49,10 @@ public class Media {
 
     @Column(name = "display_order", nullable = false)
     private Integer displayOrder = 0;
+    @Column(name = "client_request_id")
+    private UUID clientRequestId;
+    @Column(name = "upload_sha256", length = 64)
+    private String uploadSha256;
 
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)

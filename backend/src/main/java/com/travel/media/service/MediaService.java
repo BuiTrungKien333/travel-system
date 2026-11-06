@@ -21,6 +21,7 @@ public interface MediaService {
      * @return UploadResponse containing the secure URL and metadata
      */
     UploadResponse uploadImage(MultipartFile file, UUID userId, UUID tripId, UUID memoryId);
+    UploadResponse uploadImage(MultipartFile file, UUID userId, UUID tripId, UUID memoryId, UUID clientRequestId);
 
     /**
      * Upload multiple image files to Cloudinary (up to 10) into organized folder.

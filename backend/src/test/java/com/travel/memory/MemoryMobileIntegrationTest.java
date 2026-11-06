@@ -130,6 +130,46 @@ class MemoryMobileIntegrationTest {
         verify(uploader, times(1)).upload(any(), anyMap());
     }
 
+    @Test void concurrentCaptureUploadReplaysOneMediaAndRejectsChangedContent() throws Exception {
+        LocalDate date = LocalDate.now(ZoneId.of("Asia/Ho_Chi_Minh")).plusDays(1);
+        String tripId = data(mvc.perform(post("/api/v1/trips").header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of("clientRequestId", UUID.randomUUID(),
+                        "destination", Map.of("name", "Da Lat"), "startDate", date.toString(), "endDate", date.toString()))))
+                .andExpect(status().isCreated())).path("trip").path("id").asText();
+        var request = new java.util.HashMap<>(memoryRequest()); request.put("tripId", tripId);
+        String memoryId = data(create(request).andExpect(status().isCreated())).path("id").asText();
+        String key = UUID.randomUUID().toString();
+        Uploader uploader = mock(Uploader.class);
+        when(cloudinary.uploader()).thenReturn(uploader);
+        when(uploader.upload(any(), anyMap())).thenAnswer(invocation -> {
+            Thread.sleep(100);
+            return Map.of("secure_url", "https://example.com/replay.png", "public_id", "test/replay", "bytes", 2, "width", 1, "height", 1);
+        });
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            Callable<String> upload = () -> data(mvc.perform(multipart("/api/v1/media/upload")
+                    .file(new MockMultipartFile("file", "photo.png", "image/png", new byte[]{1, 2}))
+                    .param("tripId", tripId).param("memoryId", memoryId).param("clientRequestId", key)
+                    .header("Authorization", "Bearer " + token)).andExpect(status().isCreated())).path("mediaId").asText();
+            var futures = executor.invokeAll(List.of(upload, upload));
+            assertThat(futures.get(0).get()).isEqualTo(futures.get(1).get());
+        } finally { executor.shutdownNow(); }
+        mvc.perform(multipart("/api/v1/media/upload")
+                .file(new MockMultipartFile("file", "photo.png", "image/png", new byte[]{9, 9}))
+                .param("tripId", tripId).param("memoryId", memoryId).param("clientRequestId", key)
+                .header("Authorization", "Bearer " + token)).andExpect(status().isConflict());
+        mvc.perform(get("/api/v1/journal/memories/detail").param("memoryId", memoryId).header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.mediaCount").value(1));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM media WHERE memory_id=?", Long.class, UUID.fromString(memoryId))).isEqualTo(1);
+        verify(uploader, times(1)).upload(any(), anyMap());
+        UUID other = users.save(User.builder().fullName("Other").email(UUID.randomUUID() + "@example.com").build()).getId();
+        jdbc.update("UPDATE memories SET user_id=? WHERE id=?", other, UUID.fromString(memoryId));
+        mvc.perform(multipart("/api/v1/media/upload")
+                .file(new MockMultipartFile("file", "photo.png", "image/png", new byte[]{1, 2}))
+                .param("tripId", tripId).param("memoryId", memoryId).param("clientRequestId", key)
+                .header("Authorization", "Bearer " + token)).andExpect(status().isForbidden());
+    }
+
     @Test void updatesCannotModifyOtherUsersMemoriesAndValidateInputs() throws Exception {
         String id = data(create(memoryRequest()).andExpect(status().isCreated())).path("id").asText();
         UUID other = users.save(User.builder().fullName("Other").email(UUID.randomUUID() + "@example.com").build()).getId();

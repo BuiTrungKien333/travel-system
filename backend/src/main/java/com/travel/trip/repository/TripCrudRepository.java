@@ -27,7 +27,7 @@ public class TripCrudRepository {
           (SELECT count(*) FROM trip_places tp WHERE tp.trip_id=t.id AND NOT EXISTS
             (SELECT 1 FROM itineraries i JOIN itinerary_items ii ON ii.itinerary_id=i.id
              WHERE i.trip_id=t.id AND ii.place_id=tp.place_id AND ii.removed_at IS NULL)) AS unscheduled_count,
-          (SELECT count(*) FROM memories m WHERE m.trip_id=t.id AND m.deleted_at IS NULL) AS memory_count
+          (SELECT count(*) FROM memories m WHERE m.trip_id=t.id AND m.user_id=t.user_id AND m.deleted_at IS NULL) AS memory_count
         FROM trips t
         """;
 
@@ -92,7 +92,7 @@ public class TripCrudRepository {
     public void softDelete(UUID id, java.time.Instant now) {
         var timestamp = java.sql.Timestamp.from(now);
         jdbc.update("UPDATE trips SET deleted_at=?, updated_at=?, version=version+1 WHERE id=? AND deleted_at IS NULL", timestamp, timestamp, id);
-        jdbc.update("UPDATE memories SET deleted_at=?, updated_at=? WHERE trip_id=? AND deleted_at IS NULL", timestamp, timestamp, id);
+        jdbc.update("UPDATE memories SET deleted_at=?, updated_at=? WHERE trip_id=? AND user_id=(SELECT user_id FROM trips WHERE id=?) AND deleted_at IS NULL", timestamp, timestamp, id, id);
     }
     public boolean referencesExist(CreateTripRequest r) {
         if (r.destination().provinceId() != null && !Boolean.TRUE.equals(jdbc.queryForObject(

@@ -35,7 +35,6 @@ public enum ErrorCode {
     GOOGLE_NOT_CONFIGURED("AUTH_013", "error.auth.google-not-configured", HttpStatus.SERVICE_UNAVAILABLE),
     GOOGLE_ACCOUNT_CONFLICT("AUTH_014", "error.auth.google-conflict", HttpStatus.CONFLICT),
 
-    TRIP_NOT_FOUND("TRIP_001", "error.trip.not-found", HttpStatus.NOT_FOUND),
     TRIP_VERSION_CONFLICT("TRIP_002", "error.trip.version-conflict", HttpStatus.CONFLICT),
     TRIP_DATE_IMPACT("TRIP_003", "error.trip.date-impact", HttpStatus.CONFLICT),
     TRIP_REQUEST_CONFLICT("TRIP_004", "error.trip.request-conflict", HttpStatus.CONFLICT),
@@ -72,7 +71,8 @@ public enum ErrorCode {
     UPLOAD_FILE_TOO_LARGE("UPLOAD_002", "error.upload.file-too-large", HttpStatus.BAD_REQUEST),
     UPLOAD_INVALID_FILE_TYPE("UPLOAD_003", "error.upload.invalid-file-type", HttpStatus.BAD_REQUEST),
     UPLOAD_FAILED("UPLOAD_004", "error.upload.failed", HttpStatus.INTERNAL_SERVER_ERROR),
-    UPLOAD_TOO_MANY_FILES("UPLOAD_005", "error.upload.too-many-files", HttpStatus.BAD_REQUEST);
+    UPLOAD_TOO_MANY_FILES("UPLOAD_005", "error.upload.too-many-files", HttpStatus.BAD_REQUEST),
+    MEDIA_STORAGE_UNAVAILABLE("UPLOAD_006", "error.upload.storage-unavailable", HttpStatus.SERVICE_UNAVAILABLE);
 
     private final String code;
     private final String messageKey;

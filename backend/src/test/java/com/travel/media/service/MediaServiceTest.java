@@ -17,6 +17,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -35,6 +36,9 @@ class MediaServiceTest {
 
     @Mock
     private Cloudinary cloudinary;
+
+    @Mock
+    private ObjectProvider<Cloudinary> cloudinaryProvider;
 
     @Mock
     private Uploader uploader;
@@ -113,6 +117,7 @@ class MediaServiceTest {
         cloudinaryResult.put("width", 800);
         cloudinaryResult.put("height", 600);
 
+        when(cloudinaryProvider.getIfAvailable()).thenReturn(cloudinary);
         when(cloudinary.uploader()).thenReturn(uploader);
         when(uploader.upload(any(byte[].class), anyMap())).thenReturn(cloudinaryResult);
 
@@ -124,6 +129,17 @@ class MediaServiceTest {
         assertThat(response.getMimeType()).isEqualTo("image/jpeg");
         assertThat(response.getWidth()).isEqualTo(800);
         assertThat(response.getHeight()).isEqualTo(600);
+    }
+
+    @Test
+    void uploadWithoutStorageConfigurationReturnsUnavailableWithoutCallingProvider() {
+        MockMultipartFile file = new MockMultipartFile("file", "test.jpg", "image/jpeg", new byte[]{1});
+        assertThatThrownBy(() -> mediaService.uploadImage(file, userId))
+                .isInstanceOfSatisfying(AppException.class, error -> {
+                    assertThat(error.getErrorCode()).isEqualTo(ErrorCode.MEDIA_STORAGE_UNAVAILABLE);
+                    assertThat(error.getErrorCode().getHttpStatus().value()).isEqualTo(503);
+                });
+        verifyNoInteractions(cloudinary, uploader, mediaRepository);
     }
 
     @Test

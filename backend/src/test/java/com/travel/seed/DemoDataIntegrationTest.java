@@ -2,7 +2,7 @@ package com.travel.seed;
 
 import com.travel.TestcontainersConfiguration;
 import org.flywaydb.core.Flyway;
-import org.flywaydb.core.api.FlywayException;
+import org.springframework.core.io.ClassPathResource;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -13,6 +13,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 
 import javax.sql.DataSource;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Map;
@@ -34,12 +36,13 @@ class DemoDataIntegrationTest {
     private Flyway flyway;
 
     @BeforeEach
-    void createIsolatedSchema() {
+    void createIsolatedSchema() throws SQLException {
         schema = "demo_seed_" + UUID.randomUUID().toString().replace("-", "");
         flyway = Flyway.configure().dataSource(dataSource).schemas(schema).defaultSchema(schema)
-                .locations("classpath:db/migration").target("10").cleanDisabled(false).load();
+                .locations("classpath:db/migration").cleanDisabled(false).load();
         flyway.migrate();
-        assertThat(flyway.info().current().getVersion().toString()).isEqualTo("10");
+        assertThat(flyway.info().current().getVersion().toString()).isEqualTo("14");
+        assertThat(count("SELECT count(*) FROM users WHERE id::text LIKE 'd3100000-%'")).isZero();
     }
 
     @AfterEach
@@ -56,11 +59,11 @@ class DemoDataIntegrationTest {
                 """);
         String personalBefore = scalar("SELECT row_to_json(t)::text FROM trips t WHERE name='Existing personal trip'");
 
-        assertThat(seed()).isEqualTo(1);
+        seed();
 
         assertCounts();
-        assertThat(count("SELECT count(*) FROM flyway_schema_history WHERE version='11' AND success"))
-                .isEqualTo(1);
+        assertThat(count("SELECT count(*) FROM flyway_schema_history WHERE script LIKE '%seed_local_demo%'"))
+                .isZero();
         assertThat(scalar("SELECT email FROM users WHERE id='" + DEMO_USER + "'"))
                 .isEqualTo("demo.local@example.com");
         assertThat(passwords.matches("DemoTravel!2026", scalar("SELECT password_hash FROM users WHERE id='" + DEMO_USER + "'")))
@@ -159,7 +162,7 @@ class DemoDataIntegrationTest {
                 .isZero();
 
         execute("UPDATE trips SET name='My edited demo trip' WHERE id='" + FIRST_TRIP + "'");
-        assertThat(seed()).isZero();
+        seed();
 
         assertCounts();
         assertThat(scalar("SELECT name FROM trips WHERE id='" + FIRST_TRIP + "'"))
@@ -176,8 +179,7 @@ class DemoDataIntegrationTest {
                   'occupied@example.com','preserve-this-hash','USER')
                 """);
 
-        assertThatThrownBy(this::seed).isInstanceOf(FlywayException.class)
-                .hasRootCauseInstanceOf(SQLException.class);
+        assertThatThrownBy(this::seed).isInstanceOf(SQLException.class);
 
         assertThat(scalar("SELECT email FROM users WHERE id='" + DEMO_USER + "'"))
                 .isEqualTo("occupied@example.com");
@@ -197,8 +199,7 @@ class DemoDataIntegrationTest {
                   'demo.local@example.com','preserve-this-hash','USER')
                 """);
 
-        assertThatThrownBy(this::seed).isInstanceOf(FlywayException.class)
-                .hasRootCauseInstanceOf(SQLException.class);
+        assertThatThrownBy(this::seed).isInstanceOf(SQLException.class);
 
         assertThat(scalar("SELECT id::text FROM users WHERE email='demo.local@example.com'"))
                 .isEqualTo("aab00000-0000-0000-0000-000000000002");
@@ -216,8 +217,7 @@ class DemoDataIntegrationTest {
                   'demo.user02@example.com','preserve-this-hash','USER')
                 """);
 
-        assertThatThrownBy(this::seed).isInstanceOf(FlywayException.class)
-                .hasRootCauseInstanceOf(SQLException.class);
+        assertThatThrownBy(this::seed).isInstanceOf(SQLException.class);
 
         assertThat(scalar("SELECT password_hash FROM users WHERE email='demo.user02@example.com'"))
                 .isEqualTo("preserve-this-hash");
@@ -225,7 +225,7 @@ class DemoDataIntegrationTest {
                 .isZero();
         assertThat(count("SELECT count(*) FROM trips WHERE id::text LIKE 'd3300000-%'"))
                 .isZero();
-        assertThat(count("SELECT count(*) FROM flyway_schema_history WHERE version='11'"))
+        assertThat(count("SELECT count(*) FROM flyway_schema_history WHERE script LIKE '%seed_local_demo%'"))
                 .isZero();
     }
 
@@ -245,9 +245,19 @@ class DemoDataIntegrationTest {
         }
     }
 
-    private int seed() {
-        return Flyway.configure().dataSource(dataSource).schemas(schema).defaultSchema(schema)
-                .locations("classpath:db/migration").load().migrate().migrationsExecuted;
+    private void seed() throws SQLException, IOException {
+        String sql = new ClassPathResource("db/demo/seed_local_demo.sql").getContentAsString(StandardCharsets.UTF_8);
+        try (Connection connection = dataSource.getConnection()) {
+            connection.setSchema(schema);
+            connection.setAutoCommit(false);
+            try (var statement = connection.createStatement()) {
+                statement.execute(sql);
+                connection.commit();
+            } catch (SQLException failure) {
+                connection.rollback();
+                throw failure;
+            }
+        }
     }
 
     private void execute(String sql) throws SQLException {

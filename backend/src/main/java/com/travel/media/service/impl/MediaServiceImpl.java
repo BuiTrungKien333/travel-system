@@ -15,6 +15,7 @@ import com.travel.memory.repository.MemoryRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -30,7 +31,7 @@ import java.util.UUID;
 @Slf4j(topic = "MEDIA_SERVICE")
 public class MediaServiceImpl implements MediaService {
 
-    private final Cloudinary cloudinary;
+    private final ObjectProvider<Cloudinary> cloudinaryProvider;
     private final MediaRepository mediaRepository;
     private final MemoryRepository memoryRepository;
     private final MediaPersistenceHelper mediaPersistenceHelper;
@@ -121,6 +122,7 @@ public class MediaServiceImpl implements MediaService {
         if (publicId == null || publicId.isBlank()) {
             return;
         }
+        Cloudinary cloudinary = requireCloudinary();
         try {
             Map<?, ?> result = cloudinary.uploader().destroy(publicId, ObjectUtils.emptyMap());
             log.info("Cloudinary delete result for publicId [{}]: {}", publicId, result.get("result"));
@@ -128,6 +130,12 @@ public class MediaServiceImpl implements MediaService {
             log.error("Failed to delete image from Cloudinary: publicId={}", publicId, e);
         }
     }
+    private Cloudinary requireCloudinary() {
+        Cloudinary client = cloudinaryProvider.getIfAvailable();
+        if (client == null) throw new AppException(ErrorCode.MEDIA_STORAGE_UNAVAILABLE);
+        return client;
+    }
+
     /**
      * Upload thực tế lên Cloudinary.
      *
@@ -136,6 +144,7 @@ public class MediaServiceImpl implements MediaService {
      * @param publicId tên file mới (không có extension)
      */
     private UploadResponse doUpload(MultipartFile file, String folder, String publicId) {
+        Cloudinary cloudinary = requireCloudinary();
         try {
             Map<String, Object> uploadParams = ObjectUtils.asMap(
                     "folder", folder,

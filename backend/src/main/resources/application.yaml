@@ -35,9 +35,9 @@ server:
 
 app:
   cloudinary:
-    cloud-name: ${CLOUDINARY_CLOUD_NAME}
-    api-key: ${CLOUDINARY_API_KEY}
-    api-secret: ${CLOUDINARY_API_SECRET}
+    cloud-name: ${CLOUDINARY_CLOUD_NAME:}
+    api-key: ${CLOUDINARY_API_KEY:}
+    api-secret: ${CLOUDINARY_API_SECRET:}
   google:
     enabled: ${GOOGLE_AUTH_ENABLED:false}
     web-client-id: ${GOOGLE_WEB_CLIENT_ID:}

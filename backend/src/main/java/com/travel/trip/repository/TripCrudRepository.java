@@ -94,12 +94,14 @@ public class TripCrudRepository {
         jdbc.update("UPDATE trips SET deleted_at=?, updated_at=?, version=version+1 WHERE id=? AND deleted_at IS NULL", timestamp, timestamp, id);
         jdbc.update("UPDATE memories SET deleted_at=?, updated_at=? WHERE trip_id=? AND user_id=(SELECT user_id FROM trips WHERE id=?) AND deleted_at IS NULL", timestamp, timestamp, id, id);
     }
-    public boolean referencesExist(CreateTripRequest r) {
+    public boolean referencesExist(UUID owner, CreateTripRequest r) {
         if (r.destination().provinceId() != null && !Boolean.TRUE.equals(jdbc.queryForObject(
                 "SELECT EXISTS(SELECT 1 FROM provinces WHERE id=?)", Boolean.class, r.destination().provinceId()))) return false;
         if (r.initialPlaceIds().isEmpty()) return true;
         String marks = String.join(",", Collections.nCopies(r.initialPlaceIds().size(), "?"));
-        Long count = jdbc.queryForObject("SELECT count(*) FROM places WHERE id IN (" + marks + ")", Long.class, r.initialPlaceIds().toArray());
+        List<Object> arguments = new ArrayList<>(r.initialPlaceIds());
+        arguments.add(owner);
+        Long count = jdbc.queryForObject("SELECT count(*) FROM places WHERE id IN (" + marks + ") AND (source='INTERNAL' OR owner_id=?)", Long.class, arguments.toArray());
         return count != null && count == r.initialPlaceIds().size();
     }
     public boolean insert(UUID id, UUID owner, CreateTripRequest r, String title, String hash, String preferences) {

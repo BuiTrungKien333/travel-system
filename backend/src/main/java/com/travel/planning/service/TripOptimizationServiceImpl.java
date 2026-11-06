@@ -105,7 +105,7 @@ public class TripOptimizationServiceImpl implements TripOptimizationService {
             WeeklyOpeningHours weeklyHours = loc.weeklyOpeningHours();
 
             if (loc.id() != null) {
-                Optional<Place> dbPlaceOpt = placeRepository.findById(loc.id());
+                Optional<Place> dbPlaceOpt = placeRepository.findByIdAndSource(loc.id(), "INTERNAL");
                 if (dbPlaceOpt.isPresent()) {
                     Place dbPlace = dbPlaceOpt.get();
                     if (placeType == PlaceType.UNSPECIFIED && dbPlace.getPlaceType() != null) {

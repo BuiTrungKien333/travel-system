@@ -42,6 +42,7 @@ class RagCatalogIntegrationTest {
     void reset() {
         jdbc.update("DELETE FROM place_embeddings");
         jdbc.update("UPDATE place_retrieval_profiles SET approved=true");
+        jdbc.update("UPDATE places SET source='INTERNAL',owner_id=NULL");
     }
 
     @Test
@@ -62,6 +63,18 @@ class RagCatalogIntegrationTest {
         assertThat(repository.lexical("bảo tàng")).hasSize(3);
         assertThat(repository.lexical("bao tang")).hasSize(3);
         assertThat(repository.lexical("ZZZ_NO_SUCH_PLACE")).isEmpty();
+    }
+
+    @Test
+    void privatePlacesCannotEnterPublicRetrievalOrEmbeddingEvenWithAnApprovedProfile() {
+        var place = repository.catalog().getFirst();
+        var vector = vector(1,0);
+        assertThat(repository.saveEmbedding(place,"fixture",vector)).isTrue();
+        jdbc.update("UPDATE places SET source='USER',owner_id='b0000000-0000-0000-0000-000000000002' WHERE id=?",place.placeId());
+        assertThat(repository.catalog()).extracting(candidate -> candidate.placeId()).doesNotContain(place.placeId());
+        assertThat(repository.lexical(place.name())).doesNotContain(place.placeId());
+        assertThat(repository.semantic(vector,"fixture")).isEmpty();
+        assertThat(repository.saveEmbedding(place,"fixture",vector)).isFalse();
     }
 
     @Test

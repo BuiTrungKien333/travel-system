@@ -35,7 +35,7 @@ public class TripCrudService {
         var existing = repository.byCreateKey(owner, request.clientRequestId());
         if (existing.isPresent()) return replay(existing.get(),hash);
         if (request.startDate().isBefore(TripCalendar.today(clock))) invalid("startDate");
-        if (!repository.referencesExist(request)) throw new AppException(ErrorCode.TRIP_INVALID_REFERENCE);
+        if (!repository.referencesExist(owner, request)) throw new AppException(ErrorCode.TRIP_INVALID_REFERENCE);
         UUID id = UUID.randomUUID();
         if (!repository.insert(id,owner,request,title,hash,write(request.preferences()))) {
             return replay(repository.byCreateKey(owner,request.clientRequestId()).orElseThrow(),hash);
@@ -59,8 +59,13 @@ public class TripCrudService {
     }
     @Transactional(readOnly=true, isolation=org.springframework.transaction.annotation.Isolation.REPEATABLE_READ)
     public Read get(UUID id) {
+        return getAt(id,clock.instant());
+    }
+    /** Reuse the dashboard's evaluation instant, including across a midnight boundary. */
+    @Transactional(readOnly=true)
+    public Read getAt(UUID id, Instant evaluatedAt) {
         return read(repository.find(SecurityUtils.getCurrentUserId(),id)
-            .orElseThrow(() -> new AppException(ErrorCode.TRIP_NOT_FOUND)),clock.instant());
+            .orElseThrow(() -> new AppException(ErrorCode.TRIP_NOT_FOUND)),evaluatedAt);
     }
     @Transactional
     public Read update(UUID id, UpdateTripRequest request) {

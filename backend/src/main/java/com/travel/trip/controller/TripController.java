@@ -7,6 +7,7 @@ import com.travel.trip.dto.TripDateChangeRequest;
 import com.travel.trip.dto.TripResponses;
 import com.travel.trip.dto.UpdateTripRequest;
 import com.travel.trip.dto.request.AddTripPlaceRequest;
+import com.travel.trip.dto.request.AddTripPlacesRequest;
 import com.travel.trip.dto.request.UpdateTripPlaceRequest;
 import com.travel.trip.dto.response.TripPlaceResponse;
 import com.travel.trip.service.TripCrudService;
@@ -114,6 +115,13 @@ public class TripController {
     public ApiResponse<List<TripPlaceResponse>> listPlaces(@PathVariable UUID tripId) {
         return ApiResponse.success(tripPlacesService.listPlaces(
                 SecurityUtils.getCurrentUserId(), tripId));
+    }
+
+    @PostMapping("/{tripId}/places/batch")
+    @Operation(summary = "Add up to 50 stored places atomically; retries preserve existing links")
+    public ApiResponse<List<TripPlaceResponse>> addPlaces(@PathVariable UUID tripId,
+            @Valid @RequestBody AddTripPlacesRequest request) {
+        return ApiResponse.success(tripPlacesService.addPlaces(SecurityUtils.getCurrentUserId(), tripId, request));
     }
 
     @PutMapping("/{tripId}/places/{placeId}")

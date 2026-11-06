@@ -20,6 +20,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
+import java.time.Clock;
+import com.travel.trip.service.TripCalendar;
 
 @Validated
 @RestController
@@ -30,6 +32,7 @@ import java.time.LocalDate;
 public class WeatherController {
 
     private final WeatherService weatherService;
+    private final Clock clock;
 
     @GetMapping("/current")
     @Operation(summary = "Lấy thời tiết thực tế tại tọa độ và thời điểm hiện tại",
@@ -79,7 +82,7 @@ public class WeatherController {
             boolean includeHourly
     ) {
         validateCoordinates(latitude, longitude);
-        LocalDate start = startDate != null ? startDate : LocalDate.now();
+        LocalDate start = startDate != null ? startDate : TripCalendar.today(clock);
         LocalDate end = endDate != null ? endDate : start;
 
         log.info("[WEATHER_CONTROLLER] Fetching weather forecast for coordinates: ({}, {}) from {} to {}, includeHourly={}",
@@ -90,10 +93,10 @@ public class WeatherController {
     }
 
     private void validateCoordinates(double latitude, double longitude) {
-        if (latitude < -90.0 || latitude > 90.0) {
+        if (!Double.isFinite(latitude) || latitude < -90.0 || latitude > 90.0) {
             throw new IllegalArgumentException(String.format("Vĩ độ (latitude) phải nằm trong khoảng [-90.0, 90.0], nhận giá trị: %s", latitude));
         }
-        if (longitude < -180.0 || longitude > 180.0) {
+        if (!Double.isFinite(longitude) || longitude < -180.0 || longitude > 180.0) {
             throw new IllegalArgumentException(String.format("Kinh độ (longitude) phải nằm trong khoảng [-180.0, 180.0], nhận giá trị: %s", longitude));
         }
     }

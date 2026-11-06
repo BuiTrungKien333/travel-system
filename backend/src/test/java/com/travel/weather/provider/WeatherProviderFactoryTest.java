@@ -12,6 +12,9 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import com.travel.common.exception.AppException;
+import com.travel.common.exception.ErrorCode;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -47,14 +50,13 @@ class WeatherProviderFactoryTest {
     }
 
     @Test
-    @DisplayName("getProvider should fallback to mock provider when open-meteo is unavailable")
-    void getProvider_unavailable_fallsBackToMock() {
+    @DisplayName("getProvider should report unavailable rather than silently switching to mock")
+    void getProvider_unavailable_throws() {
         properties.setActiveProvider("open-meteo");
         when(openMeteoProvider.isAvailable()).thenReturn(false);
 
-        WeatherProvider provider = factory.getProvider();
-
-        assertThat(provider).isEqualTo(mockProvider);
+        assertThatThrownBy(factory::getProvider).isInstanceOfSatisfying(AppException.class,
+                e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.WEATHER_UNAVAILABLE));
     }
 
     @Test

@@ -94,11 +94,12 @@ public class TripServiceImpl implements TripService {
     @Transactional
     public TripPlaceResponse addPlace(UUID userId, UUID tripId, AddTripPlaceRequest request) {
         Trip trip = lockedTrip(userId, tripId);
+        ensureMutable(trip);
         Place place;
         if (request.placeId() != null) {
-            place = places.findById(request.placeId()).orElseThrow(() -> new AppException(ErrorCode.PLACE_NOT_FOUND));
+            place = places.findVisible(request.placeId(), userId).orElseThrow(() -> new AppException(ErrorCode.PLACE_NOT_FOUND));
         } else {
-            place = Place.builder().name(request.name().trim()).address(trim(request.address()))
+            place = Place.builder().source("USER").ownerId(userId).name(request.name().trim()).address(trim(request.address()))
                     .providerPlaceId(trim(request.providerPlaceId())).latitude(request.latitude()).longitude(request.longitude())
                     .category(trim(request.category())).build();
             if (request.provinceId() != null) {
@@ -120,6 +121,30 @@ public class TripServiceImpl implements TripService {
     }
 
     @Override
+    @Transactional
+    public List<TripPlaceResponse> addPlaces(UUID userId, UUID tripId, AddTripPlacesRequest request) {
+        Trip trip = lockedTrip(userId, tripId);
+        ensureMutable(trip);
+        if (new HashSet<>(request.placeIds()).size() != request.placeIds().size())
+            throw new AppException(ErrorCode.VALIDATION_ERROR);
+        var visible = places.findVisibleByIds(request.placeIds(),userId).stream()
+                .collect(Collectors.toMap(Place::getId,Function.identity()));
+        if (visible.size() != request.placeIds().size()) throw new AppException(ErrorCode.PLACE_NOT_FOUND);
+        var ordered = orderedPlaces(tripId);
+        Map<UUID,TripPlace> links = ordered.stream().collect(Collectors.toMap(item -> item.getPlace().getId(),Function.identity()));
+        int nextOrder = ordered.stream().map(TripPlace::getPlannedOrder).filter(Objects::nonNull).max(Integer::compareTo).orElse(-1) + 1;
+        List<TripPlace> additions = new ArrayList<>();
+        for (UUID id : request.placeIds()) {
+            if (!links.containsKey(id)) {
+                var link = TripPlace.builder().trip(trip).place(visible.get(id)).plannedOrder(nextOrder++).build();
+                additions.add(link); links.put(id,link);
+            }
+        }
+        tripPlaces.saveAllAndFlush(additions);
+        return request.placeIds().stream().map(links::get).map(this::placeResponse).toList();
+    }
+
+    @Override
     public List<TripPlaceResponse> listPlaces(UUID userId, UUID tripId) {
         ownedTrip(userId, tripId);
         return orderedPlaces(tripId).stream().map(this::placeResponse).toList();
@@ -128,7 +153,7 @@ public class TripServiceImpl implements TripService {
     @Override
     @Transactional
     public TripPlaceResponse updatePlace(UUID userId, UUID tripId, UUID placeId, UpdateTripPlaceRequest request) {
-        lockedTrip(userId, tripId);
+        ensureMutable(lockedTrip(userId, tripId));
         TripPlace link = linkedPlace(tripId, placeId);
         if (request.priority() != null) link.setPriority(request.priority());
         if (request.estimatedDuration() != null) link.setEstimatedDuration(request.estimatedDuration());
@@ -142,7 +167,7 @@ public class TripServiceImpl implements TripService {
     @Override
     @Transactional
     public void removePlace(UUID userId, UUID tripId, UUID placeId) {
-        lockedTrip(userId, tripId);
+        ensureMutable(lockedTrip(userId, tripId));
         tripPlaces.delete(linkedPlace(tripId, placeId));
         tripPlaces.flush();
         normalizeOrder(orderedPlaces(tripId));
@@ -151,6 +176,10 @@ public class TripServiceImpl implements TripService {
     private Trip ownedTrip(UUID userId, UUID tripId) {
         return trips.findByIdAndUserIdAndDeletedAtIsNull(tripId, userId)
                 .orElseThrow(() -> new AppException(ErrorCode.TRIP_NOT_FOUND));
+    }
+
+    private static void ensureMutable(Trip trip) {
+        if (trip.getStatus() == com.travel.trip.enums.TripStatus.CANCELLED) throw new AppException(ErrorCode.TRIP_READ_ONLY);
     }
 
     private Trip lockedTrip(UUID userId, UUID tripId) {

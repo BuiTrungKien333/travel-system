@@ -41,13 +41,76 @@ class TravelBackendApplicationTests {
     }
 
     @Test
+    void approvedLegacyCatalogRemainsPublicWithoutPublishingNewPrivateLocations() throws Exception {
+        String schema = isolatedSchema();
+        Flyway legacy = migration(schema, MigrationVersion.fromVersion("14"));
+        try {
+            legacy.migrate();
+            try (var connection = dataSource.getConnection()) {
+                connection.setSchema(schema);
+                try (var statement = connection.createStatement()) {
+                    statement.execute("""
+                        INSERT INTO places(id,name,latitude,longitude,created_at) VALUES
+                          ('11000000-0000-4000-8000-000000000001','Approved catalog',16,108,'2020-01-01'),
+                          ('11000000-0000-4000-8000-000000000002','Legacy home',16,108,'2020-01-01');
+                        INSERT INTO trips(id,user_id,name,destination,status) VALUES
+                          ('21000000-0000-4000-8000-000000000001','b0000000-0000-0000-0000-000000000002','Legacy trip','Test','PLANNING');
+                        INSERT INTO trip_places(trip_id,place_id) VALUES
+                          ('21000000-0000-4000-8000-000000000001','11000000-0000-4000-8000-000000000001'),
+                          ('21000000-0000-4000-8000-000000000001','11000000-0000-4000-8000-000000000002');
+                        INSERT INTO place_retrieval_profiles(place_id,description,tags,estimated_duration_minutes,source_url,reviewed_on,verification_scope,approved)
+                          VALUES ('11000000-0000-4000-8000-000000000001','Reviewed',ARRAY['test'],60,'https://example.com','2020-01-01','TEST',true);
+                        """);
+                }
+            }
+            migration(schema,MigrationVersion.fromVersion("15")).migrate();
+            try (var connection = dataSource.getConnection()) {
+                connection.setSchema(schema);
+                try (var statement = connection.createStatement()) {
+                    statement.execute("""
+                        INSERT INTO places(id,name,latitude,longitude,source,owner_id,created_at)
+                          SELECT '11000000-0000-4000-8000-000000000003','New private home',16,108,'USER',
+                            'b0000000-0000-0000-0000-000000000002',installed_on+interval '1 second'
+                          FROM flyway_schema_history WHERE version='15';
+                        INSERT INTO place_retrieval_profiles(place_id,description,tags,estimated_duration_minutes,source_url,reviewed_on,verification_scope,approved)
+                          VALUES ('11000000-0000-4000-8000-000000000003','Must stay private',ARRAY['test'],60,'https://example.com','2020-01-01','TEST',true);
+                        """);
+                }
+            }
+            Flyway latest = migration(schema,MigrationVersion.LATEST);
+            assertThat(latest.migrate().migrationsExecuted).isEqualTo(1);
+            latest.validate();
+            try (var connection = dataSource.getConnection()) {
+                connection.setSchema(schema);
+                try (var statement = connection.createStatement(); var rows = statement.executeQuery("""
+                        SELECT id::text,source,owner_id::text FROM places WHERE id::text LIKE '11000000-%' ORDER BY id
+                        """)) {
+                    assertThat(rows.next()).isTrue();
+                    assertThat(rows.getString("source")).isEqualTo("INTERNAL");
+                    assertThat(rows.getString("owner_id")).isNull();
+                    for (int i=0;i<2;i++) {
+                        assertThat(rows.next()).isTrue();
+                        assertThat(rows.getString("source")).isEqualTo("USER");
+                        assertThat(rows.getString("owner_id")).isEqualTo("b0000000-0000-0000-0000-000000000002");
+                    }
+                    assertThat(rows.next()).isFalse();
+                }
+                try (var statement = connection.createStatement(); var rows = statement.executeQuery("SELECT count(*) FROM trip_places WHERE trip_id='21000000-0000-4000-8000-000000000001'")) {
+                    assertThat(rows.next()).isTrue();
+                    assertThat(rows.getInt(1)).isEqualTo(2);
+                }
+            }
+        } finally { legacy.clean(); }
+    }
+
+    @Test
     void freshDatabaseHasLatestSchemaWithoutAutomaticallyCreatingDemoTrips() throws Exception {
         String schema = isolatedSchema();
         Flyway flyway = migration(schema, MigrationVersion.LATEST);
         try {
             flyway.migrate();
             flyway.validate();
-            assertThat(flyway.info().current().getVersion().toString()).isEqualTo("14");
+            assertThat(flyway.info().current().getVersion().toString()).isEqualTo("16");
             try (var connection = dataSource.getConnection()) {
                 connection.setSchema(schema);
                 try (var statement = connection.createStatement(); var rows = statement.executeQuery("""
@@ -100,7 +163,7 @@ class TravelBackendApplicationTests {
                 }
             }
             Flyway latest = migration(schema, MigrationVersion.LATEST);
-            assertThat(latest.migrate().migrationsExecuted).isEqualTo(3);
+            assertThat(latest.migrate().migrationsExecuted).isEqualTo(5);
             latest.validate();
             assertThat(Arrays.stream(latest.info().applied()).filter(info -> info.getVersion() != null).limit(before.size()).map(this::fingerprint).toList())
                     .isEqualTo(before);
@@ -117,6 +180,11 @@ class TravelBackendApplicationTests {
                     assertThat(rows.getString("start_time")).isEqualTo("23:30:00");
                     assertThat(rows.getString("end_time")).isEqualTo("00:30:00");
                     assertThat(rows.next()).isFalse();
+                }
+                try (var statement = connection.createStatement(); var rows = statement.executeQuery("SELECT source,owner_id::text FROM places WHERE id='10000000-0000-4000-8000-000000000001'")) {
+                    assertThat(rows.next()).isTrue();
+                    assertThat(rows.getString("source")).isEqualTo("USER");
+                    assertThat(rows.getString("owner_id")).isEqualTo("b0000000-0000-0000-0000-000000000002");
                 }
             }
         } finally {

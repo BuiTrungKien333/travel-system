@@ -84,6 +84,10 @@ application:
       max-output-tokens: 4096
 
   maps:
+    mapbox:
+      geocoding-enabled: ${MAPBOX_GEOCODING_ENABLED:false}
+      access-token: ${MAPBOX_ACCESS_TOKEN:}
+      timeout-seconds: ${MAPBOX_TIMEOUT_SECONDS:5}
     geoapify:
       api-key: ${GEOAPIFY_API_KEY:}
       timeout-seconds: ${MAPS_PROVIDER_TIMEOUT_SECONDS:10}

@@ -6,6 +6,8 @@ import java.util.List;
 import java.util.UUID;
 
 public interface TripService {
+
+    java.util.List<TripPlaceResponse> addPlaces(UUID userId, UUID tripId, AddTripPlacesRequest request);
     TripResponse create(UUID userId, CreateTripRequest request);
     List<TripResponse> list(UUID userId);
     TripResponse get(UUID userId, UUID tripId);

@@ -2,7 +2,7 @@
 
 Các file ở đây không nằm trong Flyway location mặc định `db/migration` và không có version Flyway. Chúng không chạy khi backend khởi động hoặc khi deploy production.
 
-1. Dùng database dev riêng và chạy Flyway tới V14 trước.
+1. Dùng database dev riêng và chạy Flyway tới V16 trước.
 2. Chạy từ thư mục `backend`, sử dụng kết nối PostgreSQL dev của bạn:
 
 ```powershell

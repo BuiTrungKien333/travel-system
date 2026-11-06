@@ -19,6 +19,9 @@ public enum ErrorCode {
     MISSING_PATH_VARIABLE("COMMON_010", "error.path.missing", HttpStatus.BAD_REQUEST),
     INVALID_ARGUMENT("COMMON_011", "error.argument.invalid", HttpStatus.BAD_REQUEST),
 
+    WEATHER_UNAVAILABLE("WEATHER_001", "error.weather.unavailable", HttpStatus.SERVICE_UNAVAILABLE),
+    WEATHER_INVALID_RESPONSE("WEATHER_002", "error.weather.invalid-response", HttpStatus.BAD_GATEWAY),
+
     // --- AUTH & PERMISSION CODES ---
     UNAUTHORIZED("AUTH_001", "error.auth.unauthorized", HttpStatus.UNAUTHORIZED),
     FORBIDDEN("AUTH_002", "error.auth.forbidden", HttpStatus.FORBIDDEN),
@@ -61,6 +64,8 @@ public enum ErrorCode {
     ITINERARY_CHANGED("TRIP_008", "error.itinerary.changed", HttpStatus.CONFLICT),
     PLACE_NOT_FOUND("PLACE_001", "error.place.not-found", HttpStatus.NOT_FOUND),
     PROVINCE_NOT_FOUND("PLACE_002", "error.place.province-not-found", HttpStatus.NOT_FOUND),
+    PLACE_PROVIDER_UNAVAILABLE("PLACE_004", "error.place.provider-unavailable", HttpStatus.SERVICE_UNAVAILABLE),
+    PLACE_PROVIDER_INVALID_RESPONSE("PLACE_005", "error.place.provider-invalid-response", HttpStatus.BAD_GATEWAY),
 
     MEMORY_NOT_FOUND("MEMORY_001", "error.memory.not-found", HttpStatus.NOT_FOUND),
     MEMORY_ACCESS_DENIED("MEMORY_002", "error.memory.access-denied", HttpStatus.FORBIDDEN),

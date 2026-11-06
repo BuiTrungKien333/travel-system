@@ -1,7 +1,9 @@
 services:
 
   postgres:
-    image: postgres:17-alpine
+    image: travel-postgres-pgvector:17-0.8.2
+    build:
+      context: ./docker/postgres
     container_name: travel-postgres
 
     restart: no

@@ -1,6 +1,6 @@
 # Demo retry và phân biệt AI/fallback
 
-Chỉ áp dụng luồng `rag-demo`. Không lưu Trip/itinerary, không nối mobile. Giữ model đang cấu hình trong `.env.rag-demo`; không xoay key/project để né quota.
+Core áp dụng cho cả `dev` và `rag-demo`. Tài liệu này dùng môi trường demo riêng; xem [hướng dẫn dev](./RAG_DEV_RUNBOOK.md) để dùng database chính. Không lưu Trip/itinerary, không nối mobile. Giữ model đang cấu hình; không xoay key/project để né quota.
 
 ## 1. Chạy bình thường: nhập câu tự nhiên
 
@@ -89,6 +89,7 @@ Các bước AI không có key có attempts=0; không thực hiện HTTP call. o
 | source | Ý nghĩa |
 |---|---|
 | AI | Kết quả AI hợp lệ được sử dụng ở bước này |
+| AI_WITH_FALLBACK | Một số ngày dùng chủ đề AI, các ngày còn lại dùng fallback sau khi kiểm tra lịch cuối |
 | FALLBACK | Đã dùng phương án thay thế; xem method và reason |
 | USER_PROVIDED | Dữ liệu người dùng nhập trực tiếp, không phải AI trích xuất |
 | DETERMINISTIC | Thuật toán xác định, không phải AI |
@@ -96,7 +97,7 @@ Các bước AI không có key có attempts=0; không thực hiện HTTP call. o
 | UNAVAILABLE | Không có kết quả dùng được, không thay bằng dữ liệu giả |
 | SKIPPED | Chưa chạy bước này, ví dụ bị chặn ở intent/validation |
 
-Mỗi stage có model, attempts (số lần thử gọi provider, gồm lần đầu), retries, reason, lastProviderStatus (mã lỗi provider gần nhất, có thể vẫn là 503 sau khi retry thành công), retryDecision. Không trả API key, prompt hoặc raw provider error.
+Mỗi stage có model, attempts (số lần thử gọi provider, gồm lần đầu), retries, reason, lastProviderStatus (mã lỗi provider gần nhất, có thể vẫn là 503 sau khi retry thành công), retryDecision và elapsedMillis. Không trả API key, prompt hoặc raw provider error. Weather chạy song song nên không cộng thời gian các stage để suy ra tổng thời gian request.
 
 overallMode=AI_ASSISTED khi có ít nhất một bước dùng AI và không có fallback; AI_WITH_FALLBACK khi có cả hai; FALLBACK khi chỉ có fallback; USER_PROVIDED khi mới xử lý đầu vào trực tiếp; UNAVAILABLE khi chưa có kết quả. Phải nhìn từng stage để biết chính xác phần nào dùng AI: AI_ASSISTED không có nghĩa solver hoặc thời tiết chạy bằng AI.
 
@@ -104,18 +105,19 @@ HYBRID_RRF dùng embedding AI + tìm từ khóa + RRF xác định; chỉ ghi AI
 
 Query sinh từ intent ghép OR giữa các nhóm sở thích/tên điểm đã resolve, giữ AND trong mỗi cụm. Ví dụ bảo tàng và địa phương có thể trả các địa điểm thuộc một hoặc cả hai nhóm; không bắt mọi địa điểm phải đồng thời là bảo tàng và chợ. Bộ lọc loại trừ và điều kiện giữ điểm bắt buộc vẫn áp dụng riêng.
 
-THEMES=AI có nghĩa AI chọn enum chủ đề và refs hợp lệ, backend dựng câu từ template; không phải mô hình tự viết toàn bộ đoạn văn. metadata.allocationSource và days[].summarySource cũ được giữ để dễ đối chiếu.
+THEMES=AI có nghĩa AI chọn enum chủ đề và refs hợp lệ trong cùng lần gọi ALLOCATION, backend kiểm tra lại với lịch cuối và dựng câu từ template. Vì tái sử dụng kết quả nên THEMES.attempts=0, model được kế thừa từ ALLOCATION; method=ALLOCATION_HINTS_AND_GROUNDED_TEMPLATE. Không có generation riêng cho THEMES. metadata.allocationSource và days[].summarySource cũ được giữ để đối chiếu.
 
 metadata.model là model đang cấu hình, không chứng minh model đã được gọi. Chỉ executionReport thể hiện nguồn thực tế và model/attempts của từng bước.
 
 ## 5. Chính sách retry và thời gian chờ
 
-- Tối đa **một lần retry dùng chung cả request**, không phải mỗi bước được retry một lần. Luồng text có tối đa bốn tác vụ AI ban đầu và thêm một attempt nếu được phép.
+- Tối đa **một lần retry dùng chung cả request**, không phải mỗi bước được retry một lần. Luồng text có ba lời gọi AI ban đầu (intent, query embedding, allocation kèm chủ đề) và thêm một attempt nếu được phép.
 - Chỉ retry HTTP 429 tạm thời, 500/502/503/504 hoặc timeout. Không retry lỗi quyền/key (401/403), model không tồn tại (404), request sai (400), JSON/schema/refs không hợp lệ, hoặc quota ngày/tháng/spend/giới hạn bằng 0 khi nhận diện được từ QuotaFailure.
 - Dùng cùng key đang cấu hình. Chờ ít nhất max(backoff+jitter, Retry-After, RetryInfo.retryDelay). Với chỉ một retry, có một bước backoff; không có chuỗi retry tăng dần.
 - Nếu thời gian provider yêu cầu chờ vượt ngân sách còn lại, không retry: RETRY_WAIT_EXCEEDS_DEADLINE. Nếu retry đã được dùng ở bước khác: REQUEST_RETRY_LIMIT_REACHED.
 - Mặc định ngân sách AI 60.000 ms cho cả luồng, connect/read theo phần thời gian còn lại và tối đa 30.000 ms mỗi lần gọi. Kiểm tra deadline trước/sau provider; kết quả đến quá hạn không được dùng. Đây là ngân sách cho các tác vụ AI, **không phải cam kết toàn HTTP request kết thúc trong 60 giây**: truy vấn DB, solver, weather và overhead vẫn cần thời gian; read timeout là thời gian chờ socket, không phải hạn cứng toàn response stream.
 - Có thể chỉnh RAG_AI_DEADLINE_MILLIS, RAG_AI_CALL_TIMEOUT_MILLIS, RAG_AI_RETRY_BACKOFF_MILLIS trong môi trường hoặc `.env.rag-demo`. Không nên tăng timeout/retry chỉ để che lỗi quota.
+- Weather chạy song song với phân bổ, ngân sách riêng mặc định 2.000 ms từ lúc khởi chạy, chỉnh bằng RAG_WEATHER_WAIT_MILLIS. Quá hạn trả UNKNOWN và reason=WEATHER_DEADLINE_EXCEEDED; không làm lịch bị lỗi. Hủy tác vụ là best effort; socket vẫn chịu timeout của WeatherProvider. Executor giới hạn 2–4 worker, hàng đợi 16 để không tạo thread vô hạn.
 
 Hướng dẫn chính thức: [Gemini troubleshooting](https://ai.google.dev/gemini-api/docs/troubleshooting), [Gemini rate limits](https://ai.google.dev/gemini-api/docs/rate-limits).
 

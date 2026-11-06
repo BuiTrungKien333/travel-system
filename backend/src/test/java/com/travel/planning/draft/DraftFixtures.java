@@ -2,13 +2,15 @@ package com.travel.planning.draft;
 
 import com.travel.place.entity.Place;
 import com.travel.place.enums.PlaceType;
-import com.travel.planning.retrieval.PlaceCandidate;
+import com.travel.planning.draft.dto.request.GenerateDraftRequest;
+import com.travel.planning.retrieval.model.PlaceCandidate;
+
 import java.time.*;
 import java.util.*;
 
 final class DraftFixtures {
     static final LocalDate DATE = LocalDate.of(2026, 11, 2);
-    static final DraftController.Origin ORIGIN = new DraftController.Origin("Điểm xuất phát demo", 16.065, 108.223);
+    static final GenerateDraftRequest.Origin ORIGIN = new GenerateDraftRequest.Origin("Điểm xuất phát demo", 16.065, 108.223);
     static PlaceCandidate candidate(int n) {
         return new PlaceCandidate(new UUID(0, n), "Bảo tàng " + n, "Di sản văn hóa", List.of("MUSEUM", "CULTURE"),
                 16.06 + n * .002, 108.22 + n * .002, "INDOOR", null, null, 60,

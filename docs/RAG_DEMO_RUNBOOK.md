@@ -3,14 +3,16 @@
 ## Phần đã triển khai
 
 - 8 địa điểm có nguồn, metadata truy xuất và UUID cố định trong database demo; seed opt-in chạy lại không tạo trùng/ghi đè.
-- Profile `rag-demo`, PostgreSQL 17 + pgvector riêng trên cổng 5434, volume riêng. Không đổi image hoặc volume PostgreSQL cũ.
+- Profile `rag-demo`, PostgreSQL 17 + pgvector riêng trên cổng 5435 (cấu hình qua `RAG_DEMO_DB_PORT`), volume riêng. Không đổi image hoặc volume PostgreSQL cũ.
 - Exact cosine search + PostgreSQL lexical search có bỏ dấu; hợp nhất thứ hạng RRF. Embedding 768 chiều dùng Gemini qua REST, API key chỉ lấy từ môi trường.
 - Chỉ trả các địa điểm đã duyệt còn tồn tại trong DB. Vector khác model hoặc stale content hash không được dùng.
-- Ba API catalog/search/index là public, không cần tài khoản hoặc token; chỉ có khi bật profile rag-demo.
+- Các API catalog/search/index là public, không cần tài khoản hoặc token; có trong dev và rag-demo. Tài liệu này hướng dẫn database demo riêng; chạy cùng database dev xem [RAG dev](./RAG_DEV_RUNBOOK.md).
 
 Đã bổ sung LLM tách ý định/phủ định và API search-from-text, xem [hướng dẫn nhập câu tự nhiên](./RAG_INTENT_POSTMAN.md). API [generate-draft](./RAG_DRAFT_POSTMAN.md) nối tiếp chọn/chia ngày, Held–Karp, timeline và chủ đề; chưa lưu itinerary hoặc tích hợp mobile. API search cũ vẫn nhận sở thích tích cực và exclusions có cấu trúc.
 
 Đã bổ sung retry có giới hạn và executionReport phân biệt AI/fallback từng bước. Xem [kịch bản demo AI/fallback và đầu vào preferences](./RAG_AI_FALLBACK_DEMO.md). Có thể chạy `./scripts/Start-RagDemo.ps1 -WithoutAi` để kiểm tra fallback mà không sửa key trong file cấu hình.
+
+Core đã được tổ chức lại theo feature/layer, gộp allocation + chủ đề và chạy thời tiết song song. Xem [cấu trúc, timing và kết quả đo trước/sau](./RAG_CORE_OPTIMIZATION.md). Sau khi đổi package, clean output build cũ trước khi khởi động lại.
 
 ## Chất lượng dữ liệu
 

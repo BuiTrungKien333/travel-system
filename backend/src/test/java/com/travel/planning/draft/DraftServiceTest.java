@@ -3,19 +3,36 @@ package com.travel.planning.draft;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.travel.common.exception.*;
 import com.travel.place.repository.PlaceRepository;
-import com.travel.planning.ai.intent.*;
+import com.travel.planning.ai.intent.dto.response.IntentAnalysisResponse;
+import com.travel.planning.ai.intent.dto.response.IntentSearchResponse;
+import com.travel.planning.ai.intent.model.TravelIntent;
+import com.travel.planning.ai.intent.service.TravelIntentService;
 import com.travel.planning.ai.provider.GeminiStructuredClient;
+import com.travel.planning.ai.resilience.AiRequestContext;
 import com.travel.planning.algorithm.*;
-import com.travel.planning.retrieval.*;
+import com.travel.planning.draft.dto.request.GenerateDraftRequest;
+import com.travel.planning.draft.dto.response.DraftResponse;
+import com.travel.planning.draft.provider.GeminiDraftClient;
+import com.travel.planning.draft.service.*;
+import com.travel.planning.draft.service.DraftService;
+import com.travel.planning.draft.service.DraftTimelinePlanner;
+import com.travel.planning.retrieval.config.RagProperties;
+import com.travel.planning.retrieval.dto.response.PlaceSearchResponse;
+import com.travel.planning.retrieval.model.PlaceCandidate;
+import com.travel.planning.retrieval.service.PlaceRetrievalService;
 import com.travel.planning.timeline.TimelineEngine;
 import com.travel.weather.model.*;
 import com.travel.weather.service.WeatherService;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+
 import java.util.*;
+import java.util.concurrent.*;
+
 import static com.travel.planning.draft.DraftFixtures.*;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.*;
 import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 class DraftServiceTest {
     final TravelIntentService intents = mock(TravelIntentService.class);
@@ -24,23 +41,29 @@ class DraftServiceTest {
     final GeminiStructuredClient ai = mock(GeminiStructuredClient.class);
     final WeatherService weather = mock(WeatherService.class);
     final ObjectMapper mapper = new ObjectMapper().findAndRegisterModules();
+    final ExecutorService weatherExecutor = Executors.newSingleThreadExecutor();
     final DraftService service;
     final List<PlaceCandidate> points = List.of(candidate(1), candidate(2), candidate(3));
     DraftServiceTest() throws Exception {
-        var advisor = new DraftAiAdvisor(ai, mapper);
+        var advisor = new DraftAllocationService(new GeminiDraftClient(ai, mapper));
         var planner = new DraftTimelinePlanner(new HeldKarpSolver(new HaversineDistanceMatrixService()), new TimelineEngine(), mapper);
-        service = new DraftService(intents, retrieval, repository, advisor, planner, weather, new RagDemoProperties());
+        var properties = new RagProperties();
+        service = new DraftService(intents, retrieval, repository, advisor, new DraftSchedulingService(planner), new DraftThemeService(),
+                new DraftWeatherService(weather, weatherExecutor, properties), properties, new AiRequestContext(properties));
         when(ai.generate(any(com.travel.planning.ai.resilience.AiRequestContext.Stage.class), anyString(), anyString(), anyMap())).thenThrow(new AppException(ErrorCode.AI_SERVICE_UNAVAILABLE));
         when(retrieval.catalog()).thenReturn(points);
         when(repository.findAllByIdIn(anyCollection())).thenReturn(new ArrayList<>(entities(points).values()));
     }
+    @AfterEach void closeExecutor() { weatherExecutor.shutdownNow(); }
+
     private void intent(int days, String end, List<PlaceCandidate> required) {
         var intent = new TravelIntent("Đà Nẵng", days, List.of("CULTURE"), List.of(), "08:00", end, "BALANCED", List.of(), List.of(), Map.of());
-        var analysis = new TravelIntentService.IntentAnalysis("READY_FOR_RETRIEVAL", intent, "48", List.of(), List.of(), List.of(), "văn hóa", required, List.of(), "fixture");
-        var candidates = new PlaceRetrievalService.SearchResult("HYBRID", "fixture", points.stream().map(p -> new PlaceRetrievalService.Match(p, .02, true, true)).toList());
-        when(intents.search("demo", 8)).thenReturn(new TravelIntentService.TextSearchResult("CANDIDATES_FOUND", analysis, candidates));
+        var analysis = new IntentAnalysisResponse("READY_FOR_RETRIEVAL", intent, "48", List.of(), List.of(), List.of(), "văn hóa", required, List.of(), "fixture");
+        var candidates = new PlaceSearchResponse("HYBRID", "fixture", points.stream().map(p -> new PlaceSearchResponse.Match(p, .02, true, true)).toList());
+        when(intents.analyze("demo")).thenReturn(analysis);
+        when(intents.search(analysis, 8)).thenReturn(new IntentSearchResponse("CANDIDATES_FOUND", analysis, candidates));
     }
-    private DraftController.Request request() { return new DraftController.Request("demo", DATE, ORIGIN, true, 45); }
+    private GenerateDraftRequest request() { return new GenerateDraftRequest("demo", DATE, ORIGIN, true, 45); }
 
     @Test void boundedRepairDropsOnlyOptionalPointsAndRetainsRequired() {
         intent(1, "10:00", List.of(points.getFirst()));
@@ -57,7 +80,7 @@ class DraftServiceTest {
         var result = service.generate(request());
         assertThat(result.status()).isEqualTo("CONFLICTS_DETECTED");
         assertThat(result.days().stream().flatMap(d -> d.stops().stream()).map(s -> s.place().placeId()).toList()).hasSize(3).doesNotHaveDuplicates();
-        assertThat(result.issues()).anyMatch(DraftModels.Problem::blocking);
+        assertThat(result.issues()).anyMatch(DraftResponse.Problem::blocking);
     }
 
     @Test void mockWeatherIsNotPresentedAsRealForecast() {
@@ -73,17 +96,50 @@ class DraftServiceTest {
         when(retrieval.catalog()).thenReturn(points.subList(1,3));
         var result = service.generate(request());
         assertThat(result.status()).isEqualTo("NEEDS_INPUT"); assertThat(result.days()).isEmpty();
-        assertThat(result.issues()).extracting(DraftModels.Problem::code).contains("STALE_REQUIRED_PLACE");
+        assertThat(result.issues()).extracting(DraftResponse.Problem::code).contains("STALE_REQUIRED_PLACE");
         verifyNoInteractions(ai);
     }
 
     @Test void emptyFallbackIsNotReportedAsReady() {
         var intent = new TravelIntent("Đà Nẵng", 1, List.of("BEACH"), List.of(), "08:00", "17:00", null, List.of(), List.of(), Map.of());
-        var analysis = new TravelIntentService.IntentAnalysis("READY_FOR_RETRIEVAL", intent, "48", List.of(), List.of(), List.of(), "biển", List.of(), List.of(), "fixture");
-        var candidates = new PlaceRetrievalService.SearchResult("HYBRID", "fixture", points.stream().map(p -> new PlaceRetrievalService.Match(p, .02, true, true)).toList());
-        when(intents.search("demo", 8)).thenReturn(new TravelIntentService.TextSearchResult("CANDIDATES_FOUND", analysis, candidates));
+        var analysis = new IntentAnalysisResponse("READY_FOR_RETRIEVAL", intent, "48", List.of(), List.of(), List.of(), "biển", List.of(), List.of(), "fixture");
+        var candidates = new PlaceSearchResponse("HYBRID", "fixture", points.stream().map(p -> new PlaceSearchResponse.Match(p, .02, true, true)).toList());
+        when(intents.analyze("demo")).thenReturn(analysis);
+        when(intents.search(analysis, 8)).thenReturn(new IntentSearchResponse("CANDIDATES_FOUND", analysis, candidates));
         var result = service.generate(request());
         assertThat(result.status()).isEqualTo("NO_CANDIDATES"); assertThat(result.days()).isEmpty();
-        assertThat(result.issues()).extracting(DraftModels.Problem::code).contains("NO_SCHEDULED_PLACES");
+        assertThat(result.issues()).extracting(DraftResponse.Problem::code).contains("NO_SCHEDULED_PLACES");
+    }
+
+    @Test void weatherRunsAlongsideAllocationAndThemesReuseItsSingleGeneration() throws Exception {
+        intent(1, "17:00", List.of());
+        var weatherStarted = new CountDownLatch(1);
+        var allocationStarted = new CountDownLatch(1);
+        when(weather.getForecast(anyDouble(), anyDouble(), any(), any())).thenAnswer(invocation -> {
+            weatherStarted.countDown();
+            assertThat(allocationStarted.await(2, TimeUnit.SECONDS)).isTrue();
+            return null;
+        });
+        when(ai.generate(eq(com.travel.planning.ai.resilience.AiRequestContext.Stage.ALLOCATION), anyString(), anyString(), anyMap())).thenAnswer(invocation -> {
+            allocationStarted.countDown();
+            assertThat(weatherStarted.await(2, TimeUnit.SECONDS)).isTrue();
+            return mapper.readTree("{\"days\":[{\"dayIndex\":1,\"placeRefs\":[\"P1\"],\"theme\":\"CULTURE_ART\",\"highlightRefs\":[\"P1\"]}]}");
+        });
+        var result = service.generate(request());
+        assertThat(result.status()).isEqualTo("READY_WITH_WARNINGS");
+        assertThat(result.days().getFirst().summarySource()).isEqualTo("AI_GROUNDED_TEMPLATE");
+        assertThat(result.executionReport().stages().get(4).attempts()).isZero();
+        verify(ai, times(1)).generate(any(com.travel.planning.ai.resilience.AiRequestContext.Stage.class), anyString(), anyString(), anyMap());
+    }
+
+    @Test void missingWindowDoesNotSpendAnEmbeddingOrStartWeather() {
+        var intent = new TravelIntent("Đà Nẵng", null, List.of("ART"), List.of(), null, null, null, List.of(), List.of(), Map.of());
+        var analysis = new IntentAnalysisResponse("READY_FOR_RETRIEVAL", intent, "48", List.of("numberOfDays"), List.of(), List.of(), "nghệ thuật", List.of(), List.of(), "fixture");
+        when(intents.analyze("demo")).thenReturn(analysis);
+        var result = service.generate(request());
+        assertThat(result.status()).isEqualTo("NEEDS_INPUT");
+        assertThat(result.executionReport().stages().get(1).source()).isEqualTo("SKIPPED");
+        verify(intents, never()).search(any(IntentAnalysisResponse.class), anyInt());
+        verifyNoInteractions(retrieval, repository, ai, weather);
     }
 }

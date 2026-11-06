@@ -46,13 +46,13 @@ Ví dụ hai ngày:
 
 1. Gemini trích xuất nhu cầu; backend kiểm tra và resolve tên điểm từ DB.
 2. Hybrid retrieval lấy tối đa 8 ứng viên đã duyệt, áp dụng loại trừ và giữ điểm bắt buộc.
-3. AI đề xuất chọn điểm/chia ngày bằng mã tham chiếu P1... trong tập ứng viên. Backend kiểm tra ngày, mã, trùng và điểm bắt buộc. Không dùng số liệu thời gian AI tự tạo.
+3. Một lần gọi AI đề xuất chọn điểm/chia ngày và gợi ý chủ đề/điểm nhấn bằng mã tham chiếu P1... trong tập ứng viên. Backend kiểm tra ngày, mã, trùng và điểm bắt buộc. Không dùng số liệu thời gian AI tự tạo.
 4. Mỗi ngày: Held–Karp tối ưu thứ tự theo ma trận Haversine hiện có, từ origin cố định. TimelineEngine được tái sử dụng qua adapter tính thời gian chờ, nghỉ, đệm và chặng quay về.
 5. Kiểm tra giờ đóng cửa, giờ kết thúc và dữ liệu chưa xác minh. Tối đa hai lượt sửa xác định: thử chuyển điểm sang ngày khác, hoặc bỏ điểm tùy chọn; không tự bỏ điểm bắt buộc.
-6. Sau lịch cuối, AI chọn chủ đề và điểm nhấn. Backend kiểm tra ref thuộc đúng ngày và chủ đề có căn cứ trong tags; tự dựng title/summary từ tên điểm thật. Không nhận đoạn văn tự do có thể thêm giá vé/thời tiết/sự kiện không có nguồn.
-7. Lấy một dự báo tham khảo tại origin cho khoảng ngày; kết quả mock/nguồn không được nhận diện hoặc thiếu ngày được trả UNKNOWN. Không gọi thời tiết lặp trong từng lượt solver.
+6. Sau lịch cuối, backend kiểm tra lại gợi ý chủ đề/điểm nhấn đã nhận ở bước 3. Chỉ sử dụng nếu refs vẫn thuộc đúng ngày và chủ đề có căn cứ trong tags; nếu không, dùng template fallback từ lịch cuối. Không gọi LLM lần nữa. Không nhận đoạn văn tự do có thể thêm giá vé/thời tiết/sự kiện không có nguồn.
+7. Dự báo tại origin được gọi song song với bước phân bổ trên executor có giới hạn; ngân sách mặc định 2 giây từ lúc khởi chạy. Kết quả mock/thiếu ngày/quá hạn trả UNKNOWN. Không gọi thời tiết lặp trong từng lượt solver.
 
-Luồng text có tối đa ba tác vụ generation (intent, allocation, themes) và một query embedding; chỉ cho phép thêm một lần retry dùng chung toàn request khi lỗi tạm thời và còn ngân sách AI. Luồng preferences bỏ qua tác vụ intent. Nếu intent lỗi, draft trả NEEDS_STRUCTURED_INPUT và yêu cầu gửi lại preferences; không suy đoán intent. Nếu embedding/allocation/themes lỗi thì dùng fallback có ghi rõ nguồn và lý do. Không gọi Copilot lần nữa cho từng ngày.
+Luồng text có hai tác vụ generation (intent và allocation kèm theme hints), một query embedding; chỉ cho phép thêm một lần retry dùng chung toàn request khi lỗi tạm thời và còn ngân sách AI. Luồng preferences bỏ qua tác vụ intent. Input chưa đủ điều kiện lập lịch được trả về trước khi gọi query embedding. Nếu intent lỗi, draft trả NEEDS_STRUCTURED_INPUT; không suy đoán intent. Nếu embedding/allocation/theme hints không dùng được thì dùng fallback có ghi rõ nguồn và lý do.
 
 ## Đọc response
 

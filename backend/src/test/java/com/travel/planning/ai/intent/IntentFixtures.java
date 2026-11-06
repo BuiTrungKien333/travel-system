@@ -2,6 +2,8 @@ package com.travel.planning.ai.intent;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.travel.planning.ai.intent.model.TravelIntent;
+import com.travel.planning.ai.intent.validator.TravelIntentValidator;
 
 import java.util.*;
 

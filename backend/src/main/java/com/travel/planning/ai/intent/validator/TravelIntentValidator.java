@@ -13,7 +13,7 @@ import java.time.LocalTime;
 import java.util.*;
 
 @Component
-@Profile("rag-demo")
+@Profile({"dev", "rag-demo"})
 public class TravelIntentValidator {
     public static final Set<String> TAGS = Set.of("MUSEUM", "HISTORY", "CULTURE", "ART", "LOCAL",
             "MARKET", "SHOPPING", "BEACH", "SCENERY", "RELAX", "OUTDOOR", "PARK", "ARCHITECTURE", "TEMPLE");

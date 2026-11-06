@@ -1,6 +1,6 @@
 package com.travel.planning.ai.resilience;
 
-import com.travel.planning.retrieval.config.RagDemoProperties;
+import com.travel.planning.retrieval.config.RagProperties;
 import jakarta.servlet.ServletException;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.*;
@@ -10,7 +10,7 @@ import static org.assertj.core.api.Assertions.*;
 
 class AiRequestBudgetFilterTest {
     @Test void filterCleansUpEvenWhenRequestThrows() throws Exception {
-        var context = new AiRequestContext(new RagDemoProperties());
+        var context = new AiRequestContext(new RagProperties());
         var filter = new AiRequestBudgetFilter(context);
         var request = new MockHttpServletRequest("POST", "/api/v1/public/planning/generate-draft");
         assertThatThrownBy(() -> filter.doFilter(request, new MockHttpServletResponse(), (req, res) -> {

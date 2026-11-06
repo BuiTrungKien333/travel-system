@@ -3,10 +3,10 @@
 ## Phần đã triển khai
 
 - 8 địa điểm có nguồn, metadata truy xuất và UUID cố định trong database demo; seed opt-in chạy lại không tạo trùng/ghi đè.
-- Profile `rag-demo`, PostgreSQL 17 + pgvector riêng trên cổng 5434, volume riêng. Không đổi image hoặc volume PostgreSQL cũ.
+- Profile `rag-demo`, PostgreSQL 17 + pgvector riêng trên cổng 5435 (cấu hình qua `RAG_DEMO_DB_PORT`), volume riêng. Không đổi image hoặc volume PostgreSQL cũ.
 - Exact cosine search + PostgreSQL lexical search có bỏ dấu; hợp nhất thứ hạng RRF. Embedding 768 chiều dùng Gemini qua REST, API key chỉ lấy từ môi trường.
 - Chỉ trả các địa điểm đã duyệt còn tồn tại trong DB. Vector khác model hoặc stale content hash không được dùng.
-- Ba API catalog/search/index là public, không cần tài khoản hoặc token; chỉ có khi bật profile rag-demo.
+- Các API catalog/search/index là public, không cần tài khoản hoặc token; có trong dev và rag-demo. Tài liệu này hướng dẫn database demo riêng; chạy cùng database dev xem [RAG dev](./RAG_DEV_RUNBOOK.md).
 
 Đã bổ sung LLM tách ý định/phủ định và API search-from-text, xem [hướng dẫn nhập câu tự nhiên](./RAG_INTENT_POSTMAN.md). API [generate-draft](./RAG_DRAFT_POSTMAN.md) nối tiếp chọn/chia ngày, Held–Karp, timeline và chủ đề; chưa lưu itinerary hoặc tích hợp mobile. API search cũ vẫn nhận sở thích tích cực và exclusions có cấu trúc.
 

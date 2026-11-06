@@ -9,9 +9,11 @@ import org.springframework.stereotype.Service;
 
 import java.util.*;
 
-/** Render only the final schedule. Reusing allocation hints avoids another LLM round trip. */
+/**
+ * Render only the final schedule. Reusing allocation hints avoids another LLM round trip.
+ */
 @Service
-@Profile("rag-demo")
+@Profile({"dev", "rag-demo"})
 public class DraftThemeService {
     public Narration narrate(List<Day> days, DraftAllocation allocation) {
         List<Day> result = new ArrayList<>();
@@ -31,11 +33,16 @@ public class DraftThemeService {
     }
 
     private boolean valid(ThemeHint hint, Day day) {
-        if (hint == null || hint.highlights().size() > 3 || hint.highlights().isEmpty() != day.stops().isEmpty()) return false;
+        if (hint == null || hint.highlights().size() > 3 || hint.highlights().isEmpty() != day.stops().isEmpty())
+            return false;
         Set<UUID> ids = new HashSet<>();
         Set<String> tags = new HashSet<>();
-        for (Stop stop : day.stops()) { ids.add(stop.place().placeId()); tags.addAll(stop.place().tags()); }
-        if (!ids.containsAll(hint.highlights()) || new HashSet<>(hint.highlights()).size() != hint.highlights().size()) return false;
+        for (Stop stop : day.stops()) {
+            ids.add(stop.place().placeId());
+            tags.addAll(stop.place().tags());
+        }
+        if (!ids.containsAll(hint.highlights()) || new HashSet<>(hint.highlights()).size() != hint.highlights().size())
+            return false;
         return switch (hint.theme()) {
             case "CULTURE_ART" -> !Collections.disjoint(tags, Set.of("CULTURE", "ART", "MUSEUM"));
             case "HISTORY" -> tags.contains("HISTORY");
@@ -60,5 +67,6 @@ public class DraftThemeService {
         return day.narrated("Ngày " + day.dayIndex() + " — " + label, summary, source);
     }
 
-    public record Narration(List<Day> days, String source, String fallbackReason) {}
+    public record Narration(List<Day> days, String source, String fallbackReason) {
+    }
 }

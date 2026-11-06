@@ -12,7 +12,7 @@ import com.travel.planning.ai.resilience.AiCallFailure;
 import com.travel.planning.ai.resilience.AiRequestContext;
 import com.travel.planning.draft.dto.request.GenerateDraftRequest;
 import com.travel.planning.draft.dto.response.DraftResponse;
-import com.travel.planning.retrieval.config.RagDemoProperties;
+import com.travel.planning.retrieval.config.RagProperties;
 import com.travel.planning.retrieval.dto.response.PlaceSearchResponse;
 import com.travel.planning.retrieval.model.PlaceCandidate;
 import com.travel.planning.retrieval.service.PlaceRetrievalService;
@@ -28,8 +28,9 @@ import static com.travel.planning.ai.resilience.AiRequestContext.Stage.*;
 import static com.travel.planning.draft.dto.response.DraftResponse.*;
 
 @Service
-@Profile("rag-demo")
+@Profile({"dev", "rag-demo"})
 public class DraftService {
+
     private final TravelIntentService intents;
     private final PlaceRetrievalService retrieval;
     private final PlaceRepository places;
@@ -37,12 +38,12 @@ public class DraftService {
     private final DraftSchedulingService scheduling;
     private final DraftThemeService themes;
     private final DraftWeatherService weather;
-    private final RagDemoProperties properties;
+    private final RagProperties properties;
     private final AiRequestContext context;
 
     public DraftService(TravelIntentService intents, PlaceRetrievalService retrieval, PlaceRepository places,
                         DraftAllocationService allocations, DraftSchedulingService scheduling, DraftThemeService themes,
-                        DraftWeatherService weather, RagDemoProperties properties, AiRequestContext context) {
+                        DraftWeatherService weather, RagProperties properties, AiRequestContext context) {
         this.intents = intents;
         this.retrieval = retrieval;
         this.places = places;
@@ -55,7 +56,9 @@ public class DraftService {
     }
 
     public DraftResponse generate(GenerateDraftRequest request) {
-        try (var scope = context.ensure()) { return generateWithinBudget(request); }
+        try (var scope = context.ensure()) {
+            return generateWithinBudget(request);
+        }
     }
 
     private DraftResponse generateWithinBudget(GenerateDraftRequest request) {
@@ -83,7 +86,8 @@ public class DraftService {
             return response(analysis.status(), request, initial, List.of(), List.of(), issues, DraftWeatherService.unknown(), metadata);
         }
         validatePlanningInput(request, analysis.intent(), issues);
-        if (!issues.isEmpty()) return response("NEEDS_INPUT", request, initial, List.of(), List.of(), issues, DraftWeatherService.unknown(), metadata);
+        if (!issues.isEmpty())
+            return response("NEEDS_INPUT", request, initial, List.of(), List.of(), issues, DraftWeatherService.unknown(), metadata);
 
         // Reject incomplete planning input before paying for a query embedding.
         var search = context.measure(RETRIEVAL, () -> intents.search(analysis, 8));
@@ -109,7 +113,8 @@ public class DraftService {
             issues.add(new Problem("STALE_REQUIRED_PLACE", true, null, "Điểm bắt buộc đã thay đổi hoặc không còn được duyệt; hãy tạo lại yêu cầu."));
             return response("NEEDS_INPUT", request, search, List.of(), List.of(), issues, DraftWeatherService.unknown(), metadata);
         }
-        if (candidates.isEmpty()) return response("NO_CANDIDATES", request, search, List.of(), List.of(), issues, DraftWeatherService.unknown(), metadata);
+        if (candidates.isEmpty())
+            return response("NO_CANDIDATES", request, search, List.of(), List.of(), issues, DraftWeatherService.unknown(), metadata);
         TravelIntent intent = analysis.intent();
         int requiredMinutes = candidates.stream().filter(p -> required.contains(p.placeId())).mapToInt(PlaceCandidate::estimatedDurationMinutes).sum();
         long availableMinutes = Duration.between(LocalTime.parse(intent.dailyStartTime()), LocalTime.parse(intent.dailyEndTime())).toMinutes() * intent.numberOfDays();
@@ -121,17 +126,19 @@ public class DraftService {
     }
 
     private DraftResponse complete(GenerateDraftRequest request, IntentSearchResponse search, List<PlaceCandidate> candidates,
-                                    Map<UUID, Place> entities, Set<UUID> required, List<Problem> issues, Map<String, String> metadata) {
+                                   Map<UUID, Place> entities, Set<UUID> required, List<Problem> issues, Map<String, String> metadata) {
         TravelIntent intent = search.analysis().intent();
         metadata.put("bufferMinutesBetweenStops", Integer.toString(scheduling.bufferMinutes(intent)));
-        if (intent.travelPace() == null) issues.add(new Problem("PACE_NOT_SPECIFIED", false, null, "Nhịp độ chưa nêu; sử dụng cấu hình demo cân bằng, không ghi thành sở thích người dùng."));
+        if (intent.travelPace() == null)
+            issues.add(new Problem("PACE_NOT_SPECIFIED", false, null, "Nhịp độ chưa nêu; sử dụng cấu hình demo cân bằng, không ghi thành sở thích người dùng."));
         try (var forecast = weather.start(request, intent.numberOfDays())) {
             var allocation = context.measure(ALLOCATION, () -> allocations.allocate(candidates, required, intent, request.startDate()));
             boolean aiAllocation = "AI".equals(allocation.source());
             context.record(ALLOCATION, aiAllocation ? "AI" : "FALLBACK", aiAllocation ? "GEMINI_VALIDATED_PLACE_REFS" : "RULE_BASED_LOAD_BALANCING",
                     aiAllocation ? context.lastReason(ALLOCATION) : allocation.reason(), null);
             metadata.put("allocationSource", allocation.source());
-            if (!aiAllocation) issues.add(new Problem("ALLOCATION_FALLBACK", false, null, "Không sử dụng được đề xuất phân bổ AI; backend phân bổ cơ bản từ dữ liệu thật."));
+            if (!aiAllocation)
+                issues.add(new Problem("ALLOCATION_FALLBACK", false, null, "Không sử dụng được đề xuất phân bổ AI; backend phân bổ cơ bản từ dữ liệu thật."));
 
             var schedule = context.measure(OPTIMIZATION, () -> scheduling.schedule(request, intent, allocation, candidates, entities, required));
             context.record(OPTIMIZATION, "DETERMINISTIC", "HELD_KARP_AND_TIMELINE_WITH_BOUNDED_REPAIR", null, null);
@@ -144,7 +151,8 @@ public class DraftService {
             var narration = context.measure(THEMES, () -> themes.narrate(schedule.days(), allocation));
             context.record(THEMES, narration.source(), "ALLOCATION_HINTS_AND_GROUNDED_TEMPLATE", narration.fallbackReason(), null);
             if (!"FALLBACK".equals(narration.source())) context.reuseModel(THEMES, ALLOCATION);
-            if (!"AI".equals(narration.source())) issues.add(new Problem("THEME_FALLBACK", false, null, "Một hoặc nhiều chủ đề/tóm tắt dùng mẫu từ lịch cuối vì gợi ý AI không khả dụng hoặc không còn hợp lệ."));
+            if (!"AI".equals(narration.source()))
+                issues.add(new Problem("THEME_FALLBACK", false, null, "Một hoặc nhiều chủ đề/tóm tắt dùng mẫu từ lịch cuối vì gợi ý AI không khả dụng hoặc không còn hợp lệ."));
             narration.days().forEach(d -> issues.addAll(d.issues()));
             issues.add(new Problem("ESTIMATED_ROUTE", false, null, "Quãng đường là Haversine và thời gian theo 35 km/h; chưa phải định tuyến đường bộ hay giao thông thực tế."));
 
@@ -181,7 +189,7 @@ public class DraftService {
     }
 
     private DraftResponse response(String status, GenerateDraftRequest request, IntentSearchResponse search, List<Day> days,
-                                    List<Unassigned> unassigned, List<Problem> issues, WeatherAdvice forecast, Map<String, String> metadata) {
+                                   List<Unassigned> unassigned, List<Problem> issues, WeatherAdvice forecast, Map<String, String> metadata) {
         return new DraftResponse(status, request.startDate(), "Asia/Ho_Chi_Minh", search == null ? null : search.analysis(),
                 search == null ? null : search.candidates(), List.copyOf(days), unassigned, List.copyOf(issues), forecast, Map.copyOf(metadata), context.report());
     }

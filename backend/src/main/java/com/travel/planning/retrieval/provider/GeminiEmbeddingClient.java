@@ -3,7 +3,7 @@ package com.travel.planning.retrieval.provider;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.travel.planning.ai.resilience.*;
 import com.travel.planning.ai.resilience.AiRequestContext.Stage;
-import com.travel.planning.retrieval.config.RagDemoProperties;
+import com.travel.planning.retrieval.config.RagProperties;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
@@ -13,29 +13,29 @@ import java.util.List;
 import java.util.Map;
 
 @Component
-@Profile("rag-demo")
+@Profile({"dev", "rag-demo"})
 public class GeminiEmbeddingClient {
 
     public static final int DIMENSIONS = 768;
-    private final RagDemoProperties properties;
+    private final RagProperties properties;
     private final RestClient client;
     private final AiRequestContext context;
     private final AiRetryExecutor retries;
 
     @Autowired
-    public GeminiEmbeddingClient(RagDemoProperties properties, AiRequestContext context, AiRetryExecutor retries) {
+    public GeminiEmbeddingClient(RagProperties properties, AiRequestContext context, AiRetryExecutor retries) {
         this.properties = properties; this.context = context; this.retries = retries;
         this.client = RestClient.builder().requestFactory(new AiDeadlineRequestFactory(context, properties)).build();
     }
 
-    public GeminiEmbeddingClient(RagDemoProperties properties, RestClient client) {
+    public GeminiEmbeddingClient(RagProperties properties, RestClient client) {
         this.properties = properties;
         this.client = client;
         this.context = new AiRequestContext(properties);
         this.retries = new AiRetryExecutor(properties, context, new ObjectMapper());
     }
 
-    public GeminiEmbeddingClient(RagDemoProperties properties) {
+    public GeminiEmbeddingClient(RagProperties properties) {
         this.properties = properties; this.context = new AiRequestContext(properties);
         this.retries = new AiRetryExecutor(properties, context, new ObjectMapper());
         this.client = RestClient.builder().requestFactory(new AiDeadlineRequestFactory(context, properties)).build();

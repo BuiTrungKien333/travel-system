@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Repository
-@Profile("rag-demo")
+@Profile({"dev", "rag-demo"})
 public class PlaceRetrievalRepository {
 
     private final JdbcTemplate jdbc;

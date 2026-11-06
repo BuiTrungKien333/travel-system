@@ -14,11 +14,13 @@ import java.time.LocalDate;
 import java.util.*;
 
 @Service
-@Profile("rag-demo")
+@Profile({"dev", "rag-demo"})
 public class DraftAllocationService {
     private final GeminiDraftClient client;
 
-    public DraftAllocationService(GeminiDraftClient client) { this.client = client; }
+    public DraftAllocationService(GeminiDraftClient client) {
+        this.client = client;
+    }
 
     public DraftAllocation allocate(List<PlaceCandidate> candidates, Set<UUID> required, TravelIntent intent, LocalDate startDate) {
         try {

@@ -1,6 +1,6 @@
 package com.travel.planning.retrieval;
 
-import com.travel.planning.retrieval.config.RagDemoProperties;
+import com.travel.planning.retrieval.config.RagProperties;
 import com.travel.planning.retrieval.provider.GeminiEmbeddingClient;
 import com.travel.planning.retrieval.repository.PlaceRetrievalRepository;
 import com.travel.planning.retrieval.service.PlaceRetrievalService;
@@ -29,7 +29,7 @@ class RagCatalogIntegrationTest {
                 .asCompatibleSubstituteFor("postgres"));
         postgres.start();
         var ds = new DriverManagerDataSource(postgres.getJdbcUrl(), postgres.getUsername(), postgres.getPassword());
-        flyway = Flyway.configure().dataSource(ds).locations("classpath:db/migration", "classpath:db/rag-demo").load();
+        flyway = Flyway.configure().dataSource(ds).locations("classpath:db/migration", "classpath:db/rag").load();
         flyway.migrate();
         jdbc = new JdbcTemplate(ds);
         repository = new PlaceRetrievalRepository(jdbc);
@@ -100,7 +100,7 @@ class RagCatalogIntegrationTest {
 
     @Test
     void search_providerUnavailableReportsLexicalFallbackAndHonorsExclusion() {
-        var service = new PlaceRetrievalService(repository, new GeminiEmbeddingClient(new RagDemoProperties()), new RagDemoProperties());
+        var service = new PlaceRetrievalService(repository, new GeminiEmbeddingClient(new RagProperties()), new RagProperties());
         var result = service.search("bao tang", List.of(), 8);
         assertThat(result.retrievalMode()).isEqualTo("LEXICAL_FALLBACK_EMBEDDING_UNAVAILABLE");
         assertThat(result.matches()).hasSize(3).allSatisfy(m -> assertThat(m.lexicalMatch()).isTrue());
@@ -109,7 +109,7 @@ class RagCatalogIntegrationTest {
 
     @Test
     void search_andIndexUseRealRepositoryWithOnlyEmbeddingBoundaryMocked() {
-        var properties = new RagDemoProperties(); properties.setEmbeddingModel("fixture");
+        var properties = new RagProperties(); properties.setEmbeddingModel("fixture");
         var embeddings = mock(GeminiEmbeddingClient.class);
         when(embeddings.embed(anyString(), anyBoolean())).thenReturn(vector(1, 0));
         var service = new PlaceRetrievalService(repository, embeddings, properties);

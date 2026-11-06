@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.travel.planning.ai.intent.model.TravelIntent;
 import com.travel.planning.ai.intent.validator.TravelIntentValidator;
 import com.travel.planning.ai.provider.GeminiStructuredClient;
-import com.travel.planning.retrieval.config.RagDemoProperties;
+import com.travel.planning.retrieval.config.RagProperties;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.io.ClassPathResource;
@@ -16,7 +16,7 @@ import java.io.IOException;
 import java.util.Map;
 
 @Component
-@Profile("rag-demo")
+@Profile({"dev", "rag-demo"})
 public class GeminiIntentClient {
     private final GeminiStructuredClient client;
     private final TravelIntentValidator validator;
@@ -40,7 +40,7 @@ public class GeminiIntentClient {
             """;
 
     @Autowired
-    public GeminiIntentClient(RagDemoProperties properties, ObjectMapper mapper,
+    public GeminiIntentClient(RagProperties properties, ObjectMapper mapper,
                               TravelIntentValidator validator, GeminiStructuredClient client) throws IOException {
         this.validator = validator; this.client = client;
         try (var input = new ClassPathResource("ai/travel-intent-schema.json").getInputStream()) {
@@ -48,7 +48,7 @@ public class GeminiIntentClient {
         }
     }
 
-    public GeminiIntentClient(RagDemoProperties properties, ObjectMapper mapper,
+    public GeminiIntentClient(RagProperties properties, ObjectMapper mapper,
                               TravelIntentValidator validator, RestClient client) throws IOException {
         this(properties, mapper, validator, new GeminiStructuredClient(properties, mapper, client));
     }

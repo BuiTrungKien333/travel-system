@@ -4,7 +4,7 @@ import com.travel.planning.ai.intent.dto.response.IntentAnalysisResponse;
 import com.travel.planning.ai.intent.dto.response.IntentSearchResponse;
 import com.travel.planning.ai.intent.model.TravelIntent;
 import com.travel.planning.ai.intent.provider.GeminiIntentClient;
-import com.travel.planning.retrieval.config.RagDemoProperties;
+import com.travel.planning.retrieval.config.RagProperties;
 import com.travel.planning.retrieval.dto.response.PlaceSearchResponse;
 import com.travel.planning.retrieval.model.PlaceCandidate;
 import com.travel.planning.retrieval.service.PlaceRetrievalService;
@@ -16,11 +16,11 @@ import java.time.LocalTime;
 import java.util.*;
 
 @Service
-@Profile("rag-demo")
+@Profile({"dev", "rag-demo"})
 public class TravelIntentService {
     private final GeminiIntentClient client;
     private final PlaceRetrievalService retrieval;
-    private final RagDemoProperties properties;
+    private final RagProperties properties;
     private static final Map<String, String> QUERY_WORDS = Map.ofEntries(
             Map.entry("MUSEUM", "bảo tàng"), Map.entry("HISTORY", "lịch sử"), Map.entry("CULTURE", "văn hóa"),
             Map.entry("ART", "nghệ thuật"), Map.entry("LOCAL", "địa phương"), Map.entry("MARKET", "chợ"),
@@ -29,7 +29,7 @@ public class TravelIntentService {
             Map.entry("ARCHITECTURE", "kiến trúc"), Map.entry("TEMPLE", "chùa"));
 
     public TravelIntentService(GeminiIntentClient client, PlaceRetrievalService retrieval,
-                               RagDemoProperties properties) {
+                               RagProperties properties) {
         this.client = client; this.retrieval = retrieval; this.properties = properties;
     }
 

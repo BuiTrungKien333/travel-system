@@ -7,11 +7,11 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 
 @Configuration
-@Profile("rag-demo")
+@Profile({"dev", "rag-demo"})
 @ConfigurationProperties("application.rag")
 @Getter
 @Setter
-public class RagDemoProperties {
+public class RagProperties {
     private String apiKey = "";
     private String embeddingModel = "gemini-embedding-001";
     private String intentModel = "gemini-3.5-flash";

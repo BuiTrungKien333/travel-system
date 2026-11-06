@@ -3,7 +3,7 @@ package com.travel.planning.retrieval.service;
 import com.travel.common.exception.AppException;
 import com.travel.common.exception.ErrorCode;
 import com.travel.planning.ai.resilience.AiCallFailure;
-import com.travel.planning.retrieval.config.RagDemoProperties;
+import com.travel.planning.retrieval.config.RagProperties;
 import com.travel.planning.retrieval.dto.response.PlaceIndexResponse;
 import com.travel.planning.retrieval.dto.response.PlaceSearchResponse;
 import com.travel.planning.retrieval.dto.response.PlaceSearchResponse.Match;
@@ -17,15 +17,15 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @Service
-@Profile("rag-demo")
+@Profile({"dev", "rag-demo"})
 public class PlaceRetrievalService {
     private final PlaceRetrievalRepository repository;
     private final GeminiEmbeddingClient embeddings;
-    private final RagDemoProperties properties;
+    private final RagProperties properties;
     private final AtomicBoolean indexing = new AtomicBoolean();
 
     public PlaceRetrievalService(PlaceRetrievalRepository repository, GeminiEmbeddingClient embeddings,
-                                 RagDemoProperties properties) {
+                                 RagProperties properties) {
         this.repository = repository;
         this.embeddings = embeddings;
         this.properties = properties;

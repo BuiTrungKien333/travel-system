@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@Profile("rag-demo")
+@Profile({"dev", "rag-demo"})
 @RequestMapping("/api/v1/public/planning/retrieval")
 public class PlaceRetrievalController {
 
@@ -30,7 +30,7 @@ public class PlaceRetrievalController {
 
     @PostMapping("/search")
     @Operation(summary = "Retrieve curated Da Nang demo candidates; not a complete itinerary or intent parser",
-            description = "positiveQuery contains positive interests. Supply exclusions separately as canonical tags. Public only in the rag-demo profile.")
+            description = "positiveQuery contains positive interests. Supply exclusions separately as canonical tags. Public in the dev and rag-demo profiles.")
     public ApiResponse<PlaceSearchResponse> search(@Valid @RequestBody SearchRequest request) {
         return ApiResponse.success(service.search(request.positiveQuery(), request.excludedTags(), request.limit()));
     }

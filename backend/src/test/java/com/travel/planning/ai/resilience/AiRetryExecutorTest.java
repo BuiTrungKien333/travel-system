@@ -1,7 +1,7 @@
 package com.travel.planning.ai.resilience;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.travel.planning.retrieval.config.RagDemoProperties;
+import com.travel.planning.retrieval.config.RagProperties;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -18,7 +18,7 @@ import static com.travel.planning.ai.resilience.AiRequestContext.Stage.*;
 import static org.assertj.core.api.Assertions.*;
 
 class AiRetryExecutorTest {
-    final RagDemoProperties properties = new RagDemoProperties();
+    final RagProperties properties = new RagProperties();
     final AtomicLong millis = new AtomicLong();
     final AiRequestContext context = new AiRequestContext(properties, () -> millis.get() * 1_000_000);
     final List<Long> sleeps = new ArrayList<>();

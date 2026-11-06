@@ -16,11 +16,13 @@ import java.util.stream.Collectors;
 import static com.travel.planning.draft.dto.response.DraftResponse.*;
 
 @Service
-@Profile("rag-demo")
+@Profile({"dev", "rag-demo"})
 public class DraftSchedulingService {
     private final DraftTimelinePlanner planner;
 
-    public DraftSchedulingService(DraftTimelinePlanner planner) { this.planner = planner; }
+    public DraftSchedulingService(DraftTimelinePlanner planner) {
+        this.planner = planner;
+    }
 
     public Schedule schedule(GenerateDraftRequest request, TravelIntent intent, DraftAllocation allocation,
                              List<PlaceCandidate> candidates, Map<UUID, Place> entities, Set<UUID> required) {
@@ -33,11 +35,16 @@ public class DraftSchedulingService {
         int repairPasses = 0;
         for (int pass = 0; pass < 2; pass++) {
             int bad = -1;
-            for (int day = 0; day < built.size(); day++) if (built.get(day).blocked()) { bad = day; break; }
+            for (int day = 0; day < built.size(); day++)
+                if (built.get(day).blocked()) {
+                    bad = day;
+                    break;
+                }
             if (bad < 0) break;
             Day badDay = built.get(bad);
             UUID target = badDay.issues().stream().filter(Problem::blocking).map(Problem::placeId).filter(Objects::nonNull).findFirst().orElse(null);
-            if (target == null) target = groups.get(bad).stream().filter(id -> !required.contains(id)).reduce((a, b) -> b).orElse(groups.get(bad).getLast());
+            if (target == null)
+                target = groups.get(bad).stream().filter(id -> !required.contains(id)).reduce((a, b) -> b).orElse(groups.get(bad).getLast());
             boolean moved = false;
             for (int other = 0; other < groups.size(); other++) {
                 if (other == bad) continue;
@@ -46,7 +53,10 @@ public class DraftSchedulingService {
                 trial.get(other).add(target);
                 List<Day> next = build(trial, request, intent, byId, entities, cache);
                 if (!next.get(other).blocked() && blockingCount(next.get(bad)) < blockingCount(badDay)) {
-                    groups = trial; built = next; moved = true; break;
+                    groups = trial;
+                    built = next;
+                    moved = true;
+                    break;
                 }
             }
             if (!moved) {
@@ -77,11 +87,21 @@ public class DraftSchedulingService {
         return result;
     }
 
-    public int bufferMinutes(TravelIntent intent) { return "RELAXED".equals(intent.travelPace()) ? 15 : "ACTIVE".equals(intent.travelPace()) ? 5 : 10; }
-    private long blockingCount(Day day) { return day.issues().stream().filter(Problem::blocking).count(); }
+    public int bufferMinutes(TravelIntent intent) {
+        return "RELAXED".equals(intent.travelPace()) ? 15 : "ACTIVE".equals(intent.travelPace()) ? 5 : 10;
+    }
+
+    private long blockingCount(Day day) {
+        return day.issues().stream().filter(Problem::blocking).count();
+    }
+
     private List<List<UUID>> copy(List<List<UUID>> groups) {
         return groups.stream().map(g -> (List<UUID>) new ArrayList<>(g)).collect(Collectors.toCollection(ArrayList::new));
     }
-    private record DayKey(int index, List<UUID> ids) {}
-    public record Schedule(List<Day> days, List<Unassigned> unassigned, int repairPasses) {}
+
+    private record DayKey(int index, List<UUID> ids) {
+    }
+
+    public record Schedule(List<Day> days, List<Unassigned> unassigned, int repairPasses) {
+    }
 }

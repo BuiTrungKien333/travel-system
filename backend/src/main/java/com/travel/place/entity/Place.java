@@ -35,6 +35,9 @@ public class Place {
     @Column(name = "address", columnDefinition = "TEXT")
     private String address;
 
+    @Column(name = "category", length = 100)
+    private String category;
+
     @Column(name = "latitude", nullable = false)
     private Double latitude;
 

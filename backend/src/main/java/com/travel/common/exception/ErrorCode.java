@@ -46,12 +46,33 @@ public enum ErrorCode {
     TSP_EXCEEDS_MAX_LOCATIONS("PLANNING_001", "error.planning.tsp-exceeds-max-locations", HttpStatus.BAD_REQUEST),
     INVALID_TSP_LOCATIONS("PLANNING_002", "error.planning.invalid-tsp-locations", HttpStatus.BAD_REQUEST),
 
-    // --- AI PROVIDER CODES ---
     AI_SERVICE_UNAVAILABLE("AI_001", "error.ai.service-unavailable", HttpStatus.SERVICE_UNAVAILABLE),
     AI_RESPONSE_PARSE_FAILED("AI_002", "error.ai.parse-failed", HttpStatus.INTERNAL_SERVER_ERROR),
     AI_RATE_LIMIT_EXCEEDED("AI_003", "error.ai.rate-limit-exceeded", HttpStatus.TOO_MANY_REQUESTS),
     AI_API_KEY_INVALID("AI_004", "error.ai.api-key-invalid", HttpStatus.UNAUTHORIZED),
-    AI_VALIDATION_FAILED("AI_005", "error.ai.validation-failed", HttpStatus.UNPROCESSABLE_ENTITY);
+    AI_VALIDATION_FAILED("AI_005", "error.ai.validation-failed", HttpStatus.UNPROCESSABLE_ENTITY),
+
+    TRIP_NOT_FOUND("TRIP_001", "error.trip.not-found", HttpStatus.NOT_FOUND),
+    TRIP_PLACE_NOT_FOUND("TRIP_002", "error.trip.place-not-found", HttpStatus.NOT_FOUND),
+    TRIP_PLACE_ALREADY_EXISTS("TRIP_003", "error.trip.place-exists", HttpStatus.CONFLICT),
+    INVALID_TRIP_DATES("TRIP_004", "error.trip.invalid-dates", HttpStatus.BAD_REQUEST),
+    INVALID_ITINERARY("TRIP_005", "error.itinerary.invalid", HttpStatus.BAD_REQUEST),
+    ITINERARY_NOT_FOUND("TRIP_006", "error.itinerary.not-found", HttpStatus.NOT_FOUND),
+    ITINERARY_PLACE_NOT_IN_TRIP("TRIP_007", "error.itinerary.place-not-in-trip", HttpStatus.BAD_REQUEST),
+    ITINERARY_CHANGED("TRIP_008", "error.itinerary.changed", HttpStatus.CONFLICT),
+    PLACE_NOT_FOUND("PLACE_001", "error.place.not-found", HttpStatus.NOT_FOUND),
+    PROVINCE_NOT_FOUND("PLACE_002", "error.place.province-not-found", HttpStatus.NOT_FOUND),
+
+    MEMORY_NOT_FOUND("MEMORY_001", "error.memory.not-found", HttpStatus.NOT_FOUND),
+    MEMORY_ACCESS_DENIED("MEMORY_002", "error.memory.access-denied", HttpStatus.FORBIDDEN),
+    MEDIA_NOT_FOUND("MEDIA_001", "error.media.not-found", HttpStatus.NOT_FOUND),
+
+    // --- UPLOAD ---
+    UPLOAD_FILE_EMPTY("UPLOAD_001", "error.upload.file-empty", HttpStatus.BAD_REQUEST),
+    UPLOAD_FILE_TOO_LARGE("UPLOAD_002", "error.upload.file-too-large", HttpStatus.BAD_REQUEST),
+    UPLOAD_INVALID_FILE_TYPE("UPLOAD_003", "error.upload.invalid-file-type", HttpStatus.BAD_REQUEST),
+    UPLOAD_FAILED("UPLOAD_004", "error.upload.failed", HttpStatus.INTERNAL_SERVER_ERROR),
+    UPLOAD_TOO_MANY_FILES("UPLOAD_005", "error.upload.too-many-files", HttpStatus.BAD_REQUEST);
 
     private final String code;
     private final String messageKey;

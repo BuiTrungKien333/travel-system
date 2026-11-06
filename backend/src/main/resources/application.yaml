@@ -25,11 +25,19 @@ spring:
       "[mail.smtp.connectiontimeout]": 5000
       "[mail.smtp.timeout]": 5000
       "[mail.smtp.writetimeout]": 5000
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 100MB
 
 server:
   port: ${SERVER_PORT:8080}
 
 app:
+  cloudinary:
+    cloud-name: ${CLOUDINARY_CLOUD_NAME}
+    api-key: ${CLOUDINARY_API_KEY}
+    api-secret: ${CLOUDINARY_API_SECRET}
   google:
     enabled: ${GOOGLE_AUTH_ENABLED:false}
     web-client-id: ${GOOGLE_WEB_CLIENT_ID:}
@@ -68,12 +76,17 @@ application:
   ai:
     active-provider: ${AI_PROVIDER:gemini}
     gemini:
-      api-key: ${GEMINI_API_KEY:AQ.Ab8RN6JUDihPVm7bmxsX7MWAdHDZvdMIOD-HTIN0G6fHqFsIsQ}
-      model: ${GEMINI_MODEL:gemini-3.5-flash}
+      api-key: ${GEMINI_API_KEY:}
+      model: ${GEMINI_MODEL:gemini-3.8-flash}
       base-url: ${GEMINI_BASE_URL:https://generativelanguage.googleapis.com/v1beta}
       timeout-seconds: 30
       temperature: 0.4
       max-output-tokens: 4096
+
+  maps:
+    geoapify:
+      api-key: ${GEOAPIFY_API_KEY:}
+      timeout-seconds: ${MAPS_PROVIDER_TIMEOUT_SECONDS:10}
 
   weather:
     active-provider: ${WEATHER_PROVIDER:open-meteo}
@@ -81,6 +94,11 @@ application:
       base-url: ${OPEN_METEO_BASE_URL:https://api.open-meteo.com/v1}
       timeout-seconds: 10
       default-timezone: Asia/Ho_Chi_Minh
+
+management:
+  health:
+    mail:
+      enabled: false
 
 springdoc:
   api-docs:

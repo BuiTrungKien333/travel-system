@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
@@ -223,6 +224,25 @@ public class GlobalExceptionHandler {
     }
 
     /*
+     * MaxUploadSizeExceededException
+     * Spring throw khi file hoặc tổng request vượt quá giới hạn multipart config.
+     */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErrorResponse> handleMaxUploadSizeExceededException(
+            MaxUploadSizeExceededException e, HttpServletRequest request) {
+        log.warn("Upload size exceeded on uri: {} - {}", request.getRequestURI(), e.getMessage());
+
+        ErrorResponse response = ErrorResponse.builder()
+                .success(false)
+                .code("UPLOAD_002")
+                .message(translator.toLocale("error.upload.max-size-exceeded"))
+                .timestamp(Instant.now())
+                .build();
+
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    /*
      * 11. IllegalArgumentException / IllegalStateException
      * Xử lý các tham số logic nghiệp vụ không hợp lệ
      */
@@ -262,6 +282,12 @@ public class GlobalExceptionHandler {
         log.warn("Business exception [{}]: uri={}, messageKey={}",
                 errorCode.getCode(), request.getRequestURI(), errorCode.getMessageKey());
         return buildErrorResponse(errorCode, e.getFieldErrors());
+    }
+
+    @ExceptionHandler(org.springframework.dao.InvalidDataAccessApiUsageException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidDataAccessApiUsageException(Exception e, HttpServletRequest request) {
+        log.warn("Invalid API parameter/data usage on uri: {} - {}", request.getRequestURI(), e.getMessage());
+        return buildErrorResponse(ErrorCode.VALIDATION_ERROR, null);
     }
 
     /*

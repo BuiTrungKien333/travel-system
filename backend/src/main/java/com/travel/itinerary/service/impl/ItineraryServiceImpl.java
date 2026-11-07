@@ -138,7 +138,7 @@ public class ItineraryServiceImpl implements ItineraryService {
                 throw new AppException(ErrorCode.INVALID_ITINERARY);
             }
         }
-        boolean routeChanged = previous.size() != stops.size() || stops.stream().anyMatch(stop -> {
+        boolean routeChanged = request.settings() != null || previous.size() != stops.size() || stops.stream().anyMatch(stop -> {
             var old = previous.get(stop.placeId());
             return old == null || old.getSequence() != stop.sequence();
         });
@@ -363,7 +363,10 @@ public class ItineraryServiceImpl implements ItineraryService {
                                     item.getArrivalAt(), item.getDurationMinutes(), item.getSequence(),
                                     item.getNote(), item.getDistanceFromPrevious(), item.getTravelTimeFromPrevious()));
                 });
-        var settings = itinerary.getDaySettings().stream().collect(Collectors.toMap(ItineraryDaySettings::getDate,
+        var settings = itinerary.getDaySettings().stream()
+                .filter(day -> itinerary.getTrip().getStartDate() != null && itinerary.getTrip().getEndDate() != null
+                        && !day.getDate().isBefore(itinerary.getTrip().getStartDate()) && !day.getDate().isAfter(itinerary.getTrip().getEndDate()))
+                .collect(Collectors.toMap(ItineraryDaySettings::getDate,
                 ItineraryDaySettings::snapshot));
         settings.keySet().forEach(date -> byDate.computeIfAbsent(date, ignored -> new ArrayList<>()));
         List<ItineraryResponse.ItineraryDayResponse> days = byDate.entrySet().stream()

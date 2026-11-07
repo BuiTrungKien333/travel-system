@@ -1,7 +1,7 @@
 package com.travel.itinerary.entity;
 
 import com.travel.itinerary.dto.DaySettings;
-import com.travel.maps.service.MapboxDirectionsService.Mode;
+import com.travel.itinerary.dto.DaySettings.TravelMode;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -25,7 +25,7 @@ public class ItineraryDaySettings {
     private Double originLongitude;
     @Column(nullable = false) private LocalTime departureTime;
     @Column(nullable = false) private boolean returnToStart;
-    @Enumerated(EnumType.STRING) @Column(nullable = false, length = 20) private Mode travelMode;
+    @Enumerated(EnumType.STRING) @Column(nullable = false, length = 20) private TravelMode travelMode;
 
     public ItineraryDaySettings(Itinerary itinerary, LocalDate date) {
         this.itinerary = itinerary;

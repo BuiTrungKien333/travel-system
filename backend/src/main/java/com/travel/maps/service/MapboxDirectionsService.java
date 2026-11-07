@@ -84,12 +84,16 @@ public class MapboxDirectionsService {
     }
 
     public OptimizedOrder optimize(List<RoutePoint> points, Mode mode) {
+        return optimize(points, mode, false);
+    }
+
+    public OptimizedOrder optimize(List<RoutePoint> points, Mode mode, boolean roundtrip) {
         // Open routes keep the original first and last stop. At least two interior stops can swap.
         if (points.size() < 4 || points.size() > 12 || points.stream().anyMatch(point -> !valid(point)))
             throw new AppException(ErrorCode.INVALID_ITINERARY);
         if (token.isBlank()) throw new AppException(ErrorCode.PLACE_PROVIDER_UNAVAILABLE);
         var response = request(uri("optimized-trips/v1", points, mode)
-                .queryParam("roundtrip", false).queryParam("source", "first").queryParam("destination", "last")
+                .queryParam("roundtrip", roundtrip).queryParam("source", "first").queryParam("destination", roundtrip ? "any" : "last")
                 .queryParam("overview", false).queryParam("steps", false).build().encode().toUri());
         var code = response.path("code").asText();
         if (List.of("NoRoute", "NoSegment", "NoTrips").contains(code))
@@ -107,7 +111,7 @@ public class MapboxDirectionsService {
                     || position < 0 || position >= order.length || order[position] != null) throw invalid();
             order[position] = input;
         }
-        if (order[0] != 0 || order[order.length - 1] != order.length - 1) throw invalid();
+        if (order[0] != 0 || (!roundtrip && order[order.length - 1] != order.length - 1)) throw invalid();
         return new OptimizedOrder(List.copyOf(Arrays.asList(order)), metric(trips.path(0), "distance"), metric(trips.path(0), "duration"));
     }
 

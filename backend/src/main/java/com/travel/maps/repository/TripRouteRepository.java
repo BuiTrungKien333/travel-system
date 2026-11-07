@@ -8,6 +8,9 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import com.travel.itinerary.dto.DaySettings;
+import com.travel.itinerary.dto.DaySettings.TravelMode;
+import java.time.LocalTime;
 
 @Repository
 @RequiredArgsConstructor
@@ -36,5 +39,20 @@ public class TripRouteRepository {
             """, (row, index) -> new Waypoint(row.getObject(1, UUID.class),
                 new RoutePoint(null, row.getObject(2, Double.class), row.getObject(3, Double.class)), row.getBoolean(4)),
                 tripId, owner, tripId, date, owner);
+    }
+
+    public Optional<DaySettings> settings(UUID tripId, UUID owner, LocalDate date) {
+        return jdbc.query("""
+            SELECT d.origin_name, d.origin_address, d.origin_latitude, d.origin_longitude,
+                   d.departure_time, d.return_to_start, d.travel_mode
+            FROM itinerary_day_settings d
+            JOIN itineraries i ON i.id = d.itinerary_id
+            JOIN trips t ON t.id = i.trip_id AND t.user_id = ? AND t.deleted_at IS NULL
+            WHERE i.id = (SELECT id FROM itineraries WHERE trip_id = ? ORDER BY updated_at DESC, id ASC LIMIT 1)
+              AND d.day_date = ?
+            """, (row, index) -> new DaySettings(row.getString(1) == null ? null :
+                    new DaySettings.Origin(row.getString(1), row.getString(2), row.getObject(3, Double.class), row.getObject(4, Double.class)),
+                    row.getObject(5, LocalTime.class), row.getBoolean(6), TravelMode.valueOf(row.getString(7))),
+                owner, tripId, date).stream().findFirst();
     }
 }

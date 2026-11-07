@@ -28,6 +28,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("test")
 @Import({TestcontainersConfiguration.class,HomeDashboardIntegrationTest.FixedTime.class})
 class HomeDashboardIntegrationTest {
+    @org.springframework.test.context.bean.override.mockito.MockitoSpyBean
+    com.travel.maps.service.MapboxDirectionsService directions;
     static final LocalDate TODAY=LocalDate.of(2026,11,7);
     @TestConfiguration(proxyBeanMethods=false)
     static class FixedTime { @Bean @Primary Clock homeClock() { return Clock.fixed(Instant.parse("2026-11-06T17:30:00Z"),ZoneOffset.UTC); } }
@@ -327,6 +329,124 @@ class HomeDashboardIntegrationTest {
         return mvc.perform(put("/api/v1/trips/{id}/itinerary/days/{date}", trip, date)
                 .header("Authorization", "Bearer " + token).contentType(MediaType.APPLICATION_JSON)
                 .content(json.writeValueAsString(body)));
+    }
+
+    private ResultActions daySchedule(UUID trip, LocalDate day, String revision, Object settings, List<Map<String, Object>> durations) throws Exception {
+        var body = json.createObjectNode().put("expectedTripVersion", 0);
+        if (revision == null) body.putNull("expectedUpdatedAt"); else body.put("expectedUpdatedAt", revision);
+        body.set("settings", json.valueToTree(settings));
+        body.set("durations", json.valueToTree(durations));
+        return mvc.perform(put("/api/v1/trips/{id}/itinerary/days/{day}/schedule", trip, day)
+                .header("Authorization", "Bearer " + token).contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(body)));
+    }
+
+    private Map<String, Object> originSettings(boolean coordinates) {
+        var origin = new HashMap<String, Object>();
+        origin.put("name", "My lodging"); origin.put("address", "Private address");
+        origin.put("latitude", coordinates ? 16.01 : null); origin.put("longitude", coordinates ? 108.01 : null);
+        return Map.of("origin", origin, "departureTime", "08:30", "returnToStart", true, "travelMode", "DRIVE");
+    }
+
+    @Test void daySettingsAndDurationsAreAtomicAndCalculateArrivalTimesFromRealLegs() throws Exception {
+        UUID trip = trip(owner, TODAY, TODAY.plusDays(1), "ACTIVE", 1), province = province();
+        UUID first = place(province), second = place(province), other = place(province);
+        for (UUID place : List.of(first, second, other)) link(trip, place, false);
+        UUID itinerary = itinerary(trip);
+        stop(itinerary, first, TODAY, 0); stop(itinerary, second, TODAY, 1); stop(itinerary, other, TODAY.plusDays(1), 0);
+        jdbc.update("UPDATE itinerary_items SET note='Keep note' WHERE itinerary_id=? AND place_id=?", itinerary, first);
+        var before = data(mvc.perform(get("/api/v1/trips/{id}/itinerary", trip).header("Authorization", "Bearer " + token)).andExpect(status().isOk()));
+        var route = new com.travel.maps.dto.TripDayRoute(com.travel.maps.dto.TripDayRoute.Status.READY,
+                new com.travel.maps.dto.TripDayRoute.Route(5000, 2280, "_p~iF~ps|U_ulLnnqC", List.of(
+                        new com.travel.maps.dto.TripDayRoute.Leg(1000, 600), new com.travel.maps.dto.TripDayRoute.Leg(3000, 1200),
+                        new com.travel.maps.dto.TripDayRoute.Leg(1000, 480))));
+        org.mockito.Mockito.doReturn(route).when(directions).route(org.mockito.ArgumentMatchers.anyList(), org.mockito.ArgumentMatchers.any());
+        var saved = data(daySchedule(trip, TODAY, before.path("updatedAt").asText(), originSettings(true),
+                List.of(Map.of("placeId", first, "minutes", 60), Map.of("placeId", second, "minutes", 45))).andExpect(status().isOk()));
+        assertThat(saved.at("/days/0/settings/origin/name").asText()).isEqualTo("My lodging");
+        assertThat(saved.at("/days/0/stops/0/arrivalTime").asText()).isEqualTo(TODAY + "T08:40:00");
+        assertThat(saved.at("/days/0/stops/1/arrivalTime").asText()).isEqualTo(TODAY + "T10:00:00");
+        assertThat(saved.at("/days/0/stops/0/note").asText()).isEqualTo("Keep note");
+        assertThat(saved.at("/days/0/stops/0/id")).isEqualTo(before.at("/days/0/stops/0/id"));
+        assertThat(saved.at("/days/1")).isEqualTo(before.at("/days/1"));
+        mvc.perform(get("/api/v1/trips/{id}/itinerary/days/{day}/route", trip, TODAY).header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.route.legs.length()").value(1))
+                .andExpect(jsonPath("$.data.startLeg.durationSeconds").value(600))
+                .andExpect(jsonPath("$.data.returnLeg.durationSeconds").value(480));
+        daySchedule(trip, TODAY, before.path("updatedAt").asText(), originSettings(true),
+                List.of(Map.of("placeId", first, "minutes", 30), Map.of("placeId", second, "minutes", 30)))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("TRIP_008"));
+        saveDay(trip, TODAY, saved.path("updatedAt").asText(), List.of(scheduledStop(first, TODAY, 0, "Edited stop")))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.days[0].settings.origin.name").value("My lodging"));
+    }
+
+    @Test void manualOriginIsSavedWithoutInventingCoordinatesOrArrivalTimes() throws Exception {
+        UUID trip = trip(owner, TODAY, TODAY, "ACTIVE", 1), place = place(province());
+        link(trip, place, false); UUID itinerary = itinerary(trip); stop(itinerary, place, TODAY, 0);
+        var before = data(mvc.perform(get("/api/v1/trips/{id}/itinerary", trip).header("Authorization", "Bearer " + token)).andExpect(status().isOk()));
+        daySchedule(trip, TODAY, before.path("updatedAt").asText(), originSettings(false), List.of(Map.of("placeId", place, "minutes", 45)))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.days[0].settings.origin.latitude").isEmpty())
+                .andExpect(jsonPath("$.data.days[0].stops[0].arrivalTime").isEmpty());
+    }
+
+    @Test void optimizationUsesSavedOriginAndReturnsOnlyVisitIdsForARoundTrip() throws Exception {
+        UUID trip = trip(owner, TODAY, TODAY, "ACTIVE", 1), province = province(), itinerary = itinerary(trip);
+        List<UUID> visits = List.of(place(province), place(province), place(province), place(province));
+        for (int i = 0; i < visits.size(); i++) { link(trip, visits.get(i), false); stop(itinerary, visits.get(i), TODAY, i); }
+        jdbc.update("INSERT INTO itinerary_day_settings(id,itinerary_id,day_date,origin_name,origin_latitude,origin_longitude,departure_time,return_to_start,travel_mode) VALUES (?,?,?,'Origin',16.01,108.01,'08:30',true,'DRIVE')",
+                UUID.randomUUID(), itinerary, TODAY);
+        org.mockito.Mockito.doReturn(new com.travel.maps.service.MapboxDirectionsService.OptimizedOrder(List.of(0, 3, 1, 4, 2), 4000, 1800))
+                .when(directions).optimize(org.mockito.ArgumentMatchers.anyList(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(true));
+        var result = data(mvc.perform(post("/api/v1/trips/{id}/itinerary/days/{day}/route/optimize", trip, TODAY)
+                .header("Authorization", "Bearer " + token)).andExpect(status().isOk()));
+        assertThat(result.path("order").size()).isEqualTo(4);
+        assertThat(result.at("/order/0").asText()).isEqualTo(visits.get(2).toString());
+        assertThat(result.at("/order/1").asText()).isEqualTo(visits.get(0).toString());
+        assertThat(result.at("/order/2").asText()).isEqualTo(visits.get(3).toString());
+        assertThat(result.at("/order/3").asText()).isEqualTo(visits.get(1).toString());
+    }
+
+    @Test void emptyDayCanPersistSettingsAndRejectsForeignReadOnlyAndInvalidInput() throws Exception {
+        UUID mine = trip(owner, TODAY, TODAY, "ACTIVE", 1), foreign = trip(stranger, TODAY, TODAY, "ACTIVE", 2);
+        var settings = originSettings(false);
+        daySchedule(foreign, TODAY, null, settings, List.of()).andExpect(status().isNotFound());
+        daySchedule(mine, TODAY.plusDays(1), null, settings, List.of()).andExpect(status().isBadRequest());
+        var invalid = new HashMap<>(settings); invalid.put("origin", null);
+        daySchedule(mine, TODAY, null, invalid, List.of()).andExpect(status().isBadRequest());
+        daySchedule(mine, TODAY, null, settings, List.of()).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.days[0].stops.length()").value(0));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM itinerary_day_settings d JOIN itineraries i ON i.id=d.itinerary_id WHERE i.trip_id=?", Long.class, mine)).isEqualTo(1);
+        jdbc.update("UPDATE trips SET status='COMPLETED' WHERE id=?", mine);
+        daySchedule(mine, TODAY, null, settings, List.of()).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("TRIP_006"));
+    }
+
+    @Test void durationMismatchAndProviderFailureLeaveScheduleUntouched() throws Exception {
+        UUID trip = trip(owner, TODAY, TODAY, "ACTIVE", 1), place = place(province());
+        link(trip, place, false); UUID itinerary = itinerary(trip); stop(itinerary, place, TODAY, 0);
+        var before = data(mvc.perform(get("/api/v1/trips/{id}/itinerary", trip).header("Authorization", "Bearer " + token)).andExpect(status().isOk()));
+        daySchedule(trip, TODAY, before.path("updatedAt").asText(), originSettings(true), List.of())
+                .andExpect(status().isBadRequest());
+        org.mockito.Mockito.doThrow(new com.travel.common.exception.AppException(com.travel.common.exception.ErrorCode.PLACE_PROVIDER_UNAVAILABLE))
+                .when(directions).route(org.mockito.ArgumentMatchers.anyList(), org.mockito.ArgumentMatchers.any());
+        daySchedule(trip, TODAY, before.path("updatedAt").asText(), originSettings(true), List.of(Map.of("placeId", place, "minutes", 60)))
+                .andExpect(status().isServiceUnavailable());
+        var after = data(mvc.perform(get("/api/v1/trips/{id}/itinerary", trip).header("Authorization", "Bearer " + token)).andExpect(status().isOk()));
+        assertThat(after).isEqualTo(before);
+    }
+
+    @Test void aRevisionChangeWhileRoutingIsInFlightCannotBeOverwritten() throws Exception {
+        UUID trip = trip(owner, TODAY, TODAY, "ACTIVE", 1), place = place(province());
+        link(trip, place, false); UUID itinerary = itinerary(trip); stop(itinerary, place, TODAY, 0);
+        var before = data(mvc.perform(get("/api/v1/trips/{id}/itinerary", trip).header("Authorization", "Bearer " + token)).andExpect(status().isOk()));
+        org.mockito.Mockito.doAnswer(invocation -> {
+            assertThat(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+            jdbc.update("UPDATE itineraries SET updated_at=updated_at+interval '1 second' WHERE id=?", itinerary);
+            return com.travel.maps.dto.TripDayRoute.unavailable(com.travel.maps.dto.TripDayRoute.Status.NOT_CONFIGURED);
+        }).when(directions).route(org.mockito.ArgumentMatchers.anyList(), org.mockito.ArgumentMatchers.any());
+        daySchedule(trip, TODAY, before.path("updatedAt").asText(), originSettings(true), List.of(Map.of("placeId", place, "minutes", 60)))
+                .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("TRIP_008"));
+        assertThat(jdbc.queryForObject("SELECT duration_minutes FROM itinerary_items WHERE itinerary_id=?", Integer.class, itinerary)).isEqualTo(45);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM itinerary_day_settings WHERE itinerary_id=?", Long.class, itinerary)).isZero();
     }
 
     private Map<String, Object> scheduledStop(UUID place, LocalDate date, int sequence, String note) {

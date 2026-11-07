@@ -19,6 +19,18 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 class MapboxDirectionsServiceTest {
+    @Test void roundTripKeepsTheOriginButDoesNotFixTheLastVisit() {
+        server.expect(queryParam("roundtrip", "true"))
+                .andExpect(queryParam("source", "first"))
+                .andExpect(queryParam("destination", "any"))
+                .andRespond(withSuccess("""
+                    {"code":"Ok","waypoints":[{"waypoint_index":0,"trips_index":0},{"waypoint_index":2,"trips_index":0},
+                    {"waypoint_index":3,"trips_index":0},{"waypoint_index":1,"trips_index":0}],
+                    "trips":[{"distance":9800,"duration":1800}]}
+                    """, MediaType.APPLICATION_JSON));
+        assertThat(service.optimize(points, DRIVE, true).order()).containsExactly(0, 3, 1, 2);
+        server.verify();
+    }
     private final RestClient.Builder client = RestClient.builder();
     private final MockRestServiceServer server = MockRestServiceServer.bindTo(client).build();
     private final MapboxDirectionsService service = new MapboxDirectionsService("test-token", new ObjectMapper(), client.build());

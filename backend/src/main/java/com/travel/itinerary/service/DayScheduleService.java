@@ -58,7 +58,7 @@ public class DayScheduleService {
         stops.forEach(stop -> points.add(new RoutePoint(null, stop.latitude(), stop.longitude())));
         if (settings.returnToStart() && !stops.isEmpty()) points.add(points.getFirst());
         var route = stops.isEmpty() ? TripDayRoute.unavailable(TripDayRoute.Status.TOO_FEW_STOPS)
-                : directions.route(points, settings.travelMode());
+                : directions.route(points, MapboxDirectionsService.Mode.valueOf(settings.travelMode().name()));
         var legs = route.status() == TripDayRoute.Status.READY ? route.route().legs() : List.<TripDayRoute.Leg>of();
         LocalDateTime arrival = date.atTime(settings.departureTime());
         List<ItineraryStopRequest> updated = new ArrayList<>();

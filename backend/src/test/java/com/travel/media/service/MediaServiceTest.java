@@ -106,8 +106,10 @@ class MediaServiceTest {
     @Test
     @DisplayName("Upload single image succeeds")
     void uploadImage_Success() throws IOException {
+        var bytes = new java.io.ByteArrayOutputStream();
+        javax.imageio.ImageIO.write(new java.awt.image.BufferedImage(8, 6, java.awt.image.BufferedImage.TYPE_INT_RGB), "jpeg", bytes);
         MockMultipartFile file = new MockMultipartFile(
-                "file", "test.jpg", "image/jpeg", "dummy image content".getBytes()
+                "file", "test.jpg", "image/jpeg", bytes.toByteArray()
         );
 
         Map<String, Object> cloudinaryResult = new HashMap<>();
@@ -132,8 +134,10 @@ class MediaServiceTest {
     }
 
     @Test
-    void uploadWithoutStorageConfigurationReturnsUnavailableWithoutCallingProvider() {
-        MockMultipartFile file = new MockMultipartFile("file", "test.jpg", "image/jpeg", new byte[]{1});
+    void uploadWithoutStorageConfigurationReturnsUnavailableWithoutCallingProvider() throws IOException {
+        var bytes = new java.io.ByteArrayOutputStream();
+        javax.imageio.ImageIO.write(new java.awt.image.BufferedImage(8, 6, java.awt.image.BufferedImage.TYPE_INT_RGB), "jpeg", bytes);
+        MockMultipartFile file = new MockMultipartFile("file", "test.jpg", "image/jpeg", bytes.toByteArray());
         assertThatThrownBy(() -> mediaService.uploadImage(file, userId))
                 .isInstanceOfSatisfying(AppException.class, error -> {
                     assertThat(error.getErrorCode()).isEqualTo(ErrorCode.MEDIA_STORAGE_UNAVAILABLE);

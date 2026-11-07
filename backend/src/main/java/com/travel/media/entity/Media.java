@@ -50,6 +50,19 @@ public class Media {
     @Column(name = "display_order", nullable = false)
     private Integer displayOrder = 0;
 
+    @Setter(AccessLevel.NONE)
+    @Column(name = "upload_hash", length = 64, updatable = false)
+    private String uploadHash;
+
+    @Setter(AccessLevel.NONE)
+    @Column(name = "public_id", length = 1024, updatable = false)
+    private String publicId;
+
+    public void identifyUpload(String hash, String publicId) {
+        this.uploadHash = hash;
+        this.publicId = publicId;
+    }
+
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     @Setter(AccessLevel.NONE)

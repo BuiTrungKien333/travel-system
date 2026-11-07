@@ -1,6 +1,7 @@
 package com.travel.memory.service;
 
 import com.travel.memory.dto.request.CreateMemoryRequest;
+import com.travel.memory.dto.request.UpdateMemoryRequest;
 import com.travel.memory.dto.response.MemoryResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -18,6 +19,7 @@ public interface MemoryService {
      * @return the created memory response DTO
      */
     MemoryResponse createMemory(UUID currentUserId, CreateMemoryRequest request);
+    MemoryResponse updateNote(UUID id, UUID userId, UpdateMemoryRequest request);
 
     /**
      * Retrieve a memory by ID. Validates ownership against the requesting user.

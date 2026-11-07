@@ -4,9 +4,14 @@ import com.travel.media.dto.UploadResponse;
 import com.travel.media.entity.Media;
 import com.travel.media.repository.MediaRepository;
 import com.travel.memory.entity.Memory;
+import com.travel.memory.repository.MemoryRepository;
+import com.travel.common.exception.AppException;
+import com.travel.common.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+import java.util.UUID;
+import java.util.Optional;
 
 /**
  * Helper chịu trách nhiệm tạo Media entity từ UploadResponse
@@ -14,42 +19,41 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @RequiredArgsConstructor
-@Slf4j(topic = "MEDIA_PERSISTENCE")
 public class MediaPersistenceHelper {
 
     private final MediaRepository mediaRepository;
+    private final MemoryRepository memoryRepository;
 
-    /**
-     * Tạo Media entity từ kết quả upload Cloudinary, gắn vào Memory và persist xuống DB.
-     *
-     * @param response     kết quả trả về từ Cloudinary upload
-     * @param memory       Memory entity sở hữu ảnh này
-     * @param displayOrder thứ tự hiển thị trong memory
-     * @return UploadResponse bổ sung thêm mediaId từ DB
-     */
-    public UploadResponse saveAndBuildResponse(UploadResponse response, Memory memory, int displayOrder) {
-        Media media = Media.create(
-                response.getUrl(),
-                response.getMimeType(),
-                response.getFileSize(),
-                response.getWidth(),
-                response.getHeight(),
-                displayOrder
-        );
-        memory.addMedia(media);
-        mediaRepository.save(media);
-
-        log.info("Media saved to DB: mediaId={}, memoryId={}, url={}",
-                media.getId(), memory.getId(), response.getUrl());
-
-        return UploadResponse.builder()
-                .mediaId(media.getId())
-                .url(response.getUrl())
-                .publicId(response.getPublicId())
-                .mimeType(response.getMimeType())
-                .fileSize(response.getFileSize())
-                .width(response.getWidth())
-                .height(response.getHeight())
-                .build();
+    @Transactional(readOnly = true)
+    public Optional<UploadResponse> uploaded(UUID owner, UUID trip, UUID id, String hash) {
+        requireOwner(memoryRepository.findByIdAndDeletedAtIsNull(id)
+                .orElseThrow(() -> new AppException(ErrorCode.MEMORY_NOT_FOUND)), owner, trip);
+        return mediaRepository.findByMemoryIdAndUploadHash(id, hash).map(this::response);
     }
+
+    /** The row lock is held only for DB finalization, never while calling Cloudinary. */
+    @Transactional
+    public UploadResponse complete(UUID owner, UUID trip, UUID id, String hash, UploadResponse uploaded) {
+        Memory memory = memoryRepository.lockActive(id)
+                .orElseThrow(() -> new AppException(ErrorCode.MEMORY_NOT_FOUND));
+        requireOwner(memory, owner, trip);
+        var existing = mediaRepository.findByMemoryIdAndUploadHash(id, hash);
+        if (existing.isPresent()) return response(existing.get());
+        Media media = Media.create(uploaded.getUrl(), uploaded.getMimeType(), uploaded.getFileSize(),
+                uploaded.getWidth(), uploaded.getHeight(), memory.getMedia().size());
+        media.identifyUpload(hash, uploaded.getPublicId());
+        memory.addMedia(media);
+        return response(mediaRepository.saveAndFlush(media));
+    }
+
+    private void requireOwner(Memory memory, UUID owner, UUID trip) {
+        if (!memory.getUserId().equals(owner) || !java.util.Objects.equals(memory.getTripId(), trip))
+            throw new AppException(ErrorCode.MEMORY_ACCESS_DENIED);
+    }
+
+    private UploadResponse response(Media media) {
+        return UploadResponse.builder().mediaId(media.getId()).url(media.getUrl()).publicId(media.getPublicId())
+                .mimeType(media.getMimeType()).fileSize(media.getFileSize()).width(media.getWidth()).height(media.getHeight()).build();
+    }
+
 }

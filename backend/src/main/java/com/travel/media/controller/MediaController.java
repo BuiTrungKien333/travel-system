@@ -3,6 +3,9 @@ package com.travel.media.controller;
 import com.travel.common.response.ApiResponse;
 import com.travel.media.dto.UploadResponse;
 import com.travel.media.service.MediaService;
+import com.travel.media.util.ImageUploadPolicy;
+import com.travel.common.exception.AppException;
+import com.travel.common.exception.ErrorCode;
 import com.travel.security.util.SecurityUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -24,6 +27,11 @@ import java.util.UUID;
 public class MediaController {
 
     private final MediaService mediaService;
+
+    @GetMapping("/limits")
+    public ApiResponse<ImageUploadPolicy.Limits> limits() {
+        return ApiResponse.success(ImageUploadPolicy.limits());
+    }
     /**
      * Upload a single image to Cloudinary.
      * If tripId & memoryId are provided, stores in organized folder:
@@ -46,6 +54,7 @@ public class MediaController {
             @RequestParam(value = "tripId", required = false) UUID tripId,
             @RequestParam(value = "memoryId", required = false) UUID memoryId
     ) {
+        if ((tripId == null) != (memoryId == null)) throw new AppException(ErrorCode.VALIDATION_ERROR);
         UUID currentUserId = SecurityUtils.getCurrentUserId();
         log.info("User [{}] uploading image: name={}, type={}, size={} bytes, tripId={}, memoryId={}",
                 currentUserId,
@@ -80,6 +89,7 @@ public class MediaController {
             @RequestParam(value = "tripId", required = false) UUID tripId,
             @RequestParam(value = "memoryId", required = false) UUID memoryId
     ) {
+        if ((tripId == null) != (memoryId == null)) throw new AppException(ErrorCode.VALIDATION_ERROR);
         UUID currentUserId = SecurityUtils.getCurrentUserId();
         log.info("User [{}] uploading {} images, tripId={}, memoryId={}",
                 currentUserId, files.size(), tripId, memoryId);

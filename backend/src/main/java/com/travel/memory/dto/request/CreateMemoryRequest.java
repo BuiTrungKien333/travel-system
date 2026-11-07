@@ -22,6 +22,8 @@ import java.util.UUID;
 @AllArgsConstructor
 public class CreateMemoryRequest {
 
+    private UUID clientRequestId;
+
     private UUID tripId;
 
     private UUID placeId;
@@ -33,6 +35,7 @@ public class CreateMemoryRequest {
     private Instant experiencedAt;
 
     @Valid
+    @Size(max = 0, message = "Upload image files through the media endpoint")
     @Builder.Default
     private List<CreateMediaRequest> media = new ArrayList<>();
 }

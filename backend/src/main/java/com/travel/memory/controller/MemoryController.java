@@ -4,6 +4,7 @@ import com.travel.common.response.ApiResponse;
 import com.travel.common.exception.AppException;
 import com.travel.common.exception.ErrorCode;
 import com.travel.memory.dto.request.CreateMemoryRequest;
+import com.travel.memory.dto.request.UpdateMemoryRequest;
 import com.travel.memory.dto.response.MemoryResponse;
 import com.travel.memory.service.MemoryService;
 import com.travel.security.util.SecurityUtils;
@@ -33,13 +34,19 @@ public class MemoryController {
 
     private final MemoryService memoryService;
 
+    @PatchMapping("/{id}")
+    public ApiResponse<MemoryResponse> updateNote(@PathVariable UUID id,
+            @Valid @RequestBody UpdateMemoryRequest request) {
+        return ApiResponse.success(memoryService.updateNote(id, SecurityUtils.getCurrentUserId(), request));
+    }
+
     /**
-     * Create a new travel memory with optional attached media.
+     * Create metadata; attach image files through the media endpoint.
      * POST /api/v1/journal/memories
      */
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @Operation(summary = "Create new memory", description = "Creates a new travel memory with optional attached media for the authenticated user")
+    @Operation(summary = "Create new memory", description = "Creates memory metadata. Reuse clientRequestId for safe retries; attach validated files through the media endpoint.")
     public ApiResponse<MemoryResponse> createMemory(
             @Valid @RequestBody CreateMemoryRequest request
     ) {

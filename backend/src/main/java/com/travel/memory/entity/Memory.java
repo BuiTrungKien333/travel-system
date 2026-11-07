@@ -17,6 +17,15 @@ import java.util.UUID;
 @NoArgsConstructor
 public class Memory extends BaseEntity {
 
+    @Version
+    private long version;
+
+    @Column(name = "client_request_id", updatable = false)
+    private UUID clientRequestId;
+
+    @Column(name = "create_request_hash", length = 64, updatable = false)
+    private String createRequestHash;
+
     @Column(name = "user_id", nullable = false)
     private UUID userId;
 

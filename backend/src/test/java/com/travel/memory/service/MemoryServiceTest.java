@@ -63,8 +63,8 @@ class MemoryServiceTest {
     }
 
     @Test
-    @DisplayName("Create memory with media list succeeds")
-    void createMemory_WithMedia_Success() {
+    @DisplayName("Reject client-supplied media URLs before persistence")
+    void createMemory_WithMedia_RejectsUntrustedUrls() {
         CreateMediaRequest mediaReq = CreateMediaRequest.builder()
                 .url("https://cdn.travel.com/photos/1.jpg")
                 .mimeType("image/jpeg")
@@ -82,22 +82,9 @@ class MemoryServiceTest {
                 .media(List.of(mediaReq))
                 .build();
 
-        when(tripRepository.findByIdAndUserIdAndDeletedAtIsNull(tripId, userId)).thenReturn(Optional.of(new Trip()));
-        when(tripPlaceRepository.existsByTripIdAndPlaceId(tripId, placeId)).thenReturn(true);
-        when(memoryRepository.save(any(Memory.class))).thenAnswer(invocation -> invocation.getArgument(0));
-
-        MemoryResponse response = memoryService.createMemory(userId, request);
-
-        assertThat(response).isNotNull();
-        assertThat(response.getUserId()).isEqualTo(userId);
-        assertThat(response.getTripId()).isEqualTo(tripId);
-        assertThat(response.getNote()).isEqualTo("Great memory in Da Nang");
-        assertThat(response.getMediaCount()).isEqualTo(1);
-        assertThat(response.getCoverImageUrl()).isEqualTo("https://cdn.travel.com/photos/1.jpg");
-        assertThat(response.getMedia()).hasSize(1);
-        assertThat(response.getMedia().getFirst().getUrl()).isEqualTo("https://cdn.travel.com/photos/1.jpg");
-
-        verify(memoryRepository, times(1)).save(any(Memory.class));
+        assertThatThrownBy(() -> memoryService.createMemory(userId, request))
+                .isInstanceOfSatisfying(AppException.class, error -> assertThat(error.getErrorCode()).isEqualTo(ErrorCode.VALIDATION_ERROR));
+        verifyNoInteractions(memoryRepository, tripRepository);
     }
 
     @Test
@@ -137,9 +124,11 @@ class MemoryServiceTest {
     void getMemoriesByTrip_Success() {
         Memory memory1 = Memory.create(userId, tripId, placeId, "Day 1", Instant.now());
         Memory memory2 = Memory.create(userId, tripId, placeId, "Day 2", Instant.now());
-        Page<Memory> page = new PageImpl<>(List.of(memory1, memory2));
-
-        when(memoryRepository.findByTripIdAndUserIdAndDeletedAtIsNull(eq(tripId), eq(userId), any())).thenReturn(page);
+        UUID first = UUID.randomUUID(); UUID second = UUID.randomUUID();
+        ReflectionTestUtils.setField(memory1, "id", first); ReflectionTestUtils.setField(memory2, "id", second);
+        when(tripRepository.findByIdAndUserIdAndDeletedAtIsNull(tripId, userId)).thenReturn(Optional.of(new Trip()));
+        when(memoryRepository.ownerIds(eq(userId), eq(tripId), any())).thenReturn(new PageImpl<>(List.of(first, second)));
+        when(memoryRepository.findByIdInAndUserIdAndDeletedAtIsNull(List.of(first, second), userId)).thenReturn(List.of(memory2, memory1));
 
         Page<MemoryResponse> result = memoryService.getMemoriesByTrip(tripId, userId, PageRequest.of(0, 10));
 

@@ -1,6 +1,5 @@
 package com.travel.memory.mapper;
 
-import com.travel.media.dto.CreateMediaRequest;
 import com.travel.media.dto.MediaResponse;
 import com.travel.media.entity.Media;
 import com.travel.memory.dto.request.CreateMemoryRequest;
@@ -17,7 +16,7 @@ import java.util.stream.Collectors;
 public class MemoryMapper {
 
     /**
-     * Map CreateMemoryRequest to Memory entity with bidirectional Media mapping.
+     * Media is attached only after a validated server-side upload.
      */
     public Memory toEntity(UUID userId, CreateMemoryRequest request) {
         Memory memory = Memory.create(
@@ -28,28 +27,7 @@ public class MemoryMapper {
                 request.getExperiencedAt()
         );
 
-        if (request.getMedia() != null && !request.getMedia().isEmpty()) {
-            for (CreateMediaRequest mediaReq : request.getMedia()) {
-                Media media = toMediaEntity(mediaReq);
-                memory.addMedia(media);
-            }
-        }
-
         return memory;
-    }
-
-    /**
-     * Map CreateMediaRequest to Media entity.
-     */
-    public Media toMediaEntity(CreateMediaRequest request) {
-        return Media.create(
-                request.getUrl(),
-                request.getMimeType(),
-                request.getFileSize(),
-                request.getWidth(),
-                request.getHeight(),
-                request.getDisplayOrder()
-        );
     }
 
     /**
@@ -70,6 +48,7 @@ public class MemoryMapper {
 
         return MemoryResponse.builder()
                 .id(memory.getId())
+                .version(memory.getVersion())
                 .userId(memory.getUserId())
                 .tripId(memory.getTripId())
                 .placeId(memory.getPlaceId())

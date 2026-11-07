@@ -3,6 +3,9 @@ package com.travel.memory.service.impl;
 import com.travel.common.exception.AppException;
 import com.travel.common.exception.ErrorCode;
 import com.travel.memory.dto.request.CreateMemoryRequest;
+import com.travel.memory.dto.request.UpdateMemoryRequest;
+import com.travel.memory.repository.MemoryCreateRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.travel.memory.dto.response.MemoryResponse;
 import com.travel.memory.entity.Memory;
 import com.travel.memory.mapper.MemoryMapper;
@@ -36,12 +39,21 @@ public class MemoryServiceImpl implements MemoryService {
     private final MemoryMapper memoryMapper;
     private final TripRepository tripRepository;
     private final TripPlaceRepository tripPlaceRepository;
+    private final MemoryCreateRepository createRepository;
+    private final ObjectMapper json;
 
     @Override
     @Transactional
     public MemoryResponse createMemory(UUID currentUserId, CreateMemoryRequest request) {
+        if (request.getMedia() != null && !request.getMedia().isEmpty())
+            throw new AppException(ErrorCode.VALIDATION_ERROR);
+        String hash = request.getClientRequestId() == null ? null : createHash(request);
+        if (request.getClientRequestId() != null) {
+            var existing = memoryRepository.findByUserIdAndClientRequestId(currentUserId, request.getClientRequestId());
+            if (existing.isPresent()) return replay(existing.get(), hash);
+        }
         if (request.getTripId() != null) {
-            tripRepository.findByIdAndUserIdAndDeletedAtIsNull(request.getTripId(), currentUserId)
+            tripRepository.lockOwnedTrip(request.getTripId(), currentUserId)
                     .orElseThrow(() -> new AppException(ErrorCode.TRIP_NOT_FOUND));
             if (request.getPlaceId() != null
                     && !tripPlaceRepository.existsByTripIdAndPlaceId(request.getTripId(), request.getPlaceId())) {
@@ -50,10 +62,44 @@ public class MemoryServiceImpl implements MemoryService {
         } else if (request.getPlaceId() != null) {
             throw new AppException(ErrorCode.TRIP_NOT_FOUND);
         }
+        if (request.getClientRequestId() != null) {
+            createRepository.insert(UUID.randomUUID(), currentUserId, request, hash);
+            Memory result = memoryRepository.findByUserIdAndClientRequestId(currentUserId, request.getClientRequestId())
+                    .orElseThrow(() -> new IllegalStateException("Memory create result missing"));
+            return replay(result, hash);
+        }
         Memory memory = memoryMapper.toEntity(currentUserId, request);
         Memory saved = memoryRepository.save(memory);
         log.info("Memory created: id={}, userId={}, mediaCount={}", saved.getId(), saved.getUserId(), saved.getMedia().size());
         return memoryMapper.toResponse(saved);
+    }
+
+    private String createHash(CreateMemoryRequest request) {
+        try {
+            byte[] payload = json.writeValueAsBytes(new Object[]{request.getTripId(), request.getPlaceId(),
+                    request.getNote(), request.getExperiencedAt() == null ? null : request.getExperiencedAt().toString()});
+            return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(payload));
+        } catch (com.fasterxml.jackson.core.JsonProcessingException | java.security.NoSuchAlgorithmException error) {
+            throw new IllegalStateException("Cannot fingerprint memory request", error);
+        }
+    }
+
+    private MemoryResponse replay(Memory memory, String hash) {
+        if (memory.isDeleted() || !Objects.equals(memory.getCreateRequestHash(), hash))
+            throw new AppException(ErrorCode.MEMORY_REQUEST_CONFLICT);
+        return memoryMapper.toResponse(memory);
+    }
+
+    @Override
+    @Transactional
+    public MemoryResponse updateNote(UUID id, UUID userId, UpdateMemoryRequest request) {
+        Memory memory = memoryRepository.lockActive(id)
+                .orElseThrow(() -> new AppException(ErrorCode.MEMORY_NOT_FOUND));
+        checkOwnership(memory, userId);
+        if (memory.getVersion() != request.version()) throw new AppException(ErrorCode.MEMORY_VERSION_CONFLICT);
+        memory.updateNote(request.note());
+        memoryRepository.flush();
+        return memoryMapper.toResponse(memory);
     }
 
     @Override
@@ -68,18 +114,25 @@ public class MemoryServiceImpl implements MemoryService {
     @Transactional(readOnly = true)
     public Page<MemoryResponse> getMemoriesByUser(UUID userId, Pageable pageable) {
         Pageable safePageable = sanitizePageable(pageable);
-        return memoryRepository
-                .findByUserIdAndDeletedAtIsNull(userId, safePageable)
-                .map(memoryMapper::toResponse);
+        return ownerPage(userId, null, safePageable);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Page<MemoryResponse> getMemoriesByTrip(UUID tripId, UUID requestUserId, Pageable pageable) {
         Pageable safePageable = sanitizePageable(pageable);
-        return memoryRepository
-                .findByTripIdAndUserIdAndDeletedAtIsNull(tripId, requestUserId, safePageable)
-                .map(memoryMapper::toResponse);
+        tripRepository.findByIdAndUserIdAndDeletedAtIsNull(tripId, requestUserId)
+                .orElseThrow(() -> new AppException(ErrorCode.TRIP_NOT_FOUND));
+        return ownerPage(requestUserId, tripId, safePageable);
+    }
+
+    private Page<MemoryResponse> ownerPage(UUID owner, UUID trip, Pageable pageable) {
+        var ids = memoryRepository.ownerIds(owner, trip, pageable);
+        if (ids.isEmpty()) return new PageImpl<>(java.util.List.of(), pageable, ids.getTotalElements());
+        var records = memoryRepository.findByIdInAndUserIdAndDeletedAtIsNull(ids.getContent(), owner).stream()
+                .collect(Collectors.toMap(Memory::getId, Function.identity()));
+        var content = ids.getContent().stream().map(records::get).filter(Objects::nonNull).map(memoryMapper::toResponse).toList();
+        return new PageImpl<>(content, pageable, ids.getTotalElements());
     }
 
     @Override
@@ -102,9 +155,7 @@ public class MemoryServiceImpl implements MemoryService {
         if (pageable == null) {
             return PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "experiencedAt"));
         }
-        if (pageable.getSort().isUnsorted()) {
-            return pageable;
-        }
+        pageable = PageRequest.of(pageable.getPageNumber(), Math.min(pageable.getPageSize(), 50), pageable.getSort());
 
         java.util.Map<String, String> propertyAliasMap = java.util.Map.ofEntries(
                 java.util.Map.entry("id", "id"),
@@ -136,9 +187,9 @@ public class MemoryServiceImpl implements MemoryService {
         }
 
         if (validOrders.isEmpty()) {
-            return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by(Sort.Direction.DESC, "experiencedAt"));
+            validOrders.add(Sort.Order.desc("experiencedAt"));
         }
-
+        if (validOrders.stream().noneMatch(order -> order.getProperty().equals("id"))) validOrders.add(Sort.Order.desc("id"));
         return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by(validOrders));
     }
 

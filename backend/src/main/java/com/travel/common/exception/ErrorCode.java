@@ -69,6 +69,8 @@ public enum ErrorCode {
 
     MEMORY_NOT_FOUND("MEMORY_001", "error.memory.not-found", HttpStatus.NOT_FOUND),
     MEMORY_ACCESS_DENIED("MEMORY_002", "error.memory.access-denied", HttpStatus.FORBIDDEN),
+    MEMORY_VERSION_CONFLICT("MEMORY_003", "error.memory.version-conflict", HttpStatus.CONFLICT),
+    MEMORY_REQUEST_CONFLICT("MEMORY_004", "error.memory.request-conflict", HttpStatus.CONFLICT),
     MEDIA_NOT_FOUND("MEDIA_001", "error.media.not-found", HttpStatus.NOT_FOUND),
 
     // --- UPLOAD ---
@@ -77,7 +79,8 @@ public enum ErrorCode {
     UPLOAD_INVALID_FILE_TYPE("UPLOAD_003", "error.upload.invalid-file-type", HttpStatus.BAD_REQUEST),
     UPLOAD_FAILED("UPLOAD_004", "error.upload.failed", HttpStatus.INTERNAL_SERVER_ERROR),
     UPLOAD_TOO_MANY_FILES("UPLOAD_005", "error.upload.too-many-files", HttpStatus.BAD_REQUEST),
-    MEDIA_STORAGE_UNAVAILABLE("UPLOAD_006", "error.upload.storage-unavailable", HttpStatus.SERVICE_UNAVAILABLE);
+    MEDIA_STORAGE_UNAVAILABLE("UPLOAD_006", "error.upload.storage-unavailable", HttpStatus.SERVICE_UNAVAILABLE),
+    UPLOAD_IMAGE_TOO_LARGE("UPLOAD_008", "error.upload.image-too-large", HttpStatus.BAD_REQUEST);
 
     private final String code;
     private final String messageKey;

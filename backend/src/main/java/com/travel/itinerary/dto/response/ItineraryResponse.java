@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
+import com.travel.itinerary.dto.DaySettings;
 
 /** Days are grouped by planned date; stops are ordered by their zero-based sequence. */
 public record ItineraryResponse(
@@ -15,7 +16,9 @@ public record ItineraryResponse(
         List<ItineraryDayResponse> days,
         Instant updatedAt
 ) {
-    public record ItineraryDayResponse(LocalDate date, List<ItineraryStopResponse> stops) {}
+    public record ItineraryDayResponse(LocalDate date, List<ItineraryStopResponse> stops, DaySettings settings) {
+        public ItineraryDayResponse(LocalDate date, List<ItineraryStopResponse> stops) { this(date, stops, null); }
+    }
 
     public record ItineraryStopResponse(
             UUID id,

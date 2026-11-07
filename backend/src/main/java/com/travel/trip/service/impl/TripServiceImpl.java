@@ -5,6 +5,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.travel.common.exception.AppException;
 import com.travel.common.exception.ErrorCode;
+import com.travel.itinerary.service.ItineraryService;
 import com.travel.place.entity.Place;
 import com.travel.place.repository.PlaceRepository;
 import com.travel.place.repository.ProvinceRepository;
@@ -35,6 +36,7 @@ public class TripServiceImpl implements TripService {
     private final ProvinceRepository provinces;
     private final UserRepository users;
     private final ObjectMapper json;
+    private final ItineraryService itineraryService;
 
     @Override
     @Transactional
@@ -141,7 +143,9 @@ public class TripServiceImpl implements TripService {
             }
         }
         tripPlaces.saveAllAndFlush(additions);
-        return request.placeIds().stream().map(links::get).map(this::placeResponse).toList();
+        var selected = request.placeIds().stream().map(links::get).toList();
+        if (request.date() != null) itineraryService.appendPlacesToDay(trip, request.date(), selected);
+        return selected.stream().map(this::placeResponse).toList();
     }
 
     @Override

@@ -1,6 +1,8 @@
 package com.travel.memory.controller;
 
 import com.travel.common.response.ApiResponse;
+import com.travel.common.exception.AppException;
+import com.travel.common.exception.ErrorCode;
 import com.travel.memory.dto.request.CreateMemoryRequest;
 import com.travel.memory.dto.response.MemoryResponse;
 import com.travel.memory.service.MemoryService;
@@ -16,9 +18,11 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
+import java.time.LocalDate;
 
 @RestController
 @RequestMapping("/api/v1/journal/memories")
@@ -68,9 +72,14 @@ public class MemoryController {
     @Operation(summary = "List memories", description = "Retrieves a paginated list of memories for the authenticated user, optionally filtered by tripId")
     public ApiResponse<Page<MemoryResponse>> getMemories(
             @RequestParam(value = "tripId", required = false) UUID tripId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
             @ParameterObject @PageableDefault(size = 20, sort = "experiencedAt", direction = Sort.Direction.DESC) Pageable pageable
     ) {
         UUID currentUserId = SecurityUtils.getCurrentUserId();
+        if (date != null) {
+            if (tripId == null) throw new AppException(ErrorCode.VALIDATION_ERROR);
+            return ApiResponse.success(memoryService.getMemoriesByTripDay(tripId, currentUserId, date, pageable));
+        }
         Page<MemoryResponse> responses;
         if (tripId != null) {
             responses = memoryService.getMemoriesByTrip(tripId, currentUserId, pageable);

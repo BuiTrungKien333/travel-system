@@ -10,6 +10,7 @@ import com.travel.memory.repository.MemoryRepository;
 import com.travel.memory.service.MemoryService;
 import com.travel.trip.repository.TripPlaceRepository;
 import com.travel.trip.repository.TripRepository;
+import com.travel.trip.service.TripCalendar;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -20,6 +21,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
+import java.time.LocalDate;
+import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import org.springframework.data.domain.PageImpl;
 
 @Service
 @RequiredArgsConstructor
@@ -74,6 +80,22 @@ public class MemoryServiceImpl implements MemoryService {
         return memoryRepository
                 .findByTripIdAndUserIdAndDeletedAtIsNull(tripId, requestUserId, safePageable)
                 .map(memoryMapper::toResponse);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<MemoryResponse> getMemoriesByTripDay(UUID tripId, UUID requestUserId, LocalDate date, Pageable pageable) {
+        tripRepository.findByIdAndUserIdAndDeletedAtIsNull(tripId, requestUserId)
+                .orElseThrow(() -> new AppException(ErrorCode.TRIP_NOT_FOUND));
+        Pageable page = PageRequest.of(pageable.getPageNumber(), Math.min(pageable.getPageSize(), 50),
+                Sort.by(Sort.Order.desc("experiencedAt"), Sort.Order.desc("id")));
+        var ids = memoryRepository.dayIds(tripId, requestUserId, date.atStartOfDay(TripCalendar.ZONE).toInstant(),
+                date.plusDays(1).atStartOfDay(TripCalendar.ZONE).toInstant(), page);
+        if (ids.isEmpty()) return new PageImpl<>(java.util.List.of(), page, ids.getTotalElements());
+        var records = memoryRepository.findByIdInAndTripIdAndUserIdAndDeletedAtIsNull(ids.getContent(), tripId, requestUserId)
+                .stream().collect(Collectors.toMap(Memory::getId, Function.identity()));
+        var content = ids.getContent().stream().map(records::get).filter(Objects::nonNull).map(memoryMapper::toResponse).toList();
+        return new PageImpl<>(content, page, ids.getTotalElements());
     }
 
     private Pageable sanitizePageable(Pageable pageable) {

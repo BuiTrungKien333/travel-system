@@ -8,6 +8,7 @@ import lombok.Setter;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+import org.hibernate.annotations.SQLRestriction;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -39,7 +40,11 @@ public class Itinerary {
 
     @OneToMany(mappedBy = "itinerary", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("date ASC, sequence ASC, id ASC")
+    @SQLRestriction("removed_at IS NULL")
     private List<ItineraryItem> items = new ArrayList<>();
+
+    @OneToMany(mappedBy = "itinerary", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ItineraryDaySettings> daySettings = new ArrayList<>();
 
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)

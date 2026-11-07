@@ -6,10 +6,12 @@ import com.travel.itinerary.dto.request.ItineraryDayRequest;
 import com.travel.itinerary.dto.request.ItineraryStopRequest;
 import com.travel.itinerary.dto.request.ApplyItineraryOptimizationRequest;
 import com.travel.itinerary.dto.request.SaveItineraryRequest;
+import com.travel.itinerary.dto.request.SaveItineraryDayRequest;
 import com.travel.itinerary.dto.response.ItineraryResponse;
 import com.travel.itinerary.dto.response.ItineraryOptimizationResponse;
 import com.travel.itinerary.entity.Itinerary;
 import com.travel.itinerary.entity.ItineraryItem;
+import com.travel.itinerary.entity.ItineraryDaySettings;
 import com.travel.itinerary.repository.ItineraryRepository;
 import com.travel.itinerary.service.ItineraryService;
 import com.travel.planning.dto.request.DayPlanRequest;
@@ -24,6 +26,8 @@ import com.travel.trip.entity.Trip;
 import com.travel.trip.entity.TripPlace;
 import com.travel.trip.repository.TripPlaceRepository;
 import com.travel.trip.repository.TripRepository;
+import com.travel.trip.service.TripCalendar;
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +36,8 @@ import org.springframework.transaction.annotation.Propagation;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Clock;
+import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -46,6 +52,8 @@ public class ItineraryServiceImpl implements ItineraryService {
     private final TripPlaceRepository tripPlaces;
     private final ItineraryRepository itineraries;
     private final TripOptimizationService optimizer;
+    private final EntityManager entityManager;
+    private final Clock clock;
 
     @Override
     public ItineraryResponse get(UUID userId, UUID tripId) {
@@ -87,7 +95,113 @@ public class ItineraryServiceImpl implements ItineraryService {
         }
         itinerary.setStatus("DRAFT");
         itinerary.replaceItems(replacement);
-        return response(itineraries.saveAndFlush(itinerary));
+        return persist(itinerary);
+    }
+
+    @Override
+    @Transactional
+    public ItineraryResponse saveDay(UUID userId, UUID tripId, LocalDate date, SaveItineraryDayRequest request) {
+        Trip trip = trips.lockOwnedTrip(tripId, userId)
+                .orElseThrow(() -> new AppException(ErrorCode.TRIP_NOT_FOUND));
+        validateEditableDay(trip, date);
+        Itinerary existing = itineraries.findFirstByTripIdOrderByUpdatedAtDescIdAsc(tripId).orElse(null);
+        if (!Objects.equals(request.expectedTripVersion(), trip.getVersion())
+                || !Objects.equals(request.expectedUpdatedAt(), existing == null ? null : existing.getUpdatedAt())) {
+            throw new AppException(ErrorCode.ITINERARY_CHANGED);
+        }
+        var stops = validateAndFlatten(new SaveItineraryRequest(List.of(new ItineraryDayRequest(date, request.stops()))));
+        var placeIds = stops.stream().map(ItineraryStopRequest::placeId).collect(Collectors.toSet());
+        var membership = placeIds.isEmpty() ? Map.<UUID, Place>of()
+                : tripPlaces.findByTripIdAndPlaceIdIn(tripId, placeIds).stream()
+                    .collect(Collectors.toMap(link -> link.getPlace().getId(), TripPlace::getPlace));
+        if (membership.size() != placeIds.size()) throw new AppException(ErrorCode.ITINERARY_PLACE_NOT_IN_TRIP);
+        if (existing == null && stops.isEmpty() && request.settings() == null) return emptyResponse(tripId);
+
+        Itinerary itinerary = existing == null ? newItinerary(trip) : existing;
+        if (request.settings() != null) {
+            var settings = itinerary.getDaySettings().stream().filter(day -> date.equals(day.getDate())).findFirst()
+                    .orElseGet(() -> {
+                        var day = new ItineraryDaySettings(itinerary, date);
+                        itinerary.getDaySettings().add(day);
+                        return day;
+                    });
+            settings.update(request.settings());
+        }
+        Map<UUID, ItineraryItem> previous = new HashMap<>();
+        for (ItineraryItem item : itinerary.getItems()) {
+            if (date.equals(item.getDate())) previous.putIfAbsent(item.getPlace().getId(), item);
+        }
+        for (ItineraryStopRequest stop : stops) {
+            var old = previous.get(stop.placeId());
+            if (stop.arrivalTime() != null && !date.equals(stop.arrivalTime().toLocalDate())
+                    && (old == null || !Objects.equals(old.getArrivalAt(), stop.arrivalTime()))) {
+                throw new AppException(ErrorCode.INVALID_ITINERARY);
+            }
+        }
+        boolean routeChanged = previous.size() != stops.size() || stops.stream().anyMatch(stop -> {
+            var old = previous.get(stop.placeId());
+            return old == null || old.getSequence() != stop.sequence();
+        });
+        itinerary.getItems().removeIf(item -> date.equals(item.getDate()) &&
+                (!placeIds.contains(item.getPlace().getId()) || item != previous.get(item.getPlace().getId())));
+        for (ItineraryStopRequest stop : stops) {
+            ItineraryItem item = previous.get(stop.placeId());
+            if (item == null) {
+                item = new ItineraryItem();
+                item.setItinerary(itinerary);
+                item.setPlace(membership.get(stop.placeId()));
+                itinerary.getItems().add(item);
+            }
+            item.setSchedule(date, stop.arrivalTime(), stop.durationMinutes());
+            item.setSequence(stop.sequence());
+            item.setNote(trim(stop.note()));
+            if (routeChanged) {
+                item.setDistanceFromPrevious(null);
+                item.setTravelTimeFromPrevious(null);
+            }
+        }
+        itinerary.setStatus("DRAFT");
+        return persist(itinerary);
+    }
+
+    private void validateEditableDay(Trip trip, LocalDate date) {
+        LocalDate today = TripCalendar.today(clock);
+        String mode = TripCalendar.mode(trip.getStatus().name(), trip.getStartDate(), trip.getEndDate(), today);
+        if ("RECAP".equals(mode) || "CANCELLED".equals(mode) || ("LIVE".equals(mode) && date.isBefore(today))) {
+            throw new AppException(ErrorCode.TRIP_READ_ONLY);
+        }
+        if (TripCalendar.days(trip.getStartDate(), trip.getEndDate()) == 0
+                || date.isBefore(trip.getStartDate()) || date.isAfter(trip.getEndDate())) {
+            throw new AppException(ErrorCode.INVALID_ITINERARY);
+        }
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void appendPlacesToDay(Trip trip, LocalDate date, List<TripPlace> places) {
+        // The caller holds the trip lock and creates memberships in this same transaction.
+        validateEditableDay(trip, date);
+        Itinerary itinerary = itineraries.findFirstByTripIdOrderByUpdatedAtDescIdAsc(trip.getId())
+                .orElseGet(() -> newItinerary(trip));
+        var dayItems = itinerary.getItems().stream().filter(item -> date.equals(item.getDate())).toList();
+        var scheduledIds = dayItems.stream().map(item -> item.getPlace().getId()).collect(Collectors.toSet());
+        var additions = places.stream().filter(place -> !scheduledIds.contains(place.getPlace().getId())).toList();
+        if (additions.isEmpty()) return;
+        if (dayItems.size() + additions.size() > 100) throw new AppException(ErrorCode.INVALID_ITINERARY);
+        int sequence = dayItems.stream().mapToInt(ItineraryItem::getSequence).max().orElse(-1) + 1;
+        for (TripPlace place : additions) {
+            int duration = place.getEstimatedDuration() == null ? 45 : place.getEstimatedDuration();
+            if (duration < 1 || duration > 1440) throw new AppException(ErrorCode.INVALID_ITINERARY);
+            var item = new ItineraryItem();
+            item.setItinerary(itinerary);
+            item.setPlace(place.getPlace());
+            item.setSchedule(date, null, duration);
+            item.setSequence(sequence++);
+            item.setNote(place.getNotes());
+            itinerary.getItems().add(item);
+        }
+        itinerary.setStatus("DRAFT");
+        persist(itinerary);
     }
 
     @Override
@@ -187,7 +301,15 @@ public class ItineraryServiceImpl implements ItineraryService {
         }
         itinerary.setStatus("FINAL");
         itinerary.replaceItems(replacement);
-        return response(itineraries.saveAndFlush(itinerary));
+        return persist(itinerary);
+    }
+
+    private ItineraryResponse persist(Itinerary itinerary) {
+        // Force a parent revision even for an edit that only changes child rows.
+        itinerary.setUpdatedAt(Instant.now());
+        Itinerary saved = itineraries.saveAndFlush(itinerary);
+        entityManager.refresh(saved);
+        return response(saved);
     }
 
     private List<ItineraryStopRequest> validateAndFlatten(SaveItineraryRequest request) {
@@ -241,8 +363,11 @@ public class ItineraryServiceImpl implements ItineraryService {
                                     item.getArrivalAt(), item.getDurationMinutes(), item.getSequence(),
                                     item.getNote(), item.getDistanceFromPrevious(), item.getTravelTimeFromPrevious()));
                 });
+        var settings = itinerary.getDaySettings().stream().collect(Collectors.toMap(ItineraryDaySettings::getDate,
+                ItineraryDaySettings::snapshot));
+        settings.keySet().forEach(date -> byDate.computeIfAbsent(date, ignored -> new ArrayList<>()));
         List<ItineraryResponse.ItineraryDayResponse> days = byDate.entrySet().stream()
-                .map(entry -> new ItineraryResponse.ItineraryDayResponse(entry.getKey(), entry.getValue()))
+                .map(entry -> new ItineraryResponse.ItineraryDayResponse(entry.getKey(), entry.getValue(), settings.get(entry.getKey())))
                 .toList();
         return new ItineraryResponse(itinerary.getId(), itinerary.getTrip().getId(), itinerary.getName(),
                 itinerary.getStatus(), days, itinerary.getUpdatedAt());

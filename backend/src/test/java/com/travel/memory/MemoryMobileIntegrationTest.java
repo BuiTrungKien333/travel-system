@@ -121,7 +121,7 @@ class MemoryMobileIntegrationTest {
                 "public_id", "test/photo", "bytes", 8, "width", 1, "height", 1));
         mvc.perform(get("/api/v1/media/limits").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.maxFileBytes").value(10485760));
-        mvc.perform(multipart("/api/v1/media/upload").file(new MockMultipartFile("file", "photo.png", "image/png", new byte[]{1, 2}))
+        mvc.perform(multipart("/api/v1/media/upload").file(new MockMultipartFile("file", "photo.png", "image/png", png(1)))
                 .param("tripId", tripId).param("memoryId", memoryId).header("Authorization", "Bearer " + token))
                 .andExpect(status().isCreated()).andExpect(jsonPath("$.data.mediaId").isNotEmpty());
         mvc.perform(get("/api/v1/journal/memories/detail").param("memoryId", memoryId).header("Authorization", "Bearer " + token))
@@ -148,14 +148,14 @@ class MemoryMobileIntegrationTest {
         ExecutorService executor = Executors.newFixedThreadPool(2);
         try {
             Callable<String> upload = () -> data(mvc.perform(multipart("/api/v1/media/upload")
-                    .file(new MockMultipartFile("file", "photo.png", "image/png", new byte[]{1, 2}))
+                    .file(new MockMultipartFile("file", "photo.png", "image/png", png(1)))
                     .param("tripId", tripId).param("memoryId", memoryId).param("clientRequestId", key)
                     .header("Authorization", "Bearer " + token)).andExpect(status().isCreated())).path("mediaId").asText();
             var futures = executor.invokeAll(List.of(upload, upload));
             assertThat(futures.get(0).get()).isEqualTo(futures.get(1).get());
         } finally { executor.shutdownNow(); }
         mvc.perform(multipart("/api/v1/media/upload")
-                .file(new MockMultipartFile("file", "photo.png", "image/png", new byte[]{9, 9}))
+                .file(new MockMultipartFile("file", "photo.png", "image/png", png(2)))
                 .param("tripId", tripId).param("memoryId", memoryId).param("clientRequestId", key)
                 .header("Authorization", "Bearer " + token)).andExpect(status().isConflict());
         mvc.perform(get("/api/v1/journal/memories/detail").param("memoryId", memoryId).header("Authorization", "Bearer " + token))
@@ -165,7 +165,7 @@ class MemoryMobileIntegrationTest {
         UUID other = users.save(User.builder().fullName("Other").email(UUID.randomUUID() + "@example.com").build()).getId();
         jdbc.update("UPDATE memories SET user_id=? WHERE id=?", other, UUID.fromString(memoryId));
         mvc.perform(multipart("/api/v1/media/upload")
-                .file(new MockMultipartFile("file", "photo.png", "image/png", new byte[]{1, 2}))
+                .file(new MockMultipartFile("file", "photo.png", "image/png", png(1)))
                 .param("tripId", tripId).param("memoryId", memoryId).param("clientRequestId", key)
                 .header("Authorization", "Bearer " + token)).andExpect(status().isForbidden());
     }
@@ -224,5 +224,12 @@ class MemoryMobileIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON).content("{\"fullName\":\"Updated mobile user\",\"avatarUrl\":\"\"}"))
                 .andExpect(status().isOk()).andReturn().getResponse().getContentAsString()));
         java.nio.file.Files.writeString(java.nio.file.Path.of("target", "mobile-api-contract.json"), json.writeValueAsString(responses));
+    }
+    private byte[] png(int color) throws Exception {
+        var image = new java.awt.image.BufferedImage(2, 2, java.awt.image.BufferedImage.TYPE_INT_RGB);
+        image.setRGB(0, 0, color);
+        var bytes = new java.io.ByteArrayOutputStream();
+        javax.imageio.ImageIO.write(image, "png", bytes);
+        return bytes.toByteArray();
     }
 }

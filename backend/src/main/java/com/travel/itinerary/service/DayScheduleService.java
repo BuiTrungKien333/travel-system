@@ -52,7 +52,7 @@ public class DayScheduleService {
         if (durations.size() != stops.size() || stops.stream().anyMatch(stop -> !durations.containsKey(stop.placeId())))
             throw new AppException(ErrorCode.INVALID_ITINERARY);
         var proposed = stops.stream().map(stop -> new ItineraryStopRequest(stop.placeId(), stop.sequence(),
-                stop.arrivalTime(), durations.get(stop.placeId()), stop.note())).toList();
+                stop.arrivalTime(), durations.get(stop.placeId()), stop.note(), stop.pinned())).toList();
         return itineraries.saveDay(owner, tripId, date, new SaveItineraryDayRequest(request.expectedTripVersion(),
                 request.expectedUpdatedAt(), calculate(trip, date, stops, proposed, request.settings(), false, false), request.settings()));
     }
@@ -99,7 +99,7 @@ public class DayScheduleService {
         var savedSettings = settings(base, date);
         var settings = savedSettings != null ? savedSettings : inferredSettings(date, before.stream()
                 .map(stop -> new ItineraryStopRequest(stop.placeId(), stop.sequence(), stop.arrivalTime(),
-                        stop.durationMinutes(), stop.note())).toList());
+                        stop.durationMinutes(), stop.note(), stop.pinned())).toList());
         if (settings == null) return null;
         Set<UUID> scheduled = before.stream().map(ItineraryStopResponse::placeId).collect(Collectors.toSet());
         var additions = placeIds.stream().filter(id -> !scheduled.contains(id)).toList();
@@ -113,7 +113,7 @@ public class DayScheduleService {
         List<ItineraryStopResponse> coordinates = new ArrayList<>(before);
         List<ItineraryStopRequest> proposed = new ArrayList<>();
         before.forEach(stop -> proposed.add(new ItineraryStopRequest(stop.placeId(), stop.sequence(), stop.arrivalTime(),
-                stop.durationMinutes(), stop.note())));
+                stop.durationMinutes(), stop.note(), stop.pinned())));
         for (UUID id : additions) {
             var place = visible.get(id);
             var link = links.get(id);
@@ -182,8 +182,15 @@ public class DayScheduleService {
                 if (manualEdits && sameOrder && old != null && !Objects.equals(old.arrivalTime(), stop.arrivalTime()))
                     arrival = stop.arrivalTime();
             }
+            boolean pinned = stop.pinned() != null ? stop.pinned() : old != null && old.pinned();
+            if (pinned) {
+                LocalDateTime appointment = stop.arrivalTime() != null ? stop.arrivalTime() : old == null ? null : old.arrivalTime();
+                if (appointment == null || (arrival != null && arrival.isAfter(appointment)))
+                    throw new AppException(ErrorCode.ITINERARY_PIN_CONFLICT);
+                arrival = appointment;
+            }
             if (arrival != null && !date.equals(arrival.toLocalDate())) throw new AppException(ErrorCode.INVALID_ITINERARY);
-            updated.add(new ItineraryStopRequest(stop.placeId(), stop.sequence(), arrival, stop.durationMinutes(), stop.note()));
+            updated.add(new ItineraryStopRequest(stop.placeId(), stop.sequence(), arrival, stop.durationMinutes(), stop.note(), pinned));
             if (arrival != null) arrival = arrival.plusMinutes(stop.durationMinutes());
         }
         return updated;

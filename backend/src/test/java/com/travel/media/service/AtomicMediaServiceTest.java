@@ -63,7 +63,7 @@ class AtomicMediaServiceTest {
 
     @Test void rejectsInvalidImageEvenWhenMimeClaimsPng() {
         when(persistence.existing(owner, null, memory)).thenReturn(Map.of());
-        assertThatThrownBy(() -> service.uploadImage(new MockMultipartFile("files", "x.png", "image/png", "not an image".getBytes()), owner, null, memory))
+        assertThatThrownBy(() -> service.uploadImagesAtomic(List.of(new MockMultipartFile("files", "x.png", "image/png", "not an image".getBytes())), owner, null, memory))
                 .isInstanceOf(AppException.class).extracting(e -> ((AppException)e).getErrorCode()).isEqualTo(ErrorCode.UPLOAD_INVALID_FILE_TYPE);
         verifyNoInteractions(storage);
     }
@@ -72,7 +72,7 @@ class AtomicMediaServiceTest {
         var file = png(1);
         assertThatThrownBy(() -> service.uploadImagesAtomic(Collections.nCopies(11, file), owner, null, memory)).isInstanceOf(AppException.class);
         limits.setMaxBatchBytes(1);
-        assertThatThrownBy(() -> service.uploadImage(file, owner, null, memory)).isInstanceOf(AppException.class)
+        assertThatThrownBy(() -> service.uploadImagesAtomic(List.of(file), owner, null, memory)).isInstanceOf(AppException.class)
                 .extracting(e -> ((AppException)e).getErrorCode()).isEqualTo(ErrorCode.UPLOAD_BATCH_TOO_LARGE);
         verifyNoInteractions(storage, persistence);
     }

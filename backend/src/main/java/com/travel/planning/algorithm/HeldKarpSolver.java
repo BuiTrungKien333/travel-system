@@ -165,7 +165,13 @@ public class HeldKarpSolver {
             for (double value : row) if (Double.isNaN(value) || value < 0)
                 throw new AppException(ErrorCode.INVALID_TSP_LOCATIONS);
         }
-        var path = solvePath(costs, true, false, fixedEndIndex);
+        List<Integer> path;
+        try {
+            path = solvePath(costs, true, false, fixedEndIndex);
+        } catch (AppException error) {
+            if (error.getErrorCode() == ErrorCode.INVALID_TSP_LOCATIONS) throw new AppException(ErrorCode.RESOURCE_NOT_FOUND);
+            throw error;
+        }
         if (path.size() != n || path.getFirst() != 0 || new HashSet<>(path).size() != n)
             throw new AppException(ErrorCode.RESOURCE_NOT_FOUND);
         for (int i = 1; i < n; i++) if (!Double.isFinite(costs[path.get(i - 1)][path.get(i)]))

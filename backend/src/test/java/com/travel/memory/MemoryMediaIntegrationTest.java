@@ -55,6 +55,7 @@ class MemoryMediaIntegrationTest {
     @Autowired JdbcTemplate jdbc;
     @Autowired MediaCleanupQueue cleanup;
     @MockitoBean CloudinaryStorage storage;
+    @MockitoBean com.travel.media.service.CloudinaryImageDeletion remoteDeletion;
     @MockitoBean AuthEmailSender email;
     MockMvc mvc;
     UUID owner, trip;
@@ -83,7 +84,7 @@ class MemoryMediaIntegrationTest {
         mvc.perform(get(BASE+"/"+id).header("Authorization", "Bearer "+token)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.mediaCount").value(2)).andExpect(jsonPath("$.data.version").value(1))
                 .andExpect(jsonPath("$.data.media[0].width").value(2)).andExpect(jsonPath("$.data.media[1].id").isNotEmpty());
-        assertThat(jdbc.queryForObject("SELECT count(*) FROM media WHERE public_id IS NOT NULL AND length(content_hash)=64", Integer.class)).isEqualTo(2);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM media WHERE public_id IS NOT NULL AND length(upload_hash)=64", Integer.class)).isEqualTo(2);
         assertThat(jobs()).isZero();
     }
 
@@ -194,15 +195,15 @@ class MemoryMediaIntegrationTest {
         var photo = data(upload(id, png(1)).andExpect(status().isCreated())).get(0);
         mvc.perform(delete("/api/v1/media").param("id", photo.path("mediaId").asText()).header("Authorization", "Bearer "+token))
                 .andExpect(status().isNoContent());
-        assertThat(countMedia(id)).isZero(); assertThat(jobs()).isEqualTo(1);
+        assertThat(countMedia(id)).isZero(); assertThat(jobs()).isZero();
+        verify(remoteDeletion).destroy(photo.path("publicId").asText());
+        upload(id, png(2)).andExpect(status().isCreated());
+        mvc.perform(delete(BASE+"/"+id).header("Authorization", "Bearer "+token)).andExpect(status().isNoContent());
         doThrow(new IOException("simulated storage outage")).when(storage).destroy(anyString());
         cleanup.drain(); assertThat(jobs()).isEqualTo(1);
         assertThat(jdbc.queryForObject("SELECT attempts FROM media_cleanup_jobs", Integer.class)).isEqualTo(1);
         doNothing().when(storage).destroy(anyString());
         jdbc.update("UPDATE media_cleanup_jobs SET run_after=now()"); cleanup.drain(); assertThat(jobs()).isZero();
-        upload(id, png(2)).andExpect(status().isCreated());
-        mvc.perform(delete(BASE+"/"+id).header("Authorization", "Bearer "+token)).andExpect(status().isNoContent());
-        cleanup.drain(); assertThat(jobs()).isZero();
         mvc.perform(get(BASE+"/"+id).header("Authorization", "Bearer "+token)).andExpect(status().isNotFound());
     }
 
@@ -210,7 +211,8 @@ class MemoryMediaIntegrationTest {
         create(); create();
         mvc.perform(get(BASE).param("size", "1").header("Authorization", "Bearer "+token)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content.length()").value(1)).andExpect(jsonPath("$.data.totalElements").value(2));
-        mvc.perform(get(BASE).param("size", "51").header("Authorization", "Bearer "+token)).andExpect(status().isBadRequest());
+        mvc.perform(get(BASE).param("size", "51").header("Authorization", "Bearer "+token))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.size").value(50));
         postMemory(Map.of("media", List.of(Map.of("url", "https://untrusted.example/photo")))).andExpect(status().isBadRequest());
         postMemory(Map.of("note", "a".repeat(2001))).andExpect(status().isBadRequest());
         postMemory(Map.of("experiencedAt", "2100-01-01T00:00:00Z")).andExpect(status().isBadRequest());

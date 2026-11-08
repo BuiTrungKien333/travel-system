@@ -213,6 +213,7 @@ public class ItineraryServiceImpl implements ItineraryService {
             item.setSchedule(date, stop.arrivalTime(), stop.durationMinutes());
             item.setSequence(stop.sequence());
             item.setNote(trim(stop.note()));
+            item.setPinned(stop.pinned() != null ? stop.pinned() : item.isPinned());
             if (routeChanged) {
                 item.setDistanceFromPrevious(null);
                 item.setTravelTimeFromPrevious(null);

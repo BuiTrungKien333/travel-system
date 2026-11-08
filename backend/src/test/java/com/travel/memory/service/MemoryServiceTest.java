@@ -77,9 +77,9 @@ class MemoryServiceTest {
 
     @Test void paginationIsBoundedAndTripMustBeOwned() {
         when(trips.findByIdAndUserIdAndDeletedAtIsNull(trip, owner)).thenReturn(Optional.of(new Trip()));
-        when(memories.findByTripIdAndUserIdAndDeletedAtIsNull(eq(trip), eq(owner), any())).thenReturn(new PageImpl<>(List.of()));
+        when(memories.ownerIds(eq(owner), eq(trip), any())).thenReturn(new PageImpl<>(List.of()));
         assertThat(service.getMemoriesByTrip(trip, owner, PageRequest.of(0, 50))).isEmpty();
-        assertThatThrownBy(() -> service.getMemoriesByTrip(trip, owner, PageRequest.of(0, 51))).isInstanceOf(AppException.class);
+        assertThat(service.getMemoriesByTrip(trip, owner, PageRequest.of(0, 51)).getSize()).isEqualTo(50);
     }
 
     @Test void deleteSoftDeletesAndQueuesStorageCleanup() {

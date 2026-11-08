@@ -15,6 +15,9 @@ import org.springframework.web.client.RestClient;
 import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import com.travel.common.exception.AppException;
+import com.travel.common.exception.ErrorCode;
 import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
@@ -23,7 +26,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 class OpenMeteoWeatherProviderTest {
 
     private WeatherConfigProperties properties;
-    private MockWeatherProvider fallbackProvider;
+    private final com.fasterxml.jackson.databind.ObjectMapper json = new com.fasterxml.jackson.databind.ObjectMapper();
     private RestClient restClient;
     private MockRestServiceServer mockServer;
     private OpenMeteoWeatherProvider provider;
@@ -31,13 +34,12 @@ class OpenMeteoWeatherProviderTest {
     @BeforeEach
     void setUp() {
         properties = new WeatherConfigProperties();
-        fallbackProvider = new MockWeatherProvider();
 
         RestClient.Builder builder = RestClient.builder();
         mockServer = MockRestServiceServer.bindTo(builder).build();
         restClient = builder.build();
 
-        provider = new OpenMeteoWeatherProvider(properties, fallbackProvider, restClient);
+        provider = new OpenMeteoWeatherProvider(properties, restClient, json);
     }
 
     @Test
@@ -79,17 +81,14 @@ class OpenMeteoWeatherProviderTest {
     }
 
     @Test
-    @DisplayName("fetchForecast on API error should activate mock fallback without throwing exception")
-    void fetchForecast_apiError_activatesFallback() {
+    @DisplayName("fetchForecast on API error should report unavailable without fabricating weather")
+    void fetchForecast_apiError_reportsUnavailable() {
         mockServer.expect(requestTo(containsString("/forecast")))
                 .andRespond(withStatus(HttpStatus.INTERNAL_SERVER_ERROR));
 
         LocalDate date = LocalDate.of(2026, 10, 1);
-        WeatherForecastResult result = provider.fetchForecast(16.05, 108.24, date, date);
-
-        assertThat(result).isNotNull();
-        assertThat(result.providerName()).isEqualTo("mock");
-        assertThat(result.dailySummaries()).isNotEmpty();
+        assertThatThrownBy(() -> provider.fetchForecast(16.05, 108.24, date, date))
+                .isInstanceOfSatisfying(AppException.class, e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.WEATHER_UNAVAILABLE));
 
         mockServer.verify();
     }
@@ -136,17 +135,49 @@ class OpenMeteoWeatherProviderTest {
     }
 
     @Test
-    @DisplayName("fetchCurrentWeather on API error should activate mock fallback without throwing exception")
-    void fetchCurrentWeather_apiError_activatesFallback() {
+    @DisplayName("fetchCurrentWeather on API error should report unavailable without fabricating weather")
+    void fetchCurrentWeather_apiError_reportsUnavailable() {
         mockServer.expect(requestTo(containsString("/forecast")))
                 .andRespond(withStatus(HttpStatus.INTERNAL_SERVER_ERROR));
 
-        var current = provider.fetchCurrentWeather(16.06, 108.25);
+        assertThatThrownBy(() -> provider.fetchCurrentWeather(16.06, 108.25))
+                .isInstanceOfSatisfying(AppException.class, e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.WEATHER_UNAVAILABLE));
 
-        assertThat(current).isNotNull();
-        assertThat(current.temperature()).isEqualTo(28.5);
-        assertThat(current.condition()).isEqualTo(WeatherCondition.PARTLY_CLOUDY);
+        mockServer.verify();
+    }
+    @Test
+    void missingMeasurementsDoNotBecomeSunnyDefaults() {
+        mockServer.expect(requestTo(containsString("/forecast"))).andRespond(withSuccess("""
+            {"timezone":"Asia/Ho_Chi_Minh","hourly":{"time":["2026-10-01T08:00"],"weather_code":[0]}}
+            """, MediaType.APPLICATION_JSON));
+        var date = LocalDate.of(2026,10,1);
+        assertThatThrownBy(() -> provider.fetchForecast(16,108,date,date)).isInstanceOfSatisfying(AppException.class,
+                e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.WEATHER_INVALID_RESPONSE));
+        mockServer.verify();
+    }
 
+    @Test
+    void missingCurrentMeasurementsDoNotBecomeDefaultTemperature() {
+        mockServer.expect(requestTo(containsString("/forecast"))).andRespond(withSuccess("""
+            {"timezone":"Asia/Ho_Chi_Minh","current":{"time":"2026-10-01T08:00","weather_code":0}}
+            """, MediaType.APPLICATION_JSON));
+        assertThatThrownBy(() -> provider.fetchCurrentWeather(16,108)).isInstanceOfSatisfying(AppException.class,
+                e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.WEATHER_INVALID_RESPONSE));
+        mockServer.verify();
+    }
+
+    @Test
+    void partiallyMissingHoursDoNotDiscardAvailableForecast() {
+        mockServer.expect(requestTo(containsString("/forecast"))).andRespond(withSuccess("""
+            {"timezone":"Asia/Ho_Chi_Minh","hourly":{"time":["2026-10-01T08:00","2026-10-01T09:00"],
+             "weather_code":[61,null],"temperature_2m":[22.3,null],"rain":[2.0,null],"precipitation_probability":[70,null]}}
+            """, MediaType.APPLICATION_JSON));
+        var date = LocalDate.of(2026, 10, 1);
+        var result = provider.fetchForecast(16, 108, date, date);
+        var day = result.dailySummaries().getFirst();
+        assertThat(day.hourlyForecasts()).hasSize(1);
+        assertThat(day.maxTemperature()).isEqualTo(22.3);
+        assertThat(day.maxPrecipitationProbability()).isEqualTo(70);
         mockServer.verify();
     }
 }

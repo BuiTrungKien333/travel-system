@@ -1,7 +1,7 @@
 package com.travel.planning.retrieval;
 
 import com.travel.common.exception.AppException;
-import com.travel.planning.retrieval.config.RagDemoProperties;
+import com.travel.planning.retrieval.config.RagProperties;
 import com.travel.planning.retrieval.provider.GeminiEmbeddingClient;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
@@ -17,7 +17,7 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 class GeminiEmbeddingClientTest {
     @Test
     void embed_usesHeaderAndRetrievalTaskAndChecksDimension() {
-        var properties = new RagDemoProperties();
+        var properties = new RagProperties();
         properties.setApiKey("test-only");
         var builder = RestClient.builder();
         var server = MockRestServiceServer.bindTo(builder).build();
@@ -33,7 +33,7 @@ class GeminiEmbeddingClientTest {
 
     @Test
     void embed_missingKeyDoesNotFabricateVector() {
-        assertThatThrownBy(() -> new GeminiEmbeddingClient(new RagDemoProperties()).embed("biển", false))
+        assertThatThrownBy(() -> new GeminiEmbeddingClient(new RagProperties()).embed("biển", false))
                 .isInstanceOf(AppException.class);
     }
 
@@ -47,7 +47,7 @@ class GeminiEmbeddingClientTest {
 
     @Test
     void embed_badProviderOutputIsUnavailable() {
-        var properties = new RagDemoProperties(); properties.setApiKey("test-only");
+        var properties = new RagProperties(); properties.setApiKey("test-only");
         var builder = RestClient.builder();
         var server = MockRestServiceServer.bindTo(builder).build();
         server.expect(anything()).andRespond(withSuccess("{\"embedding\":{\"values\":[1,2]}}", MediaType.APPLICATION_JSON));

@@ -47,7 +47,6 @@ public class MemoryMapper {
         String coverImageUrl = !mediaResponses.isEmpty() ? mediaResponses.getFirst().getUrl() : null;
 
         return MemoryResponse.builder()
-                .version(memory.getVersion())
                 .id(memory.getId())
                 .version(memory.getVersion())
                 .userId(memory.getUserId())

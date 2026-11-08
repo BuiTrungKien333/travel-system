@@ -14,11 +14,17 @@ import java.util.Map;
 @Component
 @RequiredArgsConstructor
 public class CloudinaryStorage {
-    private final Cloudinary cloudinary;
+    private final org.springframework.beans.factory.ObjectProvider<Cloudinary> cloudinaryProvider;
+
+    private Cloudinary cloudinary() {
+        var client = cloudinaryProvider.getIfAvailable();
+        if (client == null) throw new AppException(ErrorCode.MEDIA_STORAGE_UNAVAILABLE);
+        return client;
+    }
 
     public UploadResponse upload(ImageUploadValidator.Image image, String publicId) {
         try {
-            Map<?, ?> result = cloudinary.uploader().upload(image.bytes(), ObjectUtils.asMap(
+            Map<?, ?> result = cloudinary().uploader().upload(image.bytes(), ObjectUtils.asMap(
                     "public_id", publicId, "resource_type", "image", "overwrite", false,
                     "unique_filename", false, "timeout", 30_000));
             String url = (String) result.get("secure_url");
@@ -33,7 +39,7 @@ public class CloudinaryStorage {
     }
 
     public void destroy(String publicId) throws IOException {
-        var result = cloudinary.uploader().destroy(publicId,
+        var result = cloudinary().uploader().destroy(publicId,
                 ObjectUtils.asMap("resource_type", "image", "invalidate", true, "timeout", 30_000));
         if (!"ok".equals(result.get("result")) && !"not found".equals(result.get("result")))
             throw new IOException("Storage deletion was not acknowledged");

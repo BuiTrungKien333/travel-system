@@ -1,7 +1,6 @@
 package com.travel.trip;
 
 import com.travel.place.entity.Place;
-import com.travel.place.entity.Province;
 import com.travel.trip.entity.Trip;
 import com.travel.trip.entity.TripPlace;
 import com.travel.trip.enums.TripStatus;

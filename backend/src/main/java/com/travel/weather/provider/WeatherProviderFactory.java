@@ -1,6 +1,8 @@
 package com.travel.weather.provider;
 
 import com.travel.weather.config.WeatherConfigProperties;
+import com.travel.common.exception.AppException;
+import com.travel.common.exception.ErrorCode;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -37,13 +39,11 @@ public class WeatherProviderFactory {
 
         WeatherProvider provider = providerMap.get(active);
         if (provider == null) {
-            log.warn("[WEATHER_FACTORY] Configured weather provider '{}' not found. Falling back to 'mock'.", active);
-            return getFallbackProvider();
+            throw new AppException(ErrorCode.WEATHER_UNAVAILABLE);
         }
 
         if (!provider.isAvailable()) {
-            log.warn("[WEATHER_FACTORY] Weather provider '{}' is not available. Falling back to 'mock'.", active);
-            return getFallbackProvider();
+            throw new AppException(ErrorCode.WEATHER_UNAVAILABLE);
         }
 
         return provider;
@@ -57,12 +57,4 @@ public class WeatherProviderFactory {
         return Optional.ofNullable(providerMap.get(name.trim().toLowerCase()));
     }
 
-    private WeatherProvider getFallbackProvider() {
-        WeatherProvider mock = providerMap.get("mock");
-        if (mock != null) {
-            return mock;
-        }
-        return providerMap.values().stream().findFirst()
-                .orElseThrow(() -> new IllegalStateException("No WeatherProvider registered in context"));
-    }
 }

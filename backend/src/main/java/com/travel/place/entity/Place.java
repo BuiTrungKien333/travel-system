@@ -29,6 +29,13 @@ public class Place {
     @Column(name = "provider_place_id")
     private String providerPlaceId;
 
+    @Column(name = "source", nullable = false, length = 20)
+    @Builder.Default
+    private String source = "INTERNAL";
+
+    @Column(name = "owner_id")
+    private UUID ownerId;
+
     @Column(name = "name", nullable = false)
     private String name;
 

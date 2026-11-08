@@ -51,15 +51,16 @@ class CloudinaryStorageHttpTest {
             });
             server.start(); base = "http://127.0.0.1:"+server.getAddress().getPort();
         }
-        storage = new CloudinaryStorage(new Cloudinary(Map.of("cloud_name", "test-cloud", "api_key", "test-key",
-                "api_secret", "test-secret", "upload_prefix", base, "secure", false)));
+        var client = new Cloudinary(Map.of("cloud_name", "test-cloud", "api_key", "test-key",
+                "api_secret", "test-secret", "upload_prefix", base, "secure", false));
+        storage = new CloudinaryStorage(new org.springframework.beans.factory.support.StaticListableBeanFactory(Map.of("cloudinary", client)).getBeanProvider(Cloudinary.class));
         mode("ok");
     }
 
     @AfterEach void stop() { if (server != null) server.stop(0); }
 
     @Test void sdkUploadsSignedMultipartAndDeletesWithInvalidation() throws Exception {
-        var file = MediaServiceTest.png(1);
+        var file = AtomicMediaServiceTest.png(1);
         var image = new ImageUploadValidator(new com.travel.media.config.MediaProperties()).read(file);
         String id = "memory-test/"+UUID.randomUUID();
         assertThat(storage.upload(image, id).getPublicId()).isEqualTo(id);
@@ -69,7 +70,7 @@ class CloudinaryStorageHttpTest {
 
     @Test void providerFailureIsNotReportedAsSuccessfulUpload() throws Exception {
         mode("error");
-        var image = new ImageUploadValidator(new com.travel.media.config.MediaProperties()).read(MediaServiceTest.png(1));
+        var image = new ImageUploadValidator(new com.travel.media.config.MediaProperties()).read(AtomicMediaServiceTest.png(1));
         assertThatThrownBy(() -> storage.upload(image, "memory-test/"+UUID.randomUUID())).isInstanceOf(AppException.class)
                 .extracting(e -> ((AppException)e).getErrorCode()).isEqualTo(ErrorCode.UPLOAD_FAILED);
         assertThatThrownBy(() -> storage.destroy("memory-test/missing")).isInstanceOf(Exception.class);
@@ -77,7 +78,7 @@ class CloudinaryStorageHttpTest {
 
     @Test void invalidProviderMetadataIsRejected() throws Exception {
         mode("malformed");
-        var image = new ImageUploadValidator(new com.travel.media.config.MediaProperties()).read(MediaServiceTest.png(1));
+        var image = new ImageUploadValidator(new com.travel.media.config.MediaProperties()).read(AtomicMediaServiceTest.png(1));
         assertThatThrownBy(() -> storage.upload(image, "memory-test/"+UUID.randomUUID())).isInstanceOf(AppException.class);
     }
 

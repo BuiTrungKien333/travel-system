@@ -1,7 +1,7 @@
 package com.travel.planning.draft.service;
 
 import com.travel.planning.draft.dto.request.GenerateDraftRequest;
-import com.travel.planning.retrieval.config.RagDemoProperties;
+import com.travel.planning.retrieval.config.RagProperties;
 import com.travel.weather.service.WeatherService;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Profile;
@@ -16,14 +16,14 @@ import static com.travel.planning.draft.dto.response.DraftResponse.*;
  * Independent advisory I/O. Worker threads never touch the AI request context or database.
  */
 @Service
-@Profile("rag-demo")
+@Profile({"dev", "rag-demo"})
 public class DraftWeatherService {
     private final WeatherService weather;
     private final ExecutorService executor;
-    private final RagDemoProperties properties;
+    private final RagProperties properties;
 
     public DraftWeatherService(WeatherService weather, @Qualifier("ragDraftWeatherExecutor") ExecutorService executor,
-                               RagDemoProperties properties) {
+                               RagProperties properties) {
         this.weather = weather;
         this.executor = executor;
         this.properties = properties;

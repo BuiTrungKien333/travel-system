@@ -20,6 +20,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
+import java.time.LocalDate;
+import org.springframework.format.annotation.DateTimeFormat;
+import com.travel.common.exception.AppException;
+import com.travel.common.exception.ErrorCode;
 
 @RestController
 @RequestMapping("/api/v1/journal/memories")
@@ -85,9 +89,14 @@ public class MemoryController {
     @Operation(summary = "List memories", description = "Retrieves a paginated list of memories for the authenticated user, optionally filtered by tripId")
     public ApiResponse<Page<MemoryResponse>> getMemories(
             @RequestParam(value = "tripId", required = false) UUID tripId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
             @ParameterObject @PageableDefault(size = 20, sort = "experiencedAt", direction = Sort.Direction.DESC) Pageable pageable
     ) {
         UUID currentUserId = SecurityUtils.getCurrentUserId();
+        if (date != null) {
+            if (tripId == null) throw new AppException(ErrorCode.VALIDATION_ERROR);
+            return ApiResponse.success(memoryService.getMemoriesByTripDay(tripId, currentUserId, date, pageable));
+        }
         Page<MemoryResponse> responses;
         if (tripId != null) {
             responses = memoryService.getMemoriesByTrip(tripId, currentUserId, pageable);

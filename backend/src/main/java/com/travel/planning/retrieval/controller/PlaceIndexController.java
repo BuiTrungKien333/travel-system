@@ -7,7 +7,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@Profile("rag-demo")
+@Profile({"dev", "rag-demo"})
 @RequestMapping("/api/v1/public/planning/retrieval")
 public class PlaceIndexController {
 

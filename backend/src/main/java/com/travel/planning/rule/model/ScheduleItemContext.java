@@ -145,11 +145,4 @@ public record ScheduleItemContext(
     public LocalDateTime departureTime() {
         return arrivalTime != null ? arrivalTime.plusMinutes(durationMinutes) : null;
     }
-
-    /**
-     * Kiểm tra xem địa điểm có giờ mở/đóng cửa cố định không
-     */
-    public boolean hasFixedHours() {
-        return openingStatus == PlaceOpeningStatus.OPEN && openingTime != null && closingTime != null;
-    }
 }

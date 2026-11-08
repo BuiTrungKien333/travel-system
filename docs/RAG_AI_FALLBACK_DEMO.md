@@ -1,6 +1,6 @@
 # Demo retry và phân biệt AI/fallback
 
-Chỉ áp dụng luồng `rag-demo`. Không lưu Trip/itinerary, không nối mobile. Giữ model đang cấu hình trong `.env.rag-demo`; không xoay key/project để né quota.
+Core áp dụng cho cả `dev` và `rag-demo`. Tài liệu này dùng môi trường demo riêng; xem [hướng dẫn dev](./RAG_DEV_RUNBOOK.md) để dùng database chính. Không lưu Trip/itinerary, không nối mobile. Giữ model đang cấu hình; không xoay key/project để né quota.
 
 ## 1. Chạy bình thường: nhập câu tự nhiên
 

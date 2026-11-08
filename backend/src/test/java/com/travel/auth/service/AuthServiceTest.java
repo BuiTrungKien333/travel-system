@@ -1,7 +1,6 @@
 package com.travel.auth.service;
 
 import com.travel.auth.dto.request.*;
-import com.travel.auth.dto.response.AuthResponse;
 import com.travel.auth.dto.response.RegistrationResponse;
 import com.travel.auth.config.AuthEmailProperties;
 import com.travel.auth.entity.RefreshToken;

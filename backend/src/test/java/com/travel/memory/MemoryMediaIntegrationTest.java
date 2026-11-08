@@ -91,15 +91,15 @@ class MemoryMediaIntegrationTest {
         String id = create().path("id").asText();
         upload(id, new MockMultipartFile("files", "fake.png", "image/png", "text pretending to be an image".getBytes()))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("UPLOAD_003"));
-        mvc.perform(multipart("/api/v1/media/uploads").file(png(1)).header("Authorization", "Bearer "+token))
+        mvc.perform(multipart("/api/v1/media/uploads/atomic").file(png(1)).header("Authorization", "Bearer "+token))
                 .andExpect(status().isBadRequest());
-        mvc.perform(multipart("/api/v1/media/uploads").file(png(1)).param("memoryId", id)).andExpect(status().isUnauthorized());
+        mvc.perform(multipart("/api/v1/media/uploads/atomic").file(png(1)).param("memoryId", id)).andExpect(status().isUnauthorized());
         verify(storage, never()).upload(any(), anyString());
     }
 
     @Test void foreignMemoryAndTripCannotReceiveUploads() throws Exception {
         String id = create().path("id").asText();
-        mvc.perform(multipart("/api/v1/media/uploads").file(png(1)).param("memoryId", id).param("tripId", UUID.randomUUID().toString())
+        mvc.perform(multipart("/api/v1/media/uploads/atomic").file(png(1)).param("memoryId", id).param("tripId", UUID.randomUUID().toString())
                 .header("Authorization", "Bearer "+token)).andExpect(status().isForbidden());
         UUID other = users.saveAndFlush(User.builder().fullName("Other").email(UUID.randomUUID()+"@example.com").build()).getId();
         jdbc.update("UPDATE memories SET user_id=? WHERE id=?", other, UUID.fromString(id));
@@ -249,7 +249,7 @@ class MemoryMediaIntegrationTest {
     ResultActions patchMemory(String id, Object body) throws Exception { return mvc.perform(patch(BASE+"/"+id).header("Authorization", "Bearer "+token).contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsBytes(body))); }
     JsonNode data(ResultActions result) throws Exception { return json.readTree(result.andReturn().getResponse().getContentAsString()).path("data"); }
     ResultActions upload(String id, MockMultipartFile... files) throws Exception {
-        MockMultipartHttpServletRequestBuilder request = multipart("/api/v1/media/uploads");
+        MockMultipartHttpServletRequestBuilder request = multipart("/api/v1/media/uploads/atomic");
         for (var file : files) request.file(file);
         return mvc.perform(request.param("memoryId", id).param("tripId", trip.toString())
                 .header("Authorization", "Bearer "+token).header("Accept-Language", "vi"));

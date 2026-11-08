@@ -7,7 +7,7 @@ import org.springframework.context.annotation.Profile;
 import java.util.concurrent.*;
 
 @Configuration
-@Profile("rag-demo")
+@Profile({"dev", "rag-demo"})
 public class DraftExecutionConfig {
 
     @Bean(name = "ragDraftWeatherExecutor", destroyMethod = "shutdownNow")

@@ -1,6 +1,6 @@
 package com.travel.planning.ai.resilience;
 
-import com.travel.planning.retrieval.config.RagDemoProperties;
+import com.travel.planning.retrieval.config.RagProperties;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.atomic.AtomicLong;
@@ -11,7 +11,7 @@ import static org.assertj.core.api.Assertions.*;
 class AiRequestContextTest {
     @Test void stageDurationIsRecordedEvenWhenOperationFails() {
         var nanos = new AtomicLong();
-        var context = new AiRequestContext(new RagDemoProperties(), nanos::get);
+        var context = new AiRequestContext(new RagProperties(), nanos::get);
         try (var scope = context.ensure()) {
             assertThatThrownBy(() -> context.measure(INTENT, () -> {
                 nanos.addAndGet(2_000_000);
@@ -22,7 +22,7 @@ class AiRequestContextTest {
     }
 
     @Test void reusedAiThemeDoesNotInventAnotherAttemptAndMixedSourcesReachOverallReport() {
-        var context = new AiRequestContext(new RagDemoProperties());
+        var context = new AiRequestContext(new RagProperties());
         try (var scope = context.ensure()) {
             context.attempt(ALLOCATION, "fixture-model", false);
             context.reuseModel(THEMES, ALLOCATION);

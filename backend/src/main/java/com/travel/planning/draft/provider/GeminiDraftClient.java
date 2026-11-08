@@ -22,7 +22,7 @@ import java.util.*;
  * One provider call for allocation and theme hints; never constructs a place identifier.
  */
 @Component
-@Profile("rag-demo")
+@Profile({"dev", "rag-demo"})
 public class GeminiDraftClient {
 
     private final GeminiStructuredClient ai;
@@ -78,7 +78,6 @@ public class GeminiDraftClient {
     private DraftAllocation validate(JsonNode root, Map<String, PlaceCandidate> refs, Set<UUID> required, int dayCount) {
         if (root == null || root.size() != 1 || !root.path("days").isArray() || root.path("days").size() != dayCount)
             throw invalid();
-
         List<List<UUID>> days = new ArrayList<>(Collections.nCopies(dayCount, null));
         Map<Integer, ThemeHint> themes = new HashMap<>();
         Set<UUID> seen = new HashSet<>();
@@ -87,11 +86,9 @@ public class GeminiDraftClient {
             var index = day.path("dayIndex");
             if (!index.isIntegralNumber() || !index.canConvertToInt() || index.intValue() < 1 || index.intValue() > dayCount)
                 throw invalid();
-
             int position = index.intValue() - 1;
             if (days.get(position) != null || !day.path("placeRefs").isArray() || day.path("placeRefs").size() > refs.size())
                 throw invalid();
-
             if (day.size() != 2 && day.size() != 4) throw invalid();
             for (var fields = day.fieldNames(); fields.hasNext(); ) {
                 if (!Set.of("dayIndex", "placeRefs", "theme", "highlightRefs").contains(fields.next())) throw invalid();
@@ -117,7 +114,6 @@ public class GeminiDraftClient {
     private ThemeHint themeHint(JsonNode day, Map<String, PlaceCandidate> refs, List<UUID> assigned) {
         if (!day.path("theme").isTextual() || !day.path("highlightRefs").isArray() || day.path("highlightRefs").size() > 3)
             return null;
-
         List<UUID> highlights = new ArrayList<>();
         for (JsonNode ref : day.path("highlightRefs")) {
             PlaceCandidate place = ref.isTextual() ? refs.get(ref.asText()) : null;

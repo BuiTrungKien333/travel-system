@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Repository
-@Profile("rag-demo")
+@Profile({"dev", "rag-demo"})
 public class PlaceRetrievalRepository {
 
     private final JdbcTemplate jdbc;
@@ -36,13 +36,13 @@ public class PlaceRetrievalRepository {
 
     public List<PlaceCandidate> catalog() {
         return jdbc.query("SELECT p.*, r.* " + JOINS
-                + " WHERE r.approved AND province.code = '48' ORDER BY p.name", this::map);
+                + " WHERE r.approved AND p.source='INTERNAL' AND province.code = '48' ORDER BY p.name", this::map);
     }
 
     public List<UUID> semantic(float[] vector, String model) {
         return jdbc.query("SELECT p.id " + JOINS + """
                          JOIN place_embeddings e ON e.place_id = p.id
-                         WHERE r.approved AND province.code = '48' AND e.model = ?
+                         WHERE r.approved AND p.source='INTERNAL' AND province.code = '48' AND e.model = ?
                          AND e.content_hash =
                         """ + HASH + " ORDER BY e.embedding <=> CAST(? AS vector), p.id LIMIT 40",
                 (rs, row) -> rs.getObject("id", UUID.class), model, GeminiEmbeddingClient.vectorLiteral(vector));
@@ -52,7 +52,7 @@ public class PlaceRetrievalRepository {
         String textVector = "to_tsvector('simple', unaccent(" + DOCUMENT + "))";
         String textQuery = "websearch_to_tsquery('simple', unaccent(?))";
 
-        return jdbc.query("SELECT p.id " + JOINS + " WHERE r.approved AND province.code = '48' AND "
+        return jdbc.query("SELECT p.id " + JOINS + " WHERE r.approved AND p.source='INTERNAL' AND province.code = '48' AND "
                         + textVector + " @@ " + textQuery + " ORDER BY ts_rank(" + textVector + ", "
                         + textQuery + ") DESC, p.id LIMIT 40",
                 (rs, row) -> rs.getObject("id", UUID.class), query, query);
@@ -68,7 +68,7 @@ public class PlaceRetrievalRepository {
         return jdbc.update("""
                 INSERT INTO place_embeddings(place_id, model, content_hash, embedding)
                 SELECT p.id, ?, ?, CAST(? AS vector)
-                """ + JOINS + " WHERE p.id=? AND r.approved AND " + HASH + " = ? " + """
+                """ + JOINS + " WHERE p.id=? AND r.approved AND p.source='INTERNAL' AND " + HASH + " = ? " + """
                 ON CONFLICT (place_id, model) DO UPDATE SET content_hash=EXCLUDED.content_hash,
                     embedding=EXCLUDED.embedding, updated_at=now()
                 """, model, hash(place), GeminiEmbeddingClient.vectorLiteral(vector), place.placeId(), hash(place)) > 0;

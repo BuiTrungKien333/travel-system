@@ -1,6 +1,11 @@
 package com.travel.weather.provider;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.travel.common.exception.AppException;
+import com.travel.common.exception.ErrorCode;
+import org.springframework.web.client.RestClientException;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.travel.weather.config.WeatherConfigProperties;
 import com.travel.weather.enums.WeatherCondition;
@@ -29,13 +34,13 @@ import java.util.stream.Collectors;
 public class OpenMeteoWeatherProvider implements WeatherProvider {
 
     private final WeatherConfigProperties weatherConfig;
-    private final MockWeatherProvider fallbackProvider;
+    private final ObjectMapper json;
     private final RestClient restClient;
 
     @Autowired
-    public OpenMeteoWeatherProvider(WeatherConfigProperties weatherConfig, MockWeatherProvider fallbackProvider) {
+    public OpenMeteoWeatherProvider(WeatherConfigProperties weatherConfig, ObjectMapper json) {
         this.weatherConfig = weatherConfig;
-        this.fallbackProvider = fallbackProvider;
+        this.json = json;
 
         int timeoutSeconds = weatherConfig.getOpenMeteo().getTimeoutSeconds();
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
@@ -48,19 +53,18 @@ public class OpenMeteoWeatherProvider implements WeatherProvider {
     }
 
     // Constructor dành cho Unit Test để mock RestClient
-    public OpenMeteoWeatherProvider(WeatherConfigProperties weatherConfig, MockWeatherProvider fallbackProvider, RestClient restClient) {
+    public OpenMeteoWeatherProvider(WeatherConfigProperties weatherConfig, RestClient restClient, ObjectMapper json) {
         this.weatherConfig = weatherConfig;
-        this.fallbackProvider = fallbackProvider;
+        this.json = json;
         this.restClient = restClient;
     }
 
     @Override
     public WeatherForecastResult fetchForecast(double latitude, double longitude, LocalDate startDate, LocalDate endDate) {
-        LocalDate start = startDate != null ? startDate : LocalDate.now();
+        LocalDate start = startDate != null ? startDate : LocalDate.now(com.travel.trip.service.TripCalendar.ZONE);
         LocalDate end = endDate != null ? endDate : start;
-        if (end.isBefore(start)) {
-            end = start;
-        }
+        if (end.isBefore(start) || java.time.temporal.ChronoUnit.DAYS.between(start, end) > 15)
+            throw new AppException(ErrorCode.VALIDATION_ERROR);
 
         String baseUrl = weatherConfig.getOpenMeteo().getBaseUrl();
         String timezone = weatherConfig.getOpenMeteo().getDefaultTimezone();
@@ -75,25 +79,14 @@ public class OpenMeteoWeatherProvider implements WeatherProvider {
                 .build()
                 .toUriString();
 
-        log.info("[OPEN_METEO] Requesting weather forecast for ({}, {}) from {} to {}", latitude, longitude, start, end);
+        log.debug("Requesting Open-Meteo forecast from {} to {}", start, end);
 
+        OpenMeteoApiResponse response = request(uri);
         try {
-            OpenMeteoApiResponse response = restClient.get()
-                    .uri(uri)
-                    .accept(MediaType.APPLICATION_JSON)
-                    .retrieve()
-                    .body(OpenMeteoApiResponse.class);
-
-            if (response == null || response.hourly() == null || response.hourly().time() == null) {
-                log.warn("[OPEN_METEO] Null or empty response received. Using mock fallback.");
-                return fallbackProvider.fetchForecast(latitude, longitude, start, end);
-            }
-
+            require(response.hourly() != null && timezone.equals(response.timezone()));
             return mapToForecastResult(latitude, longitude, response, start, end);
-
-        } catch (Exception ex) {
-            log.error("[OPEN_METEO] Failed to call Open-Meteo API: {}. Activating mock fallback.", ex.getMessage());
-            return fallbackProvider.fetchForecast(latitude, longitude, start, end);
+        } catch (IllegalArgumentException | java.time.DateTimeException | NullPointerException error) {
+            throw new AppException(ErrorCode.WEATHER_INVALID_RESPONSE);
         }
     }
 
@@ -110,26 +103,43 @@ public class OpenMeteoWeatherProvider implements WeatherProvider {
                 .build()
                 .toUriString();
 
-        log.info("[OPEN_METEO] Requesting current weather for ({}, {})", latitude, longitude);
+        log.debug("Requesting current Open-Meteo weather");
 
+        OpenMeteoApiResponse response = request(uri);
         try {
-            OpenMeteoApiResponse response = restClient.get()
-                    .uri(uri)
-                    .accept(MediaType.APPLICATION_JSON)
-                    .retrieve()
-                    .body(OpenMeteoApiResponse.class);
-
-            if (response == null || response.current() == null) {
-                log.warn("[OPEN_METEO] Null or empty current weather received. Using mock fallback.");
-                return fallbackProvider.fetchCurrentWeather(latitude, longitude);
-            }
-
+            require(response.current() != null && timezone.equals(response.timezone()));
             return mapToCurrentWeather(latitude, longitude, response.current());
-
-        } catch (Exception ex) {
-            log.error("[OPEN_METEO] Failed to call Open-Meteo current weather API: {}. Activating mock fallback.", ex.getMessage());
-            return fallbackProvider.fetchCurrentWeather(latitude, longitude);
+        } catch (IllegalArgumentException | java.time.DateTimeException | NullPointerException error) {
+            throw new AppException(ErrorCode.WEATHER_INVALID_RESPONSE);
         }
+    }
+
+    private OpenMeteoApiResponse request(String uri) {
+        try {
+            // Use the application's Jackson 2 mapper explicitly with Spring 7 RestClient.
+            String payload = restClient.get().uri(uri).accept(MediaType.APPLICATION_JSON).retrieve().body(String.class);
+            require(payload != null && payload.length() <= 1_048_576);
+            OpenMeteoApiResponse response = json.readValue(payload, OpenMeteoApiResponse.class);
+            require(response != null);
+            return response;
+        } catch (JsonProcessingException error) {
+            throw new AppException(ErrorCode.WEATHER_INVALID_RESPONSE);
+        } catch (RestClientException error) {
+            log.warn("Open-Meteo request unavailable ({})", error.getClass().getSimpleName());
+            throw new AppException(ErrorCode.WEATHER_UNAVAILABLE);
+        }
+    }
+
+    private static void require(boolean valid) {
+        if (!valid) throw new AppException(ErrorCode.WEATHER_INVALID_RESPONSE);
+    }
+
+    private static boolean hasSize(List<?> values, int expected) {
+        return values != null && values.size() == expected;
+    }
+
+    private static boolean temperature(double value) {
+        return Double.isFinite(value) && value >= -100 && value <= 70;
     }
 
     @Override
@@ -157,14 +167,22 @@ public class OpenMeteoWeatherProvider implements WeatherProvider {
         List<Integer> weatherCodes = hourlyDto.weatherCode();
 
         int size = times != null ? times.size() : 0;
+        require(size > 0 && size <= 384);
+        require(hasSize(temps, size) && hasSize(rainProbs, size) && hasSize(rains, size) && hasSize(weatherCodes, size));
         List<HourlyWeather> allHourly = new ArrayList<>();
+        LocalDateTime previous = null;
 
         for (int i = 0; i < size; i++) {
             LocalDateTime time = LocalDateTime.parse(times.get(i), DateTimeFormatter.ISO_LOCAL_DATE_TIME);
-            double temp = (temps != null && i < temps.size() && temps.get(i) != null) ? temps.get(i) : 25.0;
-            int rainProb = (rainProbs != null && i < rainProbs.size() && rainProbs.get(i) != null) ? rainProbs.get(i) : 0;
-            double rain = (rains != null && i < rains.size() && rains.get(i) != null) ? rains.get(i) : 0.0;
-            int code = (weatherCodes != null && i < weatherCodes.size() && weatherCodes.get(i) != null) ? weatherCodes.get(i) : 0;
+            require(!time.toLocalDate().isBefore(startDate) && !time.toLocalDate().isAfter(endDate));
+            require(previous == null || time.isAfter(previous));
+            previous = time;
+            Double temp = temps.get(i);
+            Integer rainProb = rainProbs.get(i);
+            Double rain = rains.get(i);
+            Integer code = weatherCodes.get(i);
+            if (temp == null || rainProb == null || rain == null || code == null) continue;
+            require(temperature(temp) && rainProb >= 0 && rainProb <= 100 && Double.isFinite(rain) && rain >= 0);
 
             WeatherCondition condition = WeatherCondition.fromWmoCode(code);
             WeatherRiskLevel risk = WeatherRiskLevel.evaluate(condition, temp, rainProb);
@@ -172,6 +190,7 @@ public class OpenMeteoWeatherProvider implements WeatherProvider {
             allHourly.add(new HourlyWeather(time, temp, rainProb, rain, code, condition, risk));
         }
 
+        require(!allHourly.isEmpty());
         // Nhóm các giờ theo từng ngày (LocalDate)
         Map<LocalDate, List<HourlyWeather>> groupedByDate = allHourly.stream()
                 .collect(Collectors.groupingBy(h -> h.time().toLocalDate(), LinkedHashMap::new, Collectors.toList()));
@@ -222,16 +241,20 @@ public class OpenMeteoWeatherProvider implements WeatherProvider {
     }
 
     private CurrentWeather mapToCurrentWeather(double latitude, double longitude, OpenMeteoCurrentDto dto) {
-        LocalDateTime time = dto.time() != null
-                ? LocalDateTime.parse(dto.time(), DateTimeFormatter.ISO_LOCAL_DATE_TIME)
-                : LocalDateTime.now();
-        double temp = dto.temperature2m() != null ? roundOneDecimal(dto.temperature2m()) : 25.0;
-        double apparentTemp = dto.apparentTemperature() != null ? roundOneDecimal(dto.apparentTemperature()) : temp;
-        int humidity = dto.relativeHumidity2m() != null ? dto.relativeHumidity2m() : 70;
-        double rain = dto.rain() != null ? roundOneDecimal(dto.rain()) : (dto.precipitation() != null ? roundOneDecimal(dto.precipitation()) : 0.0);
-        double wind = dto.windSpeed10m() != null ? roundOneDecimal(dto.windSpeed10m()) : 10.0;
-        boolean isDay = dto.isDay() != null && dto.isDay() == 1;
-        int code = dto.weatherCode() != null ? dto.weatherCode() : 0;
+        require(dto.time() != null && dto.temperature2m() != null && dto.apparentTemperature() != null
+                && dto.relativeHumidity2m() != null && (dto.rain() != null || dto.precipitation() != null)
+                && dto.windSpeed10m() != null && dto.isDay() != null && dto.weatherCode() != null);
+        LocalDateTime time = LocalDateTime.parse(dto.time(), DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+        double temp = dto.temperature2m();
+        double apparentTemp = dto.apparentTemperature();
+        int humidity = dto.relativeHumidity2m();
+        double rain = dto.rain() != null ? dto.rain() : dto.precipitation();
+        double wind = dto.windSpeed10m();
+        require(temperature(temp) && temperature(apparentTemp) && humidity >= 0 && humidity <= 100
+                && Double.isFinite(rain) && rain >= 0 && Double.isFinite(wind) && wind >= 0
+                && (dto.isDay() == 0 || dto.isDay() == 1));
+        boolean isDay = dto.isDay() == 1;
+        int code = dto.weatherCode();
         WeatherCondition condition = WeatherCondition.fromWmoCode(code);
         WeatherRiskLevel risk = WeatherRiskLevel.evaluate(condition, temp, rain > 0 ? 80 : 10);
 

@@ -2,7 +2,7 @@ package com.travel.planning.draft;
 
 import com.travel.planning.draft.dto.request.GenerateDraftRequest;
 import com.travel.planning.draft.service.DraftWeatherService;
-import com.travel.planning.retrieval.config.RagDemoProperties;
+import com.travel.planning.retrieval.config.RagProperties;
 import com.travel.weather.model.WeatherForecastResult;
 import com.travel.weather.service.WeatherService;
 import org.junit.jupiter.api.AfterEach;
@@ -19,7 +19,7 @@ import static org.mockito.Mockito.*;
 class DraftWeatherServiceTest {
     final WeatherService provider = mock(WeatherService.class);
     final ExecutorService executor = Executors.newSingleThreadExecutor();
-    final RagDemoProperties properties = new RagDemoProperties();
+    final RagProperties properties = new RagProperties();
     final DraftWeatherService service = new DraftWeatherService(provider, executor, properties);
     final GenerateDraftRequest request = new GenerateDraftRequest("demo", DATE, ORIGIN, true, 45);
     @AfterEach void close() { executor.shutdownNow(); }

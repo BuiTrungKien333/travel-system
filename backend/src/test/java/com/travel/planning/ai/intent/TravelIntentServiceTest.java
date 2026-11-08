@@ -3,7 +3,7 @@ package com.travel.planning.ai.intent;
 import com.travel.planning.ai.intent.model.TravelIntent;
 import com.travel.planning.ai.intent.provider.GeminiIntentClient;
 import com.travel.planning.ai.intent.service.TravelIntentService;
-import com.travel.planning.retrieval.config.RagDemoProperties;
+import com.travel.planning.retrieval.config.RagProperties;
 import com.travel.planning.retrieval.dto.response.PlaceSearchResponse;
 import com.travel.planning.retrieval.model.PlaceCandidate;
 import com.travel.planning.retrieval.service.PlaceRetrievalService;
@@ -19,7 +19,7 @@ import static org.mockito.Mockito.*;
 class TravelIntentServiceTest {
     GeminiIntentClient client = mock(GeminiIntentClient.class);
     PlaceRetrievalService retrieval = mock(PlaceRetrievalService.class);
-    TravelIntentService service = new TravelIntentService(client, retrieval, new RagDemoProperties());
+    TravelIntentService service = new TravelIntentService(client, retrieval, new RagProperties());
     PlaceCandidate museum = place("Bảo tàng Đà Nẵng", List.of("MUSEUM", "HISTORY"));
     PlaceCandidate beach = place("Bãi biển Mỹ Khê", List.of("BEACH", "SCENERY"));
 

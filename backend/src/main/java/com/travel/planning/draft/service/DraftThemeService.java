@@ -13,7 +13,7 @@ import java.util.*;
  * Render only the final schedule. Reusing allocation hints avoids another LLM round trip.
  */
 @Service
-@Profile("rag-demo")
+@Profile({"dev", "rag-demo"})
 public class DraftThemeService {
 
     public Narration narrate(List<Day> days, DraftAllocation allocation) {

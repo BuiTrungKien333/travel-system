@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
 import static com.travel.planning.draft.dto.response.DraftResponse.*;
 
 @Service
-@Profile("rag-demo")
+@Profile({"dev", "rag-demo"})
 public class DraftSchedulingService {
 
     private final DraftTimelinePlanner planner;
@@ -48,7 +48,6 @@ public class DraftSchedulingService {
             UUID target = badDay.issues().stream().filter(Problem::blocking).map(Problem::placeId).filter(Objects::nonNull).findFirst().orElse(null);
             if (target == null)
                 target = groups.get(bad).stream().filter(id -> !required.contains(id)).reduce((a, b) -> b).orElse(groups.get(bad).getLast());
-
             boolean moved = false;
             for (int other = 0; other < groups.size(); other++) {
                 if (other == bad) continue;

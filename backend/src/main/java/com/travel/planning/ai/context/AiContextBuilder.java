@@ -18,7 +18,7 @@ public class AiContextBuilder {
         return """
                 Bạn là một chuyên gia lập kế hoạch và hướng dẫn viên du lịch bản địa hàng đầu tại Việt Nam.
                 Nhiệm vụ của bạn là nhận danh sách các địa điểm tham quan đã được tối ưu hóa quãng đường ngắn nhất bằng thuật toán Held-Karp, kết hợp với các sở thích, nhịp độ và thời gian của người dùng để tạo ra một lịch trình du lịch nhiều ngày chi tiết, sống động và tối ưu nhất.
-
+                
                 QUY TẮC BẮT BUỘC:
                 1. TÔN TRỌNG THỨ TỰ ĐỊA ĐIỂM: Các địa điểm được cung cấp đã được sắp xếp tối ưu quãng đường. Hãy phân bổ các địa điểm này vào các ngày liên tiếp theo đúng luồng di chuyển đó để không làm người dùng phải di chuyển vòng vèo.
                 2. ĐẦY ĐỦ 100% ĐỊA ĐIỂM: Tuyệt đối không được bỏ sót bất kỳ địa điểm nào trong danh sách đầu vào. Tất cả địa điểm được cung cấp phải được gán vào ít nhất một hoạt động cụ thể (activityType = "VISIT").
@@ -93,7 +93,7 @@ public class AiContextBuilder {
         }
 
         sb.append("""
-
+                
                 ### YÊU CẦU ĐẦU RA:
                 Hãy tạo kế hoạch lịch trình chi tiết phân bổ cho các ngày theo cấu trúc JSON:
                 {

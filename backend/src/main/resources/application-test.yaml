@@ -34,6 +34,10 @@ app:
     secret-key: dGVzdC1vbmx5LWFjY2Vzcy1zaWduaW5nLWtleS0zMi1ieXRlcw==
     refresh-key: dGVzdC1vbmx5LXJlZnJlc2gtc2lnbmluZy1rZXktMzItYnl0ZXM=
 application:
+  maps:
+    mapbox:
+      geocoding-enabled: false
+      access-token: ""
   ai:
     active-provider: mock
   weather:

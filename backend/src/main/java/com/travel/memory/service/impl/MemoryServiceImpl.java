@@ -26,6 +26,11 @@ import org.springframework.transaction.annotation.Transactional;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
+import java.time.LocalDate;
+import com.travel.trip.service.TripCalendar;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+import org.springframework.data.domain.PageImpl;
 import java.util.*;
 
 @Service
@@ -111,19 +116,19 @@ public class MemoryServiceImpl implements MemoryService {
     @Override
     @Transactional(readOnly = true)
     public Page<MemoryResponse> getMemoriesByUser(UUID owner, Pageable pageable) {
-        return memoryRepository.findByUserIdAndDeletedAtIsNull(owner, sanitizePageable(pageable)).map(memoryMapper::toResponse);
+        return ownerPage(owner, null, sanitizePageable(pageable));
     }
 
     @Override
     @Transactional(readOnly = true)
     public Page<MemoryResponse> getMemoriesByTrip(UUID tripId, UUID owner, Pageable pageable) {
         tripRepository.findByIdAndUserIdAndDeletedAtIsNull(tripId, owner).orElseThrow(() -> new AppException(ErrorCode.TRIP_NOT_FOUND));
-        return memoryRepository.findByTripIdAndUserIdAndDeletedAtIsNull(tripId, owner, sanitizePageable(pageable)).map(memoryMapper::toResponse);
+        return ownerPage(owner, tripId, sanitizePageable(pageable));
     }
 
     private Pageable sanitizePageable(Pageable pageable) {
         if (pageable == null) return PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "experiencedAt", "id"));
-        if (pageable.isUnpaged() || pageable.getPageSize() > 50) invalid("size");
+        if (pageable.isUnpaged()) invalid("size");
         var aliases = Map.of("id", "id", "experiencedat", "experiencedAt", "experienced_at", "experiencedAt",
                 "createdat", "createdAt", "created_at", "createdAt", "updatedat", "updatedAt", "updated_at", "updatedAt");
         List<Sort.Order> orders = new ArrayList<>();
@@ -134,7 +139,7 @@ public class MemoryServiceImpl implements MemoryService {
         }
         if (orders.isEmpty()) orders.add(Sort.Order.desc("experiencedAt"));
         if (orders.stream().noneMatch(o -> o.getProperty().equals("id"))) orders.add(Sort.Order.desc("id"));
-        return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by(orders));
+        return PageRequest.of(pageable.getPageNumber(), Math.min(pageable.getPageSize(), 50), Sort.by(orders));
     }
 
     @Override
@@ -148,4 +153,33 @@ public class MemoryServiceImpl implements MemoryService {
 
     private String trim(String value) { return value == null || value.isBlank() ? null : value.trim(); }
     private void invalid(String field) { throw new AppException(ErrorCode.VALIDATION_ERROR, Map.of(field, "Invalid value")); }
+    private Page<MemoryResponse> ownerPage(UUID owner, UUID trip, Pageable pageable) {
+        var ids = memoryRepository.ownerIds(owner, trip, pageable);
+        if (ids.isEmpty()) return new PageImpl<>(java.util.List.of(), pageable, ids.getTotalElements());
+        var records = memoryRepository.findByIdInAndUserIdAndDeletedAtIsNull(ids.getContent(), owner).stream()
+                .collect(Collectors.toMap(Memory::getId, Function.identity()));
+        var content = ids.getContent().stream().map(records::get).filter(Objects::nonNull).map(memoryMapper::toResponse).toList();
+        return new PageImpl<>(content, pageable, ids.getTotalElements());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<MemoryResponse> getMemoriesByTripDay(UUID tripId, UUID requestUserId, LocalDate date, Pageable pageable) {
+        tripRepository.findByIdAndUserIdAndDeletedAtIsNull(tripId, requestUserId)
+                .orElseThrow(() -> new AppException(ErrorCode.TRIP_NOT_FOUND));
+        Pageable page = PageRequest.of(pageable.getPageNumber(), Math.min(pageable.getPageSize(), 50),
+                Sort.by(Sort.Order.desc("experiencedAt"), Sort.Order.desc("id")));
+        var ids = memoryRepository.dayIds(tripId, requestUserId, date.atStartOfDay(TripCalendar.ZONE).toInstant(),
+                date.plusDays(1).atStartOfDay(TripCalendar.ZONE).toInstant(), page);
+        if (ids.isEmpty()) return new PageImpl<>(java.util.List.of(), page, ids.getTotalElements());
+        var records = memoryRepository.findByIdInAndTripIdAndUserIdAndDeletedAtIsNull(ids.getContent(), tripId, requestUserId)
+                .stream().collect(Collectors.toMap(Memory::getId, Function.identity()));
+        var content = ids.getContent().stream().map(records::get).filter(Objects::nonNull).map(memoryMapper::toResponse).toList();
+        return new PageImpl<>(content, page, ids.getTotalElements());
+    }
+
+
+    @Override
+    @Transactional
+    public MemoryResponse updateNote(UUID id, UUID owner, UpdateMemoryRequest request) { return updateMemory(id, owner, request); }
 }

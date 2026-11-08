@@ -13,9 +13,13 @@ import org.springframework.data.repository.query.Param;
 import java.time.Instant;
 
 import java.util.Optional;
+import java.util.List;
 import java.util.UUID;
 
 public interface MemoryRepository extends JpaRepository<Memory, UUID> {
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select m from Memory m where m.id=:id and m.deletedAt is null")
+    Optional<Memory> lockActive(UUID id);
 
     /** Retrieve an active memory by its ID. */
     @EntityGraph(attributePaths = {"media"})
@@ -50,4 +54,19 @@ public interface MemoryRepository extends JpaRepository<Memory, UUID> {
     int insertIdempotent(@Param("id") UUID id, @Param("owner") UUID owner, @Param("trip") UUID trip,
                          @Param("place") UUID place, @Param("note") String note, @Param("experienced") Instant experienced,
                          @Param("request") UUID request, @Param("hash") String hash);
+    @Query("select m.id from Memory m where m.userId=:userId and m.deletedAt is null and (:tripId is null or m.tripId=:tripId)")
+    Page<UUID> ownerIds(UUID userId, UUID tripId, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"media"})
+    List<Memory> findByIdInAndUserIdAndDeletedAtIsNull(List<UUID> ids, UUID userId);
+
+    @Query("""
+        select m.id from Memory m where m.tripId = :tripId and m.userId = :userId
+        and m.deletedAt is null and m.experiencedAt >= :from and m.experiencedAt < :until
+        """)
+    Page<UUID> dayIds(UUID tripId, UUID userId, Instant from, Instant until, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"media"})
+    List<Memory> findByIdInAndTripIdAndUserIdAndDeletedAtIsNull(List<UUID> ids, UUID tripId, UUID userId);
+
 }

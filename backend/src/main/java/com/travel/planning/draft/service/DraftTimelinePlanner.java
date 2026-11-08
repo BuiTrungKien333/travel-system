@@ -23,7 +23,7 @@ import static com.travel.planning.draft.dto.response.DraftResponse.*;
  * Adapts the existing solver/engine without changing legacy itinerary endpoints.
  */
 @Component
-@Profile("rag-demo")
+@Profile({"dev", "rag-demo"})
 public class DraftTimelinePlanner {
     private final HeldKarpSolver solver;
     private final TimelineEngine timeline;

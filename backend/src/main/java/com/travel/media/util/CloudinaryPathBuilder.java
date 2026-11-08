@@ -1,7 +1,5 @@
 package com.travel.media.util;
 
-import org.springframework.web.multipart.MultipartFile;
-
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.UUID;
@@ -20,6 +18,7 @@ public final class CloudinaryPathBuilder {
             DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
 
     private CloudinaryPathBuilder() {}
+
     /**
      * Folder cho memory media:
      * travel-system/users/{userId}/trips/{tripId}/{memoryId}
@@ -28,20 +27,7 @@ public final class CloudinaryPathBuilder {
         return String.format("%s/users/%s/trips/%s/%s",
                 ROOT, userId, tripId, memoryId);
     }
-    /**
-     * Folder cho avatar:
-     * travel-system/users/{userId}/avatar
-     */
-    public static String avatarFolder(UUID userId) {
-        return String.format("%s/users/%s/avatar", ROOT, userId);
-    }
-    /**
-     * Folder cho trip cover image:
-     * travel-system/users/{userId}/trips/{tripId}/cover
-     */
-    public static String tripCoverFolder(UUID userId, UUID tripId) {
-        return String.format("%s/users/%s/trips/%s/cover", ROOT, userId, tripId);
-    }
+
     /**
      * Folder cho ảnh không thuộc trip nào:
      * travel-system/users/{userId}/misc
@@ -49,6 +35,7 @@ public final class CloudinaryPathBuilder {
     public static String miscFolder(UUID userId) {
         return String.format("%s/users/%s/misc", ROOT, userId);
     }
+
     /**
      * Đặt lại tên file upload theo format:
      *   memory_{yyyyMMdd}_{HHmmss}_{index}
@@ -62,25 +49,5 @@ public final class CloudinaryPathBuilder {
     public static String generateMemoryFileName(int index) {
         String timestamp = LocalDateTime.now().format(TIMESTAMP_FMT);
         return String.format("memory_%s_%03d", timestamp, index);
-    }
-    public static String generateAvatarFileName() {
-        String timestamp = LocalDateTime.now().format(TIMESTAMP_FMT);
-        return String.format("avatar_%s", timestamp);
-    }
-    public static String extractExtension(MultipartFile file) {
-        String originalName = file.getOriginalFilename();
-        if (originalName != null && originalName.contains(".")) {
-            return originalName.substring(originalName.lastIndexOf('.') + 1).toLowerCase();
-        }
-        String mimeType = file.getContentType();
-        if (mimeType != null) {
-            return switch (mimeType.toLowerCase()) {
-                case "image/png"  -> "png";
-                case "image/gif"  -> "gif";
-                case "image/webp" -> "webp";
-                default           -> "jpg";
-            };
-        }
-        return "jpg";
     }
 }

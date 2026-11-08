@@ -69,8 +69,18 @@ async function check() {
 
   let cleared = false;
   let cacheCleared = false;
+  let memoryClosed = false;
+  let uploadClosed = false;
+  let activeTripCleared = false;
   const logout = load('src/features/auth/api/useLogoutMutation.ts', {
     ...dependencies,
+    '@/features/memory/store/useMemoryUIStore': {
+      useMemoryUIStore: { getState: () => ({
+        closeLightbox: () => { memoryClosed = true; },
+        setIsUploadOpen: (open) => { uploadClosed = open === false; },
+        setActiveTrip: (trip) => { activeTripCleared = trip === null; },
+      }) },
+    },
     '@tanstack/react-query': {
       useMutation: (options) => options,
       useQueryClient: () => ({ clear: () => { cacheCleared = true; } }),
@@ -83,6 +93,7 @@ async function check() {
   assert.deepEqual(request, { refreshToken: credentials.refreshToken });
   logout.onSettled();
   assert.equal(cleared && cacheCleared, true);
+  assert.equal(memoryClosed && uploadClosed && activeTripCleared, true);
 
   api.defaults.adapter = async (config) => { throw new axios.AxiosError('Forbidden', '', config, null, {
     config, status: 403, data: { success: false, code: 'AUTH_008', message: 'Verify email' },

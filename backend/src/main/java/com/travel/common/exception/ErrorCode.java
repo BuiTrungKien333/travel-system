@@ -19,6 +19,9 @@ public enum ErrorCode {
     MISSING_PATH_VARIABLE("COMMON_010", "error.path.missing", HttpStatus.BAD_REQUEST),
     INVALID_ARGUMENT("COMMON_011", "error.argument.invalid", HttpStatus.BAD_REQUEST),
 
+    WEATHER_UNAVAILABLE("WEATHER_001", "error.weather.unavailable", HttpStatus.SERVICE_UNAVAILABLE),
+    WEATHER_INVALID_RESPONSE("WEATHER_002", "error.weather.invalid-response", HttpStatus.BAD_GATEWAY),
+
     // --- AUTH & PERMISSION CODES ---
     UNAUTHORIZED("AUTH_001", "error.auth.unauthorized", HttpStatus.UNAUTHORIZED),
     FORBIDDEN("AUTH_002", "error.auth.forbidden", HttpStatus.FORBIDDEN),
@@ -42,12 +45,13 @@ public enum ErrorCode {
     TRIP_INVALID_REFERENCE("TRIP_012", "error.trip.invalid-reference", HttpStatus.BAD_REQUEST),
     TRIP_READ_ONLY("TRIP_013", "error.trip.read-only", HttpStatus.CONFLICT),
 
+    ITINERARY_PIN_CONFLICT("TRIP_014", "error.itinerary.pin-conflict", HttpStatus.CONFLICT),
+    ITINERARY_ORIGIN_REQUIRED("TRIP_015", "error.itinerary.origin-required", HttpStatus.CONFLICT),
     // --- PLANNING & ALGORITHM CODES ---
     TSP_EXCEEDS_MAX_LOCATIONS("PLANNING_001", "error.planning.tsp-exceeds-max-locations", HttpStatus.BAD_REQUEST),
     INVALID_TSP_LOCATIONS("PLANNING_002", "error.planning.invalid-tsp-locations", HttpStatus.BAD_REQUEST),
 
     AI_SERVICE_UNAVAILABLE("AI_001", "error.ai.service-unavailable", HttpStatus.SERVICE_UNAVAILABLE),
-    AI_RESPONSE_PARSE_FAILED("AI_002", "error.ai.parse-failed", HttpStatus.INTERNAL_SERVER_ERROR),
     AI_RATE_LIMIT_EXCEEDED("AI_003", "error.ai.rate-limit-exceeded", HttpStatus.TOO_MANY_REQUESTS),
     AI_API_KEY_INVALID("AI_004", "error.ai.api-key-invalid", HttpStatus.UNAUTHORIZED),
     AI_VALIDATION_FAILED("AI_005", "error.ai.validation-failed", HttpStatus.UNPROCESSABLE_ENTITY),
@@ -61,12 +65,17 @@ public enum ErrorCode {
     ITINERARY_CHANGED("TRIP_008", "error.itinerary.changed", HttpStatus.CONFLICT),
     PLACE_NOT_FOUND("PLACE_001", "error.place.not-found", HttpStatus.NOT_FOUND),
     PROVINCE_NOT_FOUND("PLACE_002", "error.place.province-not-found", HttpStatus.NOT_FOUND),
+    PLACE_PROVIDER_UNAVAILABLE("PLACE_004", "error.place.provider-unavailable", HttpStatus.SERVICE_UNAVAILABLE),
+    PLACE_PROVIDER_INVALID_RESPONSE("PLACE_005", "error.place.provider-invalid-response", HttpStatus.BAD_GATEWAY),
 
     MEMORY_NOT_FOUND("MEMORY_001", "error.memory.not-found", HttpStatus.NOT_FOUND),
     MEMORY_ACCESS_DENIED("MEMORY_002", "error.memory.access-denied", HttpStatus.FORBIDDEN),
     MEMORY_VERSION_CONFLICT("MEMORY_003", "error.memory.version-conflict", HttpStatus.CONFLICT),
     MEMORY_REQUEST_CONFLICT("MEMORY_004", "error.memory.request-conflict", HttpStatus.CONFLICT),
     MEDIA_NOT_FOUND("MEDIA_001", "error.media.not-found", HttpStatus.NOT_FOUND),
+    MEDIA_DELETE_FAILED("MEDIA_002", "error.media.delete-failed", HttpStatus.SERVICE_UNAVAILABLE),
+    MEDIA_DELETE_IDENTITY_MISSING("MEDIA_003", "error.media.delete-identity-missing", HttpStatus.CONFLICT),
+    MEDIA_UPLOAD_REMOVED("MEDIA_004", "error.media.upload-removed", HttpStatus.CONFLICT),
 
     // --- UPLOAD ---
     UPLOAD_FILE_EMPTY("UPLOAD_001", "error.upload.file-empty", HttpStatus.BAD_REQUEST),
@@ -74,10 +83,12 @@ public enum ErrorCode {
     UPLOAD_INVALID_FILE_TYPE("UPLOAD_003", "error.upload.invalid-file-type", HttpStatus.BAD_REQUEST),
     UPLOAD_FAILED("UPLOAD_004", "error.upload.failed", HttpStatus.INTERNAL_SERVER_ERROR),
     UPLOAD_TOO_MANY_FILES("UPLOAD_005", "error.upload.too-many-files", HttpStatus.BAD_REQUEST),
-    UPLOAD_BATCH_TOO_LARGE("UPLOAD_006", "error.upload.batch-too-large", HttpStatus.PAYLOAD_TOO_LARGE),
+    UPLOAD_BATCH_TOO_LARGE("UPLOAD_011", "error.upload.batch-too-large", HttpStatus.PAYLOAD_TOO_LARGE),
     UPLOAD_MEMORY_LIMIT("UPLOAD_007", "error.upload.memory-limit", HttpStatus.CONFLICT),
     UPLOAD_IMAGE_TOO_LARGE("UPLOAD_008", "error.upload.image-too-large", HttpStatus.BAD_REQUEST),
-    UPLOAD_RATE_LIMITED("UPLOAD_009", "error.upload.rate-limited", HttpStatus.TOO_MANY_REQUESTS);
+    UPLOAD_RATE_LIMITED("UPLOAD_009", "error.upload.rate-limited", HttpStatus.TOO_MANY_REQUESTS),
+    UPLOAD_REQUEST_CONFLICT("UPLOAD_010", "error.upload.request-conflict", HttpStatus.CONFLICT),
+    MEDIA_STORAGE_UNAVAILABLE("UPLOAD_006", "error.upload.storage-unavailable", HttpStatus.SERVICE_UNAVAILABLE);
 
     private final String code;
     private final String messageKey;

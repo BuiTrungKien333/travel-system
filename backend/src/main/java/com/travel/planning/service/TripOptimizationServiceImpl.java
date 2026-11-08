@@ -1,10 +1,8 @@
 package com.travel.planning.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.travel.common.exception.AppException;
 import com.travel.common.exception.ErrorCode;
-
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.travel.place.entity.Place;
 import com.travel.place.enums.PlaceType;
 import com.travel.place.model.WeeklyOpeningHours;
@@ -14,7 +12,6 @@ import com.travel.planning.ai.copilot.model.AiCopilotAnalysisResult;
 import com.travel.planning.ai.copilot.model.AiCopilotPromptContext;
 import com.travel.planning.ai.provider.AiProvider;
 import com.travel.planning.ai.provider.AiProviderFactory;
-import com.travel.planning.algorithm.DistanceCalculator;
 import com.travel.planning.algorithm.HeldKarpSolver;
 import com.travel.planning.algorithm.model.TspRequest;
 import com.travel.planning.algorithm.model.TspResult;
@@ -108,7 +105,7 @@ public class TripOptimizationServiceImpl implements TripOptimizationService {
             WeeklyOpeningHours weeklyHours = loc.weeklyOpeningHours();
 
             if (loc.id() != null) {
-                Optional<Place> dbPlaceOpt = placeRepository.findById(loc.id());
+                Optional<Place> dbPlaceOpt = placeRepository.findByIdAndSource(loc.id(), "INTERNAL");
                 if (dbPlaceOpt.isPresent()) {
                     Place dbPlace = dbPlaceOpt.get();
                     if (placeType == PlaceType.UNSPECIFIED && dbPlace.getPlaceType() != null) {

@@ -1,51 +1,168 @@
 package com.travel.media.service.impl;
 
+import com.cloudinary.Cloudinary;
 import com.travel.common.exception.AppException;
 import com.travel.common.exception.ErrorCode;
 import com.travel.media.dto.UploadResponse;
-import com.travel.media.repository.MediaRepository;
-import com.travel.media.service.*;
+import com.travel.media.dto.BatchUploadResponse;
+import com.travel.media.service.MediaService;
+import com.travel.media.service.MediaDeletionService;
 import com.travel.media.util.CloudinaryPathBuilder;
 import com.travel.media.util.MediaPersistenceHelper;
-import com.travel.memory.repository.MemoryRepository;
-import com.travel.memory.service.MemoryAccess;
+import com.travel.media.util.ImageUploadPolicy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.*;
+import com.travel.media.service.*;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
+@Slf4j(topic = "MEDIA_SERVICE")
 public class MediaServiceImpl implements MediaService {
+
+    private final ObjectProvider<Cloudinary> cloudinaryProvider;
+    private final MediaPersistenceHelper mediaPersistenceHelper;
+    private final MediaDeletionService deletion;
     private final ImageUploadValidator validator;
     private final UploadAdmission admission;
     private final CloudinaryStorage storage;
-    private final MediaPersistenceHelper persistence;
     private final MediaCleanupQueue cleanup;
-    private final MediaRepository mediaRepository;
-    private final MemoryRepository memories;
-    private final MemoryAccess access;
-
+    private final com.travel.media.repository.MediaRepository mediaRepository;
+    private final com.travel.memory.repository.MemoryRepository memories;
+    private final com.travel.memory.service.MemoryAccess access;
+    private static final int MAX_FILES_PER_REQUEST = 10;
     @Override
     public UploadResponse uploadImage(MultipartFile file, UUID userId, UUID tripId, UUID memoryId) {
-        return uploadImages(Collections.singletonList(file), userId, tripId, memoryId).getFirst();
+        var image = ImageUploadPolicy.inspect(file);
+        var existing = mediaPersistenceHelper.uploaded(userId, tripId, memoryId, image.hash());
+        if (existing.isPresent()) return existing.get();
+        String folder = CloudinaryPathBuilder.memoryFolder(userId, tripId, memoryId);
+        // Stable per-memory/content ID also survives response loss between provider and DB.
+        UploadResponse response = doUpload(image, folder, image.hash());
+        try {
+            return mediaPersistenceHelper.complete(userId, tripId, memoryId, image.hash(), response);
+        } catch (AppException failure) {
+            deletion.cleanLateUpload(userId, memoryId, image.hash(), response.getPublicId());
+            throw failure;
+        }
+    }
+    @Override
+    public BatchUploadResponse uploadImages(List<MultipartFile> files, UUID userId, UUID tripId, UUID memoryId) {
+        validateFileList(files);
+        mediaPersistenceHelper.validateOwner(userId, tripId, memoryId);
+        List<BatchUploadResponse.Item> results = new ArrayList<>();
+        int succeeded = 0;
+        for (int index = 0; index < files.size(); index++) {
+            try {
+                var uploaded = uploadImage(files.get(index), userId, tripId, memoryId);
+                results.add(new BatchUploadResponse.Item(index, uploaded, null, null));
+                succeeded++;
+            } catch (AppException failure) {
+                var code = failure.getErrorCode();
+                results.add(new BatchUploadResponse.Item(index, null, code.getCode(), code.getHttpStatus().value()));
+            } catch (RuntimeException failure) {
+                log.warn("Image batch item failed ({})", failure.getClass().getSimpleName());
+                results.add(new BatchUploadResponse.Item(index, null, ErrorCode.INTERNAL_SERVER_ERROR.getCode(), 500));
+            }
+        }
+        return new BatchUploadResponse(List.copyOf(results), succeeded, files.size() - succeeded);
     }
 
     @Override
-    public List<UploadResponse> uploadImages(List<MultipartFile> files, UUID userId, UUID tripId, UUID memoryId) {
+    public UploadResponse uploadImage(MultipartFile file, UUID userId) {
+        var image = ImageUploadPolicy.inspect(file);
+        String folder = CloudinaryPathBuilder.miscFolder(userId);
+        String publicId = CloudinaryPathBuilder.generateMemoryFileName(1);
+        return doUpload(image, folder, publicId);
+    }
+
+    @Override
+    public void deleteMedia(UUID mediaId, UUID requestUserId) {
+        deletion.delete(mediaId, requestUserId);
+    }
+    private Cloudinary requireCloudinary() {
+        Cloudinary client = cloudinaryProvider.getIfAvailable();
+        if (client == null) throw new AppException(ErrorCode.MEDIA_STORAGE_UNAVAILABLE);
+        return client;
+    }
+
+    /**
+     * Upload thực tế lên Cloudinary.
+     *
+     * @param image    validated image bytes and dimensions
+     * @param folder   đường dẫn folder trên Cloudinary
+     * @param publicId tên file mới (không có extension)
+     */
+    private UploadResponse doUpload(ImageUploadPolicy.Image image, String folder, String publicId) {
+        Cloudinary cloudinary = requireCloudinary();
+        try {
+            Map<String, Object> uploadParams = Map.of(
+                    "folder", folder,
+                    "public_id", publicId,
+                    "resource_type", "image",
+                    "overwrite", false,
+                    "unique_filename", false
+            );
+
+            Map<?, ?> result = cloudinary.uploader().upload(image.bytes(), uploadParams);
+            // Some existing-asset responses omit metadata; recover it without uploading another object.
+            if (Boolean.TRUE.equals(result.get("existing")) && !(result.get("secure_url") instanceof String))
+                result = cloudinary.api().resource(folder + "/" + publicId, Map.of("resource_type", "image"));
+
+            String secureUrl = (String) result.get("secure_url");
+            String resultPublicId = (String) result.get("public_id");
+            Number bytes = (Number) result.get("bytes");
+            Number width = (Number) result.get("width");
+            Number height = (Number) result.get("height");
+            String mimeType = image.mimeType();
+            if (secureUrl == null || !secureUrl.startsWith("https://") || resultPublicId == null)
+                throw new AppException(ErrorCode.UPLOAD_FAILED);
+
+            log.info("Image uploaded: size={} bytes", bytes);
+            return UploadResponse.builder()
+                    .url(secureUrl)
+                    .publicId(resultPublicId)
+                    .mimeType(mimeType)
+                    .fileSize(bytes != null ? bytes.longValue() : (long) image.bytes().length)
+                    .width(width != null ? width.intValue() : image.width())
+                    .height(height != null ? height.intValue() : image.height())
+                    .build();
+        } catch (AppException error) {
+            throw error;
+        } catch (Exception error) {
+            log.warn("Image provider upload failed ({})", error.getClass().getSimpleName());
+            throw new AppException(ErrorCode.UPLOAD_FAILED);
+        }
+    }
+
+    private void validateFileList(List<MultipartFile> files) {
+        if (files == null || files.isEmpty()) {
+            throw new AppException(ErrorCode.UPLOAD_FILE_EMPTY);
+        }
+        if (files.size() > MAX_FILES_PER_REQUEST) {
+            throw new AppException(ErrorCode.UPLOAD_TOO_MANY_FILES);
+        }
+    }
+    @Override
+    public List<UploadResponse> uploadImagesAtomic(List<MultipartFile> files, UUID userId, UUID tripId, UUID memoryId) {
         validator.validateBatch(files);
-        var existing = persistence.existing(userId, tripId, memoryId);
+        var existing = mediaPersistenceHelper.existing(userId, tripId, memoryId);
         try (var permit = admission.acquire(userId)) {
             var images = new LinkedHashMap<String, ImageUploadValidator.Image>();
             for (MultipartFile file : files) {
                 var image = validator.read(file);
                 images.putIfAbsent(image.hash(), image);
             }
-            persistence.checkCapacity(userId, tripId, memoryId, images.keySet());
+            mediaPersistenceHelper.checkCapacity(userId, tripId, memoryId, images.keySet());
             List<MediaPersistenceHelper.Uploaded> uploaded = new ArrayList<>();
             List<String> newAssets = new ArrayList<>();
             String folder = tripId == null ? CloudinaryPathBuilder.miscFolder(userId) + "/" + memoryId
@@ -61,7 +178,7 @@ public class MediaServiceImpl implements MediaService {
                     }
                     uploaded.add(new MediaPersistenceHelper.Uploaded(image.hash(), response));
                 }
-                return persistence.attach(userId, tripId, memoryId, uploaded);
+                return mediaPersistenceHelper.attach(userId, tripId, memoryId, uploaded);
             } catch (RuntimeException e) {
                 for (String publicId : newAssets) {
                     try { cleanup.enqueue(publicId); }
@@ -77,16 +194,22 @@ public class MediaServiceImpl implements MediaService {
 
     @Override
     @Transactional
-    public void deleteMedia(UUID mediaId, UUID owner) {
-        var initial = mediaRepository.findById(mediaId).orElseThrow(() -> new AppException(ErrorCode.MEDIA_NOT_FOUND));
-        UUID memoryId = initial.getMemory().getId();
-        var memory = access.lock(memoryId, owner, null);
-        var media = memory.getMedia().stream().filter(m -> mediaId.equals(m.getId())).findFirst()
-                .orElseThrow(() -> new AppException(ErrorCode.MEDIA_NOT_FOUND));
-        cleanup.enqueue(media.getPublicId());
-        memory.removeMedia(media);
-        for (int i = 0; i < memory.getMedia().size(); i++) memory.getMedia().get(i).setDisplayOrder(i);
-        memory.markChanged();
+    public UploadResponse uploadImage(MultipartFile file, UUID owner, UUID trip, UUID memoryId, UUID requestId) {
+        if (requestId == null) return uploadImage(file, owner, trip, memoryId);
+        validator.validateBatch(List.of(file));
+        var image = validator.read(file);
+        access.lock(memoryId, owner, trip);
+        var existing = mediaRepository.findByMemoryIdAndClientRequestId(memoryId, requestId);
+        if (existing.isPresent()) {
+            if (!image.hash().equals(existing.get().getUploadSha256())) throw new AppException(ErrorCode.UPLOAD_REQUEST_CONFLICT);
+            return MediaPersistenceHelper.response(existing.get());
+        }
+        var result = uploadImage(file, owner, trip, memoryId);
+        var media = mediaRepository.findById(result.getMediaId()).orElseThrow();
+        media.setClientRequestId(requestId);
+        media.setUploadSha256(image.hash());
         memories.flush();
+        return result;
     }
+
 }

@@ -1,6 +1,7 @@
 -- Demo login: demo.local@example.com or demo.user02..50@example.com / DemoTravel!2026.
 -- IDs d31..d39 identify demo records; insert-only conflicts preserve existing edits.
--- Flyway supplies the transaction and migration lock. Photos and map pins are illustrative.
+-- DEV ONLY. Run explicitly with psql --single-transaction -v ON_ERROR_STOP=1.
+-- Photos and map pins are illustrative; this script is not an automatic migration.
 SET LOCAL TIME ZONE 'Asia/Ho_Chi_Minh';
 
 -- 1. Protect existing accounts and records before inserting anything.
@@ -226,7 +227,7 @@ ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO itinerary_items (
     id, itinerary_id, place_id, date, start_time, end_time, sequence,
-    distance_from_previous, travel_time_from_previous, note, created_at, updated_at
+    distance_from_previous, travel_time_from_previous, note, created_at, updated_at, arrival_at, duration_minutes
 )
 SELECT
     ('d3600000-0000-0000-0000-' || lpad(v.link_no::text, 12, '0'))::uuid, i.id,
@@ -235,7 +236,8 @@ SELECT
     '09:00'::time, '10:30'::time, 0, 0, 0,
     CASE WHEN v.trip_no <= 3 THEN 'Điểm đầu của ngày tham quan; chưa tính tuyến đường từ nơi lưu trú.'
         ELSE 'Điểm đầu của ngày; chưa mô hình hóa tuyến đường từ nơi lưu trú.' END,
-    i.created_at + INTERVAL '1 hour', CURRENT_TIMESTAMP
+    i.created_at + INTERVAL '1 hour', CURRENT_TIMESTAMP,
+    (CASE WHEN t.status = 'ACTIVE' AND v.position = 2 THEN t.end_date ELSE t.start_date + v.position END) + '09:00'::time, 90
 FROM demo_seed_visits v
 JOIN trips t ON t.id = ('d3300000-0000-0000-0000-' || lpad(v.trip_no::text, 12, '0'))::uuid
 JOIN itineraries i ON i.trip_id = t.id AND i.id::text LIKE 'd3500000-%'

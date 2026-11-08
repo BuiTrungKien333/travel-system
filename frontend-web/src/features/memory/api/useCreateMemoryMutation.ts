@@ -37,7 +37,7 @@ export function useCreateMemoryMutation() {
         if (input.files.length) {
           const form = new FormData();
           input.files.forEach(file => form.append('files', file));
-          await apiClient.post('/media/uploads', form, {
+          await apiClient.post('/media/uploads/atomic', form, {
             params: { memoryId: memory.id, tripId: memory.tripId || undefined },
             headers: { 'Content-Type': 'multipart/form-data' }, timeout: 360_000, signal: input.signal,
             onUploadProgress: event => input.onProgress(event.total ? Math.min(99, Math.round(event.loaded / event.total * 100)) : 0),

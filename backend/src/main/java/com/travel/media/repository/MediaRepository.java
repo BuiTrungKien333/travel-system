@@ -10,6 +10,8 @@ import java.util.Optional;
 public interface MediaRepository extends JpaRepository<Media, UUID> {
     Optional<Media> findByMemoryIdAndClientRequestId(UUID memoryId, UUID clientRequestId);
 
+    java.util.Optional<Media> findByMemoryIdAndUploadHash(UUID memoryId, String uploadHash);
+
     List<Media> findByMemoryIdOrderByDisplayOrderAsc(UUID memoryId);
 
     void deleteByMemoryId(UUID memoryId);

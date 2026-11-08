@@ -12,7 +12,7 @@ class ImageUploadValidatorTest {
     ImageUploadValidator validator = new ImageUploadValidator(limits);
 
     @Test void rejectsMimeSpoofingAndDimensionsBeforeDecoding() throws Exception {
-        var file = MediaServiceTest.png(1);
+        var file = AtomicMediaServiceTest.png(1);
         assertThatThrownBy(() -> validator.read(new MockMultipartFile("files", "x.jpg", "image/jpeg", file.getBytes())))
                 .isInstanceOf(AppException.class).extracting(e -> ((AppException)e).getErrorCode()).isEqualTo(ErrorCode.UPLOAD_INVALID_FILE_TYPE);
         limits.setMaxPixels(3);
@@ -21,7 +21,7 @@ class ImageUploadValidatorTest {
     }
 
     @Test void sizeLimitAllowsBoundaryAndRejectsOneByteMore() throws Exception {
-        var file = MediaServiceTest.png(1);
+        var file = AtomicMediaServiceTest.png(1);
         limits.setMaxFileBytes(file.getSize());
         validator.validateBatch(java.util.List.of(file));
         limits.setMaxFileBytes(file.getSize() - 1);

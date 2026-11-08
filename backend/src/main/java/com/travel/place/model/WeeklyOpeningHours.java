@@ -1,7 +1,6 @@
 package com.travel.place.model;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.travel.place.enums.PlaceOpeningStatus;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.DayOfWeek;
@@ -53,27 +52,5 @@ public record WeeklyOpeningHours(
 
         // 2. Trả về lịch của ngày hôm nay
         return getSchedule(today);
-    }
-
-    /**
-     * Tạo lịch hoạt động giống nhau cho tất cả các ngày trong tuần
-     */
-    public static WeeklyOpeningHours uniformAllDays(LocalTime open, LocalTime close) {
-        Map<DayOfWeek, DaySchedule> map = new EnumMap<>(DayOfWeek.class);
-        for (DayOfWeek dow : DayOfWeek.values()) {
-            map.put(dow, DaySchedule.open(dow, open, close));
-        }
-        return new WeeklyOpeningHours(map);
-    }
-
-    /**
-     * Tạo lịch chưa xác minh cho tất cả các ngày
-     */
-    public static WeeklyOpeningHours allUnverified() {
-        Map<DayOfWeek, DaySchedule> map = new EnumMap<>(DayOfWeek.class);
-        for (DayOfWeek dow : DayOfWeek.values()) {
-            map.put(dow, DaySchedule.unverified(dow));
-        }
-        return new WeeklyOpeningHours(map);
     }
 }

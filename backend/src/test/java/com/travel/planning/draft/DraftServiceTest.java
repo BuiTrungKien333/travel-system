@@ -16,7 +16,7 @@ import com.travel.planning.draft.provider.GeminiDraftClient;
 import com.travel.planning.draft.service.*;
 import com.travel.planning.draft.service.DraftService;
 import com.travel.planning.draft.service.DraftTimelinePlanner;
-import com.travel.planning.retrieval.config.RagDemoProperties;
+import com.travel.planning.retrieval.config.RagProperties;
 import com.travel.planning.retrieval.dto.response.PlaceSearchResponse;
 import com.travel.planning.retrieval.model.PlaceCandidate;
 import com.travel.planning.retrieval.service.PlaceRetrievalService;
@@ -47,7 +47,7 @@ class DraftServiceTest {
     DraftServiceTest() throws Exception {
         var advisor = new DraftAllocationService(new GeminiDraftClient(ai, mapper));
         var planner = new DraftTimelinePlanner(new HeldKarpSolver(new HaversineDistanceMatrixService()), new TimelineEngine(), mapper);
-        var properties = new RagDemoProperties();
+        var properties = new RagProperties();
         service = new DraftService(intents, retrieval, repository, advisor, new DraftSchedulingService(planner), new DraftThemeService(),
                 new DraftWeatherService(weather, weatherExecutor, properties), properties, new AiRequestContext(properties));
         when(ai.generate(any(com.travel.planning.ai.resilience.AiRequestContext.Stage.class), anyString(), anyString(), anyMap())).thenThrow(new AppException(ErrorCode.AI_SERVICE_UNAVAILABLE));

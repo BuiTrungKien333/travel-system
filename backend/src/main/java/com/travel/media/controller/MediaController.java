@@ -2,8 +2,11 @@ package com.travel.media.controller;
 
 import com.travel.common.response.ApiResponse;
 import com.travel.media.dto.UploadResponse;
+import com.travel.media.dto.BatchUploadResponse;
 import com.travel.media.service.MediaService;
-import com.travel.media.config.MediaProperties;
+import com.travel.media.util.ImageUploadPolicy;
+import com.travel.common.exception.AppException;
+import com.travel.common.exception.ErrorCode;
 import com.travel.security.util.SecurityUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -25,15 +28,19 @@ import java.util.UUID;
 public class MediaController {
 
     private final MediaService mediaService;
-    private final MediaProperties limits;
+    private final com.travel.media.config.MediaProperties limits;
 
     @GetMapping("/limits")
-    @Operation(summary = "Get upload limits for image selection and validation")
-    public ApiResponse<MediaProperties> limits() { return ApiResponse.success(limits); }
+    public ApiResponse<com.travel.media.config.MediaProperties> limits() {
+        return ApiResponse.success(limits);
+    }
     /**
      * Upload a single image to Cloudinary.
-     * Requires a memoryId; an optional tripId must match its parent trip.
+     * If tripId & memoryId are provided, stores in organized folder:
      *   travel-system/users/{userId}/trips/{tripId}/{memoryId}/
+     * Otherwise stores in misc folder:
+     *   travel-system/users/{userId}/misc/
+     *
      * POST /api/v1/media/upload?tripId=...&memoryId=...
      */
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -41,14 +48,16 @@ public class MediaController {
     @Operation(
             summary = "Upload single image",
             description = "Upload a single image file (JPEG, PNG, GIF, WebP) to Cloudinary. Max size: 10MB. "
-                    + "memoryId is required; tripId is optional and must match the memory. "
-                    + "Actual file contents are verified; identical bytes in the same memory reuse existing media."
+                    + "If tripId & memoryId are provided, the image is stored in an organized folder structure. "
+                    + "Otherwise it goes to the user's misc folder."
     )
     public ApiResponse<UploadResponse> uploadImage(
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "tripId", required = false) UUID tripId,
-            @RequestParam("memoryId") UUID memoryId
+            @RequestParam(value = "memoryId", required = false) UUID memoryId,
+            @RequestParam(value = "clientRequestId", required = false) UUID clientRequestId
     ) {
+        if ((tripId == null) != (memoryId == null)) throw new AppException(ErrorCode.VALIDATION_ERROR);
         UUID currentUserId = SecurityUtils.getCurrentUserId();
         log.info("User [{}] uploading image: name={}, type={}, size={} bytes, tripId={}, memoryId={}",
                 currentUserId,
@@ -58,7 +67,13 @@ public class MediaController {
                 tripId,
                 memoryId);
 
-        UploadResponse response = mediaService.uploadImage(file, currentUserId, tripId, memoryId);
+        UploadResponse response;
+        if (tripId != null && memoryId != null) {
+            response = mediaService.uploadImage(file, currentUserId, tripId, memoryId, clientRequestId);
+        } else {
+            if (clientRequestId != null) throw new AppException(ErrorCode.VALIDATION_ERROR);
+            response = mediaService.uploadImage(file, currentUserId);
+        }
         return ApiResponse.success("Image uploaded successfully", response);
     }
 
@@ -67,23 +82,22 @@ public class MediaController {
      * POST /api/v1/media/uploads?tripId=...&memoryId=...
      */
     @PostMapping(value = "/uploads", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @ResponseStatus(HttpStatus.CREATED)
+    @ResponseStatus(HttpStatus.OK)
     @Operation(
             summary = "Upload multiple images",
-            description = "Upload up to 10 image files at once. Each file must be JPEG, PNG, GIF, or WebP. Max 10MB per file. "
-                    + "Requires memoryId. The batch is attached atomically; quota is checked before storage and again under a row lock."
+            description = "Processes up to 10 images in submission order for an owned memory and trip. Returns per-file media or errorCode/errorStatus with original index; successful files remain saved even if others fail. Retrying identical files in the same memory is idempotent. Max 10MB per file."
     )
-    public ApiResponse<List<UploadResponse>> uploadImages(
+    public ApiResponse<BatchUploadResponse> uploadImages(
             @RequestParam("files") List<MultipartFile> files,
-            @RequestParam(value = "tripId", required = false) UUID tripId,
+            @RequestParam("tripId") UUID tripId,
             @RequestParam("memoryId") UUID memoryId
     ) {
+        if ((tripId == null) != (memoryId == null)) throw new AppException(ErrorCode.VALIDATION_ERROR);
         UUID currentUserId = SecurityUtils.getCurrentUserId();
         log.info("User [{}] uploading {} images, tripId={}, memoryId={}",
                 currentUserId, files.size(), tripId, memoryId);
 
-        List<UploadResponse> responses = mediaService.uploadImages(files, currentUserId, tripId, memoryId);
-        return ApiResponse.success("Images uploaded successfully", responses);
+        return ApiResponse.success("Image batch processed", mediaService.uploadImages(files, currentUserId, tripId, memoryId));
     }
     /**
      * Delete a specific media item by ID.
@@ -93,11 +107,18 @@ public class MediaController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(
             summary = "Delete media item",
-            description = "Permanently deletes a specific media item from a memory. Requires ownership."
+            description = "Owner-only. Confirms provider deletion and requests CDN invalidation before removing the database photo. Repeated requests are idempotent; failed cleanup is retained for retry. CDN propagation is asynchronous."
     )
     public void deleteMedia(@RequestParam("id") UUID id) {
         UUID currentUserId = SecurityUtils.getCurrentUserId();
         log.info("User [{}] is deleting media [{}]", currentUserId, id);
         mediaService.deleteMedia(id, currentUserId);
+    }
+    @PostMapping(value = "/uploads/atomic", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @ResponseStatus(HttpStatus.CREATED)
+    @Operation(summary = "Upload a batch atomically", description = "Attaches every validated image together; a failed upload queues all attempted assets for cleanup.")
+    public ApiResponse<List<UploadResponse>> uploadAtomic(@RequestParam("files") List<MultipartFile> files,
+            @RequestParam(value = "tripId", required = false) UUID tripId, @RequestParam("memoryId") UUID memoryId) {
+        return ApiResponse.success(mediaService.uploadImagesAtomic(files, SecurityUtils.getCurrentUserId(), tripId, memoryId));
     }
 }

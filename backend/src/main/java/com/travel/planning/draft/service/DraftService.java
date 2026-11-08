@@ -12,7 +12,7 @@ import com.travel.planning.ai.resilience.AiCallFailure;
 import com.travel.planning.ai.resilience.AiRequestContext;
 import com.travel.planning.draft.dto.request.GenerateDraftRequest;
 import com.travel.planning.draft.dto.response.DraftResponse;
-import com.travel.planning.retrieval.config.RagDemoProperties;
+import com.travel.planning.retrieval.config.RagProperties;
 import com.travel.planning.retrieval.dto.response.PlaceSearchResponse;
 import com.travel.planning.retrieval.model.PlaceCandidate;
 import com.travel.planning.retrieval.service.PlaceRetrievalService;
@@ -28,7 +28,7 @@ import static com.travel.planning.ai.resilience.AiRequestContext.Stage.*;
 import static com.travel.planning.draft.dto.response.DraftResponse.*;
 
 @Service
-@Profile("rag-demo")
+@Profile({"dev", "rag-demo"})
 public class DraftService {
 
     private final TravelIntentService intents;
@@ -38,12 +38,12 @@ public class DraftService {
     private final DraftSchedulingService scheduling;
     private final DraftThemeService themes;
     private final DraftWeatherService weather;
-    private final RagDemoProperties properties;
+    private final RagProperties properties;
     private final AiRequestContext context;
 
     public DraftService(TravelIntentService intents, PlaceRetrievalService retrieval, PlaceRepository places,
                         DraftAllocationService allocations, DraftSchedulingService scheduling, DraftThemeService themes,
-                        DraftWeatherService weather, RagDemoProperties properties, AiRequestContext context) {
+                        DraftWeatherService weather, RagProperties properties, AiRequestContext context) {
         this.intents = intents;
         this.retrieval = retrieval;
         this.places = places;

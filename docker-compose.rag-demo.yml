@@ -7,7 +7,7 @@ services:
       POSTGRES_USER: travel_demo
       POSTGRES_PASSWORD: ${RAG_DEMO_DB_PASSWORD:?Set RAG_DEMO_DB_PASSWORD locally}
     ports:
-      - "127.0.0.1:${RAG_DEMO_DB_PORT:-5434}:5432"
+      - "127.0.0.1:${RAG_DEMO_DB_PORT:-5435}:5432"
     volumes:
       - rag_demo_data:/var/lib/postgresql/data
     healthcheck:

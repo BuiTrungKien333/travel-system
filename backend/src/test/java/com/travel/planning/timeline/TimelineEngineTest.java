@@ -3,7 +3,6 @@ package com.travel.planning.timeline;
 import com.travel.place.entity.Place;
 import com.travel.place.enums.PlaceType;
 import com.travel.planning.dto.request.TspLocationRequest;
-import com.travel.planning.enums.VisitStatus;
 import com.travel.planning.rule.model.ScheduleItemContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

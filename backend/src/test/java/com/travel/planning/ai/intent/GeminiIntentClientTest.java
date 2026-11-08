@@ -5,7 +5,7 @@ import com.travel.common.exception.AppException;
 import com.travel.common.exception.ErrorCode;
 import com.travel.planning.ai.intent.provider.GeminiIntentClient;
 import com.travel.planning.ai.intent.validator.TravelIntentValidator;
-import com.travel.planning.retrieval.config.RagDemoProperties;
+import com.travel.planning.retrieval.config.RagProperties;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
@@ -19,12 +19,12 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 class GeminiIntentClientTest {
     final ObjectMapper mapper = new ObjectMapper();
-    RagDemoProperties properties;
+    RagProperties properties;
     MockRestServiceServer server;
     GeminiIntentClient client;
 
     @BeforeEach void setup() throws Exception {
-        properties = new RagDemoProperties(); properties.setApiKey("test-only");
+        properties = new RagProperties(); properties.setApiKey("test-only");
         var builder = RestClient.builder(); server = MockRestServiceServer.bindTo(builder).build();
         client = new GeminiIntentClient(properties, mapper, new TravelIntentValidator(mapper), builder.build());
     }

@@ -35,12 +35,6 @@ public class Media {
     @Column(name = "url", nullable = false, length = 2048)
     private String url;
 
-    @Column(name = "public_id", length = 255)
-    private String publicId;
-
-    @Column(name = "content_hash", length = 64)
-    private String contentHash;
-
     @Column(name = "mime_type", length = 50)
     private String mimeType;
 
@@ -55,10 +49,28 @@ public class Media {
 
     @Column(name = "display_order", nullable = false)
     private Integer displayOrder = 0;
+
+    @Setter(AccessLevel.NONE)
+    @Column(name = "upload_hash", length = 64, updatable = false)
+    private String uploadHash;
+
+    @Setter(AccessLevel.NONE)
+    @Column(name = "public_id", length = 1024, updatable = false)
+    private String publicId;
+
+    public void identifyUpload(String hash, String publicId) {
+        this.uploadHash = hash;
+        this.publicId = publicId;
+    }
+
     @Column(name = "client_request_id")
     private UUID clientRequestId;
     @Column(name = "upload_sha256", length = 64)
     private String uploadSha256;
+
+    public String getContentHash() { return uploadHash; }
+    public void setContentHash(String hash) { this.uploadHash = hash; }
+    public void setPublicId(String id) { this.publicId = id; }
 
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)

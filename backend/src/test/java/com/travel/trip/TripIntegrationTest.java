@@ -85,6 +85,62 @@ class TripIntegrationTest {
     }
 
     @Test
+    void createReadUpdateAndListPersistTripFields() throws Exception {
+        var body = tripBody();
+        body.put("preferences", List.of("nature", "food"));
+        body.put("budget", Map.of("amount", 2500000, "currency", "VND"));
+        JsonNode created = data(send(post(TRIPS), body).andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.trip.passwordHash").doesNotExist()));
+        String path = TRIPS + "/" + created.path("id").asText();
+        assertThat(trips.findById(UUID.fromString(created.path("id").asText())).orElseThrow().getUser().getId())
+                .isEqualTo(owner.getId());
+        assertThat(created.path("preferences").get(0).asText()).isEqualTo("nature");
+        assertThat(created.path("budget").path("amount").asInt()).isEqualTo(2500000);
+        send(get(path)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.trip.title").value("Weekend trip"));
+        send(patch(path), Map.of("title", "Updated holiday", "version", created.path("version").asLong(),
+                        "notes", "Family holiday"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.trip.title").value("Updated holiday"))
+                .andExpect(jsonPath("$.data.trip.destination.name").value("Da Nang"))
+                .andExpect(jsonPath("$.data.trip.startDate").value("2027-01-10"))
+                .andExpect(jsonPath("$.data.trip.notes").value("Family holiday"))
+                .andExpect(jsonPath("$.data.trip.preferences[1]").value("food"));
+        JsonNode list = data(send(get(TRIPS)).andExpect(status().isOk()));
+        assertThat(list.isArray()).isTrue();
+        assertThat(list).hasSize(1);
+        assertThat(list.get(0).path("id").asText()).isEqualTo(created.path("id").asText());
+        assertThat(trips.findById(UUID.fromString(created.path("id").asText())).orElseThrow().getName())
+                .isEqualTo("Updated holiday");
+    }
+
+    @Test
+    void partialDateUpdateValidatesAgainstStoredDatesAndRollsBack() throws Exception {
+        String path = TRIPS + "/" + createTrip();
+        send(patch(path), Map.of("version", 0, "title", "Must roll back", "endDate", "2027-01-09"))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("COMMON_003"));
+        send(patch(path), Map.of("version", 0, "startDate", "2027-01-13"))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("COMMON_003"));
+        send(get(path)).andExpect(status().isOk()).andExpect(jsonPath("$.data.trip.title").value("Weekend trip"))
+                .andExpect(jsonPath("$.data.trip.endDate").value("2027-01-12"));
+        send(patch(path), Map.of("version", 0, "startDate", "2027-01-10", "endDate", "2027-01-10",
+                        "acknowledgeDateImpact", true))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.trip.endDate").value("2027-01-10"));
+    }
+
+    @Test
+    void createRejectsBlankMissingFieldsInvalidDatesAndNegativeBudget() throws Exception {
+        var blank = tripBody(); blank.put("destination", Map.of("name", "   "));
+        var missing = tripBody(); missing.remove("startDate");
+        var dates = tripBody(); dates.put("endDate", "2027-01-09");
+        var budget = tripBody(); budget.put("budget", Map.of("amount", -1, "currency", "VND"));
+        var forgedOwner = tripBody(); forgedOwner.put("userId", UUID.randomUUID());
+        for (var invalid : List.of(blank, missing, dates, budget, forgedOwner)) {
+            send(post(TRIPS), invalid).andExpect(status().isBadRequest());
+        }
+        assertThat(data(send(get(TRIPS)).andExpect(status().isOk()))).isEmpty();
+    }
+
+    @Test
     void foreignAndMissingTripsArePrivateAcrossAllOperations() throws Exception {
         String otherPassword = UUID.randomUUID().toString();
         User other = users.saveAndFlush(User.builder().fullName("Other Owner")
@@ -97,7 +153,7 @@ class TripIntegrationTest {
         for (String id : List.of(tripId, UUID.randomUUID().toString())) {
             String path = TRIPS + "/" + id;
             List<MockHttpServletRequestBuilder> requests = List.of(
-                    get(path), patch(path).content(json.writeValueAsString(Map.of("version", 0, "title", "Stolen"))), delete(path).param("version", "0"),
+                    get(path), patch(path).content(json.writeValueAsString(Map.of("title", "Stolen", "version", 0))), delete(path).param("version", "0"),
                     get(path + "/places"), post(path + "/places").content(json.writeValueAsString(Map.of("placeId", place.getId()))),
                     put(path + "/places/" + place.getId()).content(json.writeValueAsString(Map.of("visited", true))),
                     delete(path + "/places/" + place.getId()));
@@ -105,7 +161,7 @@ class TripIntegrationTest {
                 send(request, otherToken).andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("TRIP_001"));
             }
         }
-        assertThat(data(send(get(TRIPS), otherToken).andExpect(status().isOk())).path("content")).isEmpty();
+        assertThat(data(send(get(TRIPS), otherToken).andExpect(status().isOk()))).isEmpty();
         send(get(TRIPS + "/" + tripId)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.trip.title").value("Weekend trip"));
     }
@@ -114,7 +170,7 @@ class TripIntegrationTest {
     void unauthenticatedRequestsCannotReadOrMutateTrips() throws Exception {
         String path = TRIPS + "/" + createTrip();
         for (var request : List.of(get(TRIPS), get(path), post(TRIPS).content(json.writeValueAsString(tripBody())),
-                patch(path).content("{}"), delete(path), get(path + "/places"),
+                patch(path).content("{\"title\":\"Updated\",\"version\":0}"), delete(path).param("version", "0"), get(path + "/places"),
                 post(path + "/places").content("{}"), put(path + "/places/" + UUID.randomUUID()).content("{}"),
                 delete(path + "/places/" + UUID.randomUUID()))) {
             mvc.perform(request.contentType(MediaType.APPLICATION_JSON)).andExpect(status().isUnauthorized());
@@ -145,6 +201,7 @@ class TripIntegrationTest {
         assertThat(list.get(0).path("placeId").asText()).isEqualTo(existing.getId().toString());
         send(get(TRIPS + "/" + tripId)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.trip.stopCount").value(2));
+        assertThat(tripPlaces.findByTripId(UUID.fromString(tripId)).stream().filter(com.travel.trip.entity.TripPlace::isVisited).count()).isEqualTo(1);
         assertThat(places.findById(existing.getId()).orElseThrow().getName()).isEqualTo(existing.getName());
     }
 
@@ -292,13 +349,40 @@ class TripIntegrationTest {
                 .andExpect(jsonPath("$.data.trip.stopCount").value(0)).andExpect(jsonPath("$.data.trip.memoryCount").value(1));
     }
 
+    @Test
+    void deletingTripSoftDeletesOwnMemoriesPreservesForeignMemoriesAndHidesTripOperations() throws Exception {
+        String tripId = createTrip();
+        Place place = place();
+        String path = TRIPS + "/" + tripId;
+        send(post(path + "/places"), Map.of("placeId", place.getId())).andExpect(status().isCreated());
+        Memory memory = memories.saveAndFlush(Memory.create(owner.getId(), UUID.fromString(tripId),
+                place.getId(), "Trip deletion keeps this row for soft-delete history", Instant.now()));
+        User other = users.saveAndFlush(User.builder().fullName("Other journal owner")
+                .email(UUID.randomUUID() + "@example.com").role(Role.USER).build());
+        Memory foreign = memories.saveAndFlush(Memory.create(other.getId(), UUID.fromString(tripId),
+                place.getId(), "A legacy reference must not grant delete access", Instant.now()));
+        send(delete(path).param("version", "0")).andExpect(status().isNoContent());
+        assertThat(trips.findById(UUID.fromString(tripId)).orElseThrow().isDeleted()).isTrue();
+        assertThat(places.findById(place.getId())).isPresent();
+        assertThat(memories.findByIdAndDeletedAtIsNull(memory.getId())).isEmpty();
+        assertThat(memories.findById(memory.getId())).isPresent();
+        assertThat(memories.findByIdAndDeletedAtIsNull(foreign.getId())).isPresent();
+        assertThat(data(send(get(TRIPS)).andExpect(status().isOk()))).isEmpty();
+        send(delete(path).param("version", "0")).andExpect(status().isNoContent());
+        for (var request : List.of(get(path), get(path + "/places"), patch(path).content("{\"title\":\"Updated\",\"version\":0}"),
+                post(path + "/places").content(json.writeValueAsString(Map.of("placeId", place.getId()))))) {
+            send(request).andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("TRIP_001"));
+        }
+    }
+
     private Map<String, Object> tripBody() {
-        return new LinkedHashMap<>(Map.of("clientRequestId", UUID.randomUUID(), "title", "Weekend trip", "destination", Map.of("name", "Da Nang"),
+        return new LinkedHashMap<>(Map.of("clientRequestId", UUID.randomUUID().toString(),
+                "title", "Weekend trip", "destination", Map.of("name", "Da Nang"),
                 "startDate", "2027-01-10", "endDate", "2027-01-12"));
     }
 
     private String createTrip() throws Exception {
-        return data(send(post(TRIPS), tripBody()).andExpect(status().isCreated())).path("trip").path("id").asText();
+        return data(send(post(TRIPS), tripBody()).andExpect(status().isCreated())).path("id").asText();
     }
 
     private Place place() {
@@ -324,7 +408,11 @@ class TripIntegrationTest {
     }
 
     private JsonNode data(ResultActions result) throws Exception {
-        return json.readTree(result.andReturn().getResponse().getContentAsString()).path("data");
+        JsonNode payload = json.readTree(result.andReturn().getResponse().getContentAsString()).path("data");
+        // Business assertions use canonical Trip Read/Page envelopes; place/auth responses stay unchanged.
+        if (payload.has("trip")) return payload.path("trip");
+        if (payload.has("content")) return payload.path("content");
+        return payload;
     }
 
     private List<Integer> race(Callable<Integer> action) throws Exception {

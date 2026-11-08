@@ -2,17 +2,22 @@ package com.travel.itinerary.controller;
 
 import com.travel.common.response.ApiResponse;
 import com.travel.itinerary.dto.request.SaveItineraryRequest;
+import com.travel.itinerary.dto.request.SaveItineraryDayRequest;
 import com.travel.itinerary.dto.request.ApplyItineraryOptimizationRequest;
 import com.travel.itinerary.dto.response.ItineraryResponse;
 import com.travel.itinerary.dto.response.ItineraryOptimizationResponse;
 import com.travel.itinerary.service.ItineraryService;
+import com.travel.itinerary.service.DayScheduleService;
+import com.travel.itinerary.dto.request.UpdateDayScheduleRequest;
 import com.travel.security.util.SecurityUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.format.annotation.DateTimeFormat;
 
+import java.time.LocalDate;
 import java.util.UUID;
 
 @RestController
@@ -22,6 +27,15 @@ import java.util.UUID;
 public class ItineraryController {
 
     private final ItineraryService service;
+    private final DayScheduleService daySchedules;
+
+    @PutMapping("/days/{date}/schedule")
+    @Operation(summary = "Update departure settings and visit durations", description = "Calculates arrival times from Mapbox outside a DB transaction, then atomically saves with revision checks. Missing route data leaves unknown arrivals unset.")
+    public ApiResponse<ItineraryResponse> updateSchedule(@PathVariable UUID tripId,
+            @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @Valid @RequestBody UpdateDayScheduleRequest request) {
+        return ApiResponse.success(daySchedules.update(SecurityUtils.getCurrentUserId(), tripId, date, request));
+    }
 
     @GetMapping
     @Operation(summary = "Get the current multi-day itinerary", description = "Days are grouped by planned date; each stop has an explicit sequence, local arrival timestamp, duration and note.")
@@ -34,6 +48,14 @@ public class ItineraryController {
     public ApiResponse<ItineraryResponse> save(@PathVariable UUID tripId,
                                                @Valid @RequestBody SaveItineraryRequest request) {
         return ApiResponse.success(service.save(SecurityUtils.getCurrentUserId(), tripId, request));
+    }
+
+    @PutMapping("/days/{date}")
+    @Operation(summary = "Save one itinerary day", description = "Replaces one day's schedule with revision checks. Saved departure settings recalculate arrivals after route or duration changes; visited stops today stay unchanged. Removed stops stay in the trip.")
+    public ApiResponse<ItineraryResponse> saveDay(@PathVariable UUID tripId,
+            @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @Valid @RequestBody SaveItineraryDayRequest request) {
+        return ApiResponse.success(daySchedules.saveDay(SecurityUtils.getCurrentUserId(), tripId, date, request));
     }
 
     @PostMapping("/optimize")

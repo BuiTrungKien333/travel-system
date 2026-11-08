@@ -3,7 +3,6 @@ package com.travel.planning.algorithm.model;
 import com.travel.place.entity.Place;
 import lombok.*;
 
-import java.util.Collections;
 import java.util.List;
 
 @Getter

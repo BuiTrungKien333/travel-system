@@ -165,7 +165,6 @@ public class HeldKarpSolver {
             Arrays.fill(parent[mask], -1);
         }
 
-
         // Khởi tạo trạng thái cơ sở
         if (startFixed) {
             // Cố định đỉnh xuất phát tại index 0 (với Round-trip, chu trình khép kín bất biến với điểm bắt đầu)

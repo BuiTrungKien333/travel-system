@@ -77,10 +77,15 @@ public class DayScheduleService {
                 var old = before.get(i);
                 var next = proposed.get(i);
                 if (!old.placeId().equals(next.placeId()) || old.durationMinutes() != next.durationMinutes()
-                        || !Objects.equals(old.arrivalTime(), next.arrivalTime())) { changed = true; break; }
+                        || !Objects.equals(old.arrivalTime(), next.arrivalTime())) {
+                    changed = true;
+                    break;
+                }
             }
         }
-        if (settings == null || !changed) return itineraries.saveDay(owner, tripId, date, request);
+        if (settings == null || !changed) {
+            return itineraries.saveDay(owner, tripId, date, request);
+        }
         var calculated = calculate(trip, date, before, proposed, settings, true, request.expectedVisitedPlaceIds() != null);
         return itineraries.saveDay(owner, tripId, date, new SaveItineraryDayRequest(request.expectedTripVersion(),
                 request.expectedUpdatedAt(), calculated, savedSettings == null ? settings : request.settings(), request.expectedVisitedPlaceIds()));

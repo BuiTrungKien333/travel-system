@@ -147,22 +147,25 @@ public class TripServiceImpl implements TripService {
             throw new AppException(ErrorCode.ITINERARY_CHANGED);
         if (new HashSet<>(request.placeIds()).size() != request.placeIds().size())
             throw new AppException(ErrorCode.VALIDATION_ERROR);
-        var visible = places.findVisibleByIds(request.placeIds(),userId).stream()
-                .collect(Collectors.toMap(Place::getId,Function.identity()));
+        var visible = places.findVisibleByIds(request.placeIds(), userId).stream()
+                .collect(Collectors.toMap(Place::getId, Function.identity()));
         if (visible.size() != request.placeIds().size()) throw new AppException(ErrorCode.PLACE_NOT_FOUND);
         var ordered = orderedPlaces(tripId);
-        Map<UUID,TripPlace> links = ordered.stream().collect(Collectors.toMap(item -> item.getPlace().getId(),Function.identity()));
+        Map<UUID,TripPlace> links = ordered.stream().collect(Collectors.toMap(item -> item.getPlace().getId(), Function.identity()));
         int nextOrder = ordered.stream().map(TripPlace::getPlannedOrder).filter(Objects::nonNull).max(Integer::compareTo).orElse(-1) + 1;
         List<TripPlace> additions = new ArrayList<>();
         for (UUID id : request.placeIds()) {
             if (!links.containsKey(id)) {
                 var link = TripPlace.builder().trip(trip).place(visible.get(id)).plannedOrder(nextOrder++).build();
-                additions.add(link); links.put(id,link);
+                additions.add(link);
+                links.put(id, link);
             }
         }
         tripPlaces.saveAllAndFlush(additions);
         var selected = request.placeIds().stream().map(links::get).toList();
-        if (request.date() != null) itineraryService.appendPlacesToDay(trip, request.date(), selected);
+        if (request.date() != null) {
+            itineraryService.appendPlacesToDay(trip, request.date(), selected);
+        }
         if (schedule != null) {
             var appended = itineraryService.get(userId, tripId);
             itineraryService.saveDay(userId, tripId, request.date(), new SaveItineraryDayRequest(

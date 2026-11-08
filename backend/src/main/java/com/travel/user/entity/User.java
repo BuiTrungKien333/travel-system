@@ -2,8 +2,17 @@ package com.travel.user.entity;
 
 import com.travel.common.persistence.BaseEntity;
 import com.travel.user.enums.Role;
-import jakarta.persistence.*;
-import lombok.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
 import java.time.Instant;
 
 @Entity
@@ -41,5 +50,7 @@ public class User extends BaseEntity {
     @Column(name = "google_subject", unique = true, length = 255)
     private String googleSubject;
 
-    public boolean isEmailVerified() { return emailVerifiedAt != null; }
+    public boolean isEmailVerified() {
+        return emailVerifiedAt != null;
+    }
 }

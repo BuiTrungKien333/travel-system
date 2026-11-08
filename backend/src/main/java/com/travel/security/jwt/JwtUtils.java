@@ -37,12 +37,6 @@ public class JwtUtils {
     @Value("${app.jwt.refresh.expiration}")
     private long jwtRefreshExpiration;
 
-    public long getJwtExpiration() {
-        return jwtExpiration;
-    }
-
-    public long getJwtRefreshExpiration() { return jwtRefreshExpiration; }
-
     private SecretKey accessSigningKey;
     private SecretKey refreshSigningKey;
 
@@ -50,6 +44,14 @@ public class JwtUtils {
     private void initKeys() {
         this.accessSigningKey = Keys.hmacShaKeyFor(Decoders.BASE64.decode(secretKey));
         this.refreshSigningKey = Keys.hmacShaKeyFor(Decoders.BASE64.decode(refreshKey));
+    }
+
+    public long getJwtExpiration() {
+        return jwtExpiration;
+    }
+
+    public long getJwtRefreshExpiration() {
+        return jwtRefreshExpiration;
     }
 
     // --- GENERATE TOKEN ---
@@ -88,7 +90,6 @@ public class JwtUtils {
                 .signWith(getSignInKey(type), Jwts.SIG.HS256)
                 .compact();
     }
-
 
     // --- VALIDATE TOKEN ---
     public boolean isTokenValid(String token, UserDetails userDetails, TokenType type) {

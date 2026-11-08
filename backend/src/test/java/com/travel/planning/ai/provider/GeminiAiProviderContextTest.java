@@ -1,6 +1,5 @@
 package com.travel.planning.ai.provider;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.travel.planning.ai.config.AiConfigProperties;
 import com.travel.planning.ai.context.AiContextBuilder;
 import com.travel.planning.ai.copilot.context.AiCopilotContextBuilder;

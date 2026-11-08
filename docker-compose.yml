@@ -1,10 +1,12 @@
 services:
 
   postgres:
-    image: postgres:17-alpine
+    image: travel-postgres-pgvector:17-0.8.2
+    build:
+      context: ./docker/postgres
     container_name: travel-postgres
 
-    restart: unless-stopped
+    restart: no
 
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
@@ -26,6 +28,7 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+      start_period: 5s
 
 volumes:
   postgres_data:

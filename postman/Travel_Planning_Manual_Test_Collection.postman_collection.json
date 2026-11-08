@@ -1,0 +1,396 @@
+{
+  "info": {
+    "_postman_id": "travel-system-manual-test-collection",
+    "name": "Travel Planning - Manual Testing Collection (Weather, Held-Karp, Rules, AI Copilot)",
+    "description": "Bộ sưu tập Postman thiết kế riêng cho việc TEST THỦ CÔNG BẰNG TAY. Dữ liệu mẫu thực tế tại Đà Nẵng, JSON rõ ràng, dễ copy-paste và tinh chỉnh.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Weather Module (Thời Tiết)",
+      "description": "Test thủ công các API lấy thời tiết thực tế và dự báo theo tọa độ GPS",
+      "item": [
+        {
+          "name": "1.1 Lấy thời tiết hiện tại - Đà Nẵng",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/weather/current?latitude=16.0592&longitude=108.2464",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "public", "weather", "current"],
+              "query": [
+                {
+                  "key": "latitude",
+                  "value": "16.0592",
+                  "description": "Vĩ độ (Latitude) - Ví dụ: 16.0592 (Đà Nẵng)"
+                },
+                {
+                  "key": "longitude",
+                  "value": "108.2464",
+                  "description": "Kinh độ (Longitude) - Ví dụ: 108.2464 (Đà Nẵng)"
+                }
+              ]
+            },
+            "description": "Mục đích: Xem nhiệt độ hiện tại, cảm nhận thực tế, tốc độ gió, và mức độ rủi ro ngoài trời (SAFE, MODERATE, HIGH, EXTREME)."
+          }
+        },
+        {
+          "name": "1.2 Lấy dự báo thời tiết 3 ngày (Gọn nhẹ mặc định - Không kèm giờ)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/weather/forecast?latitude=16.0592&longitude=108.2464&startDate=2026-10-01&endDate=2026-10-03",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "public", "weather", "forecast"],
+              "query": [
+                { "key": "latitude", "value": "16.0592" },
+                { "key": "longitude", "value": "108.2464" },
+                { "key": "startDate", "value": "2026-10-01", "description": "Ngày bắt đầu (yyyy-MM-dd)" },
+                { "key": "endDate", "value": "2026-10-03", "description": "Ngày kết thúc (yyyy-MM-dd)" },
+                { "key": "includeHourly", "value": "false", "disabled": true, "description": "Mặc định false: trả về tổng quan ngày (~30 dòng)" }
+              ]
+            },
+            "description": "Mục đích: Bản dự báo thời tiết tối ưu hóa (~30 dòng), chỉ gồm tóm tắt từng ngày (nhiệt độ min/max, xác suất mưa, mức rủi ro, thời tiết chủ đạo), không bị phình to bởi 24 giờ."
+          }
+        },
+        {
+          "name": "1.2b Lấy dự báo thời tiết 3 ngày (Chi tiết 24 giờ từng ngày)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/weather/forecast?latitude=16.0592&longitude=108.2464&startDate=2026-10-01&endDate=2026-10-03&includeHourly=true",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "public", "weather", "forecast"],
+              "query": [
+                { "key": "latitude", "value": "16.0592" },
+                { "key": "longitude", "value": "108.2464" },
+                { "key": "startDate", "value": "2026-10-01", "description": "Ngày bắt đầu (yyyy-MM-dd)" },
+                { "key": "endDate", "value": "2026-10-03", "description": "Ngày kết thúc (yyyy-MM-dd)" },
+                { "key": "includeHourly", "value": "true", "description": "Truyền true để lấy toàn bộ danh sách 24 khung giờ từng ngày" }
+              ]
+            },
+            "description": "Mục đích: Khi client thực sự cần vẽ biểu đồ nhiệt độ hoặc lượng mưa theo từng khung giờ trong ngày."
+          }
+        },
+        {
+          "name": "1.3 Lấy thời tiết hiện tại - Hà Nội (Hoàn Kiếm)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/weather/current?latitude=21.0285&longitude=105.8542",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "public", "weather", "current"],
+              "query": [
+                { "key": "latitude", "value": "21.0285" },
+                { "key": "longitude", "value": "105.8542" }
+              ]
+            },
+            "description": "Mục đích: Test thử tọa độ khác tại Việt Nam để kiểm tra tính linh hoạt của Open-Meteo."
+          }
+        },
+        {
+          "name": "1.4 Bắt lỗi sai kiểu dữ liệu (longitude='a')",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/weather/current?latitude=16.0592&longitude=a",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "public", "weather", "current"],
+              "query": [
+                { "key": "latitude", "value": "16.0592" },
+                { "key": "longitude", "value": "a", "description": "Cố tình truyền chữ 'a' thay vì số thực double" }
+              ]
+            },
+            "description": "Mục đích: Kiểm tra GlobalExceptionHandler bắt lỗi MethodArgumentTypeMismatchException và trả về HTTP 400 Bad Request, mã lỗi COMMON_008 cùng mô tả trường bị lỗi chi tiết."
+          }
+        },
+        {
+          "name": "1.5 Bắt lỗi thiếu tham số bắt buộc (thiếu latitude)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/weather/current?longitude=108.2464",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "public", "weather", "current"],
+              "query": [
+                { "key": "longitude", "value": "108.2464" }
+              ]
+            },
+            "description": "Mục đích: Kiểm tra GlobalExceptionHandler bắt lỗi MissingServletRequestParameterException khi không truyền latitude, trả về HTTP 400 Bad Request với mã COMMON_009."
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Tối Ưu Lộ Trình (Thuật toán Held-Karp TSP)",
+      "description": "Test giải bài toán người du lịch TSP để sắp xếp thứ tự các điểm ngắn nhất",
+      "item": [
+        {
+          "name": "2.1 Lộ trình khứ hồi (Round-Trip) - 4 điểm Đà Nẵng",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"startPlaceId\": \"11111111-1111-1111-1111-111111111111\",\n  \"isRoundTrip\": true,\n  \"locations\": [\n    {\n      \"id\": \"11111111-1111-1111-1111-111111111111\",\n      \"name\": \"Khách sạn Novotel Bạch Đằng\",\n      \"latitude\": 16.0778,\n      \"longitude\": 108.2238\n    },\n    {\n      \"id\": \"22222222-2222-2222-2222-222222222222\",\n      \"name\": \"Bảo tàng Điêu khắc Chăm\",\n      \"latitude\": 16.0592,\n      \"longitude\": 108.2272\n    },\n    {\n      \"id\": \"33333333-3333-3333-3333-333333333333\",\n      \"name\": \"Chùa Linh Ứng - Sơn Trà\",\n      \"latitude\": 16.1000,\n      \"longitude\": 108.2778\n    },\n    {\n      \"id\": \"44444444-4444-4444-4444-444444444444\",\n      \"name\": \"Cầu Rồng Đà Nẵng\",\n      \"latitude\": 16.0610,\n      \"longitude\": 108.2272\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/planning/tsp/optimize",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "public", "planning", "tsp", "optimize"]
+            },
+            "description": "Mục đích: Bắt đầu từ Novotel, đi qua 3 điểm còn lại rồi vòng về lại Novotel sao cho tổng km ngắn nhất. Quan sát mảng orderedPlaces trong response."
+          }
+        },
+        {
+          "name": "2.2 Lộ trình một chiều (One-Way) - Không quay về điểm xuất phát",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"startPlaceId\": \"11111111-1111-1111-1111-111111111111\",\n  \"isRoundTrip\": false,\n  \"locations\": [\n    {\n      \"id\": \"11111111-1111-1111-1111-111111111111\",\n      \"name\": \"Khách sạn Novotel\",\n      \"latitude\": 16.0778,\n      \"longitude\": 108.2238\n    },\n    {\n      \"id\": \"22222222-2222-2222-2222-222222222222\",\n      \"name\": \"Bảo tàng Chăm\",\n      \"latitude\": 16.0592,\n      \"longitude\": 108.2272\n    },\n    {\n      \"id\": \"33333333-3333-3333-3333-333333333333\",\n      \"name\": \"Cầu Rồng\",\n      \"latitude\": 16.0610,\n      \"longitude\": 108.2272\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/planning/tsp/optimize",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "public", "planning", "tsp", "optimize"]
+            },
+            "description": "Mục đích: Đi 1 chiều từ Novotel đến các điểm khác và dừng lại ở điểm cuối cùng. Quan sát orderedPlaces có đúng 3 phần tử."
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Bộ Thẩm Định Quy Tắc (Rule Evaluator)",
+      "description": "Kiểm tra các quy tắc xác định: Giờ mở/đóng cửa, thời tiết rủi ro ngoài trời, tính khả thi di chuyển",
+      "item": [
+        {
+          "name": "3.1 Thẩm định Lịch trình Hợp lệ (Không có lỗi)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"placeId\": \"11111111-1111-1111-1111-111111111111\",\n      \"placeName\": \"Bảo tàng Điêu khắc Chăm\",\n      \"latitude\": 16.0592,\n      \"longitude\": 108.2272,\n      \"placeType\": \"INDOOR\",\n      \"openingTime\": \"07:30:00\",\n      \"closingTime\": \"17:00:00\",\n      \"arrivalTime\": \"2026-10-01T09:00:00\",\n      \"durationMinutes\": 60,\n      \"transitDistanceKmFromPrev\": 2.0,\n      \"transitMinutesFromPrev\": 15\n    },\n    {\n      \"placeId\": \"22222222-2222-2222-2222-222222222222\",\n      \"placeName\": \"Nhà hàng Bếp Trang\",\n      \"latitude\": 16.0650,\n      \"longitude\": 108.2250,\n      \"placeType\": \"INDOOR\",\n      \"openingTime\": \"10:00:00\",\n      \"closingTime\": \"21:00:00\",\n      \"arrivalTime\": \"2026-10-01T11:00:00\",\n      \"durationMinutes\": 60,\n      \"transitDistanceKmFromPrev\": 1.2,\n      \"transitMinutesFromPrev\": 10\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/planning/rules/evaluate",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "public", "planning", "rules", "evaluate"]
+            },
+            "description": "Mục đích: Lịch trình chuẩn chỉ (đến bảo tàng lúc 09:00 sáng, mở cửa từ 07:30 - 17:00). Quan sát response: shouldTriggerAi: false, detectedIssues: []."
+          }
+        },
+        {
+          "name": "3.2 Thẩm định Lịch trình Vi phạm Giờ Mở Cửa (Đến sau giờ đóng cửa)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"placeId\": \"11111111-1111-1111-1111-111111111111\",\n      \"placeName\": \"Bảo tàng Điêu khắc Chăm (Đóng cửa 17:00)\",\n      \"latitude\": 16.0592,\n      \"longitude\": 108.2272,\n      \"placeType\": \"INDOOR\",\n      \"openingTime\": \"07:30:00\",\n      \"closingTime\": \"17:00:00\",\n      \"arrivalTime\": \"2026-10-01T18:30:00\",\n      \"durationMinutes\": 60,\n      \"transitDistanceKmFromPrev\": 0.0,\n      \"transitMinutesFromPrev\": 0\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/planning/rules/evaluate",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "public", "planning", "rules", "evaluate"]
+            },
+            "description": "Mục đích: Cố tình xếp đến bảo tàng lúc 18:30 trong khi đóng cửa lúc 17:00. Quan sát: shouldTriggerAi: true, category: OPENING_HOURS, severity: HIGH."
+          }
+        },
+        {
+          "name": "3.3 Thẩm định Lịch trình Vi phạm Thời gian Di chuyển (Bất khả thi)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"placeId\": \"11111111-1111-1111-1111-111111111111\",\n      \"placeName\": \"Trung tâm Đà Nẵng\",\n      \"latitude\": 16.0592,\n      \"longitude\": 108.2272,\n      \"placeType\": \"INDOOR\",\n      \"arrivalTime\": \"2026-10-01T08:00:00\",\n      \"durationMinutes\": 60,\n      \"transitDistanceKmFromPrev\": 0.0,\n      \"transitMinutesFromPrev\": 0\n    },\n    {\n      \"placeId\": \"22222222-2222-2222-2222-222222222222\",\n      \"placeName\": \"Bà Nà Hills (Cách 35km nhưng chỉ cho 5 phút di chuyển)\",\n      \"latitude\": 15.9967,\n      \"longitude\": 107.9877,\n      \"placeType\": \"OUTDOOR\",\n      \"arrivalTime\": \"2026-10-01T09:05:00\",\n      \"durationMinutes\": 180,\n      \"transitDistanceKmFromPrev\": 35.0,\n      \"transitMinutesFromPrev\": 5\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/planning/rules/evaluate",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "public", "planning", "rules", "evaluate"]
+            },
+            "description": "Mục đích: Quãng đường 35km nhưng chỉ dành 5 phút di chuyển. Quan sát: category: TRANSIT_TIME, shouldTriggerAi: true."
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. AI Travel Copilot Pipeline (Gemini 3.8 Flash & HITL)",
+      "description": "Toàn bộ chu trình tích hợp: Held-Karp + Weather + Rules + AI Copilot (HITL)",
+      "item": [
+        {
+          "name": "4.1 Tối ưu & Thẩm định - Lịch trình Hoàn hảo (Gatekeeper Im Lặng - 0 Token)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"destination\": \"Đà Nẵng\",\n  \"tripDate\": \"2026-10-01\",\n  \"startTime\": \"08:30:00\",\n  \"isRoundTrip\": false,\n  \"userNotes\": \"Chuyến đi nhẹ nhàng cuối tuần\",\n  \"locations\": [\n    {\n      \"id\": \"11111111-1111-1111-1111-111111111111\",\n      \"name\": \"Bảo tàng Điêu khắc Chăm\",\n      \"latitude\": 16.0592,\n      \"longitude\": 108.2272,\n      \"placeType\": \"INDOOR\",\n      \"openingTime\": \"07:30:00\",\n      \"closingTime\": \"17:00:00\",\n      \"durationMinutes\": 60\n    },\n    {\n      \"id\": \"22222222-2222-2222-2222-222222222222\",\n      \"name\": \"Cầu Rồng Đà Nẵng\",\n      \"latitude\": 16.0610,\n      \"longitude\": 108.2272,\n      \"placeType\": \"OUTDOOR\",\n      \"openingTime\": \"00:00:00\",\n      \"closingTime\": \"23:59:59\",\n      \"durationMinutes\": 45\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/planning/itinerary/optimize-and-audit",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "public", "planning", "itinerary", "optimize-and-audit"]
+            },
+            "description": "Mục đích: Lịch trình không có lỗi. Quan sát: aiTriggered: false, copilotAnalysis: null (Hệ thống không tốn 1 token Gemini nào)."
+          }
+        },
+        {
+          "name": "4.2 Tối ưu & Thẩm định - Có Xung Đột (Kích hoạt AI Copilot Gemini 3.8)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"destination\": \"Đà Nẵng\",\n  \"tripDate\": \"2026-10-01\",\n  \"startTime\": \"16:45:00\",\n  \"isRoundTrip\": false,\n  \"userNotes\": \"Chuyến tham quan chiều tối\",\n  \"locations\": [\n    {\n      \"id\": \"11111111-1111-1111-1111-111111111111\",\n      \"name\": \"Bảo tàng Điêu khắc Chăm (Đóng cửa 17:00)\",\n      \"latitude\": 16.0592,\n      \"longitude\": 108.2272,\n      \"placeType\": \"INDOOR\",\n      \"openingTime\": \"07:30:00\",\n      \"closingTime\": \"17:00:00\",\n      \"durationMinutes\": 60\n    },\n    {\n      \"id\": \"22222222-2222-2222-2222-222222222222\",\n      \"name\": \"Bán đảo Sơn Trà\",\n      \"latitude\": 16.1000,\n      \"longitude\": 108.2778,\n      \"placeType\": \"OUTDOOR\",\n      \"openingTime\": \"06:00:00\",\n      \"closingTime\": \"18:00:00\",\n      \"durationMinutes\": 90\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/planning/itinerary/optimize-and-audit",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "public", "planning", "itinerary", "optimize-and-audit"]
+            },
+            "description": "Mục đích: Xuất phát lúc 16:45 khiến bảo tàng bị đóng cửa khi đang tham quan. Quan sát: aiTriggered: true, copilotAnalysis chứa lời nhắc ân cần và các thẻ hành động đề xuất (recommendationCards)."
+          }
+        },
+        {
+          "name": "4.3 Người dùng bấm 'Áp dụng' (HITL) - Hoán đổi vị trí (SWAP_PLACES)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cardId\": \"rec-card-swap-01\",\n  \"actionType\": \"SWAP_PLACES\",\n  \"actionPayload\": {\n    \"targetPlaceId\": \"11111111-1111-1111-1111-111111111111\",\n    \"swapWithPlaceId\": \"22222222-2222-2222-2222-222222222222\"\n  },\n  \"currentSchedule\": [\n    {\n      \"placeId\": \"11111111-1111-1111-1111-111111111111\",\n      \"placeName\": \"Bảo tàng Điêu khắc Chăm\",\n      \"latitude\": 16.0592,\n      \"longitude\": 108.2272,\n      \"placeType\": \"INDOOR\",\n      \"openingTime\": \"07:30:00\",\n      \"closingTime\": \"17:00:00\",\n      \"arrivalTime\": \"2026-10-01T16:00:00\",\n      \"durationMinutes\": 60,\n      \"transitDistanceKmFromPrev\": 0.0,\n      \"transitMinutesFromPrev\": 0\n    },\n    {\n      \"placeId\": \"22222222-2222-2222-2222-222222222222\",\n      \"placeName\": \"Cầu Rồng Đà Nẵng\",\n      \"latitude\": 16.0610,\n      \"longitude\": 108.2272,\n      \"placeType\": \"OUTDOOR\",\n      \"openingTime\": \"00:00:00\",\n      \"closingTime\": \"23:59:59\",\n      \"arrivalTime\": \"2026-10-01T17:15:00\",\n      \"durationMinutes\": 45,\n      \"transitDistanceKmFromPrev\": 1.2,\n      \"transitMinutesFromPrev\": 15\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/planning/itinerary/apply-recommendation",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "public", "planning", "itinerary", "apply-recommendation"]
+            },
+            "description": "Mục đích: Giả lập người dùng bấm nút 'Áp dụng' thẻ hoán đổi trên UI. Quan sát response: danh sách optimizedSchedule đã đảo vị trí và thời gian biểu được tính lại."
+          }
+        },
+        {
+          "name": "4.4 Người dùng bấm 'Áp dụng' (HITL) - Tăng thời gian đệm (CHANGE_TIME)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cardId\": \"rec-card-time-02\",\n  \"actionType\": \"CHANGE_TIME\",\n  \"actionPayload\": {\n    \"bufferAddMinutes\": 20\n  },\n  \"currentSchedule\": [\n    {\n      \"placeId\": \"11111111-1111-1111-1111-111111111111\",\n      \"placeName\": \"Bảo tàng Điêu khắc Chăm\",\n      \"latitude\": 16.0592,\n      \"longitude\": 108.2272,\n      \"placeType\": \"INDOOR\",\n      \"openingTime\": \"07:30:00\",\n      \"closingTime\": \"17:00:00\",\n      \"arrivalTime\": \"2026-10-01T09:00:00\",\n      \"durationMinutes\": 60,\n      \"transitDistanceKmFromPrev\": 0.0,\n      \"transitMinutesFromPrev\": 0\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/planning/itinerary/apply-recommendation",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "public", "planning", "itinerary", "apply-recommendation"]
+            },
+            "description": "Mục đích: Người dùng đồng ý tăng thêm 20 phút di chuyển để tránh trễ giờ."
+          }
+        },
+        {
+          "name": "4.5 Người dùng bấm 'Bỏ qua' (HITL) - Bỏ qua cảnh báo (DISMISS)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cardId\": \"rec-card-dismiss-03\",\n  \"actionType\": \"DISMISS\",\n  \"actionPayload\": {},\n  \"currentSchedule\": [\n    {\n      \"placeId\": \"11111111-1111-1111-1111-111111111111\",\n      \"placeName\": \"Cầu Rồng Đà Nẵng\",\n      \"latitude\": 16.0610,\n      \"longitude\": 108.2272,\n      \"placeType\": \"OUTDOOR\",\n      \"arrivalTime\": \"2026-10-01T20:00:00\",\n      \"durationMinutes\": 45,\n      \"transitDistanceKmFromPrev\": 0.0,\n      \"transitMinutesFromPrev\": 0\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/planning/itinerary/apply-recommendation",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "public", "planning", "itinerary", "apply-recommendation"]
+            },
+            "description": "Mục đích: Người dùng chủ động bỏ qua cảnh báo của AI, lịch trình giữ nguyên."
+          }
+        },
+        {
+          "name": "4.6 Tối ưu & Thẩm định Nhiều Ngày (Multi-day: Tràn ngày & Cảnh báo Chồng lấn Collision)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"destination\": \"Đà Nẵng\",\n  \"isRoundTrip\": false,\n  \"userNotes\": \"Chuyến đi 2 ngày Đà Nẵng\",\n  \"days\": [\n    {\n      \"date\": \"2026-10-01\",\n      \"startTime\": \"20:00:00\",\n      \"originPlace\": {\n        \"id\": \"00000000-0000-0000-0000-000000000001\",\n        \"name\": \"Khách sạn Novotel Bạch Đằng\",\n        \"latitude\": 16.0748,\n        \"longitude\": 108.2238,\n        \"placeType\": \"INDOOR\"\n      },\n      \"locations\": [\n        {\n          \"id\": \"11111111-1111-1111-1111-111111111111\",\n          \"name\": \"Chợ đêm Helio\",\n          \"latitude\": 16.0353,\n          \"longitude\": 108.2255,\n          \"placeType\": \"OUTDOOR\",\n          \"durationMinutes\": 180,\n          \"visitStatus\": \"NOT_VISITED\",\n          \"weeklyOpeningHours\": {\n            \"thursday\": { \"status\": \"OPEN\", \"openTime\": \"17:30:00\", \"closeTime\": \"23:00:00\" }\n          }\n        },\n        {\n          \"id\": \"22222222-2222-2222-2222-222222222222\",\n          \"name\": \"Bar Pub Bãi Biển Mỹ Khê (Xuyên đêm)\",\n          \"latitude\": 16.0598,\n          \"longitude\": 108.2471,\n          \"placeType\": \"INDOOR\",\n          \"durationMinutes\": 120,\n          \"visitStatus\": \"NOT_VISITED\",\n          \"weeklyOpeningHours\": {\n            \"thursday\": { \"status\": \"OPEN\", \"openTime\": \"20:00:00\", \"closeTime\": \"03:00:00\" }\n          }\n        }\n      ]\n    },\n    {\n      \"date\": \"2026-10-02\",\n      \"startTime\": \"01:30:00\",\n      \"originPlace\": {\n        \"id\": \"00000000-0000-0000-0000-000000000001\",\n        \"name\": \"Khách sạn Novotel Bạch Đằng\",\n        \"latitude\": 16.0748,\n        \"longitude\": 108.2238,\n        \"placeType\": \"INDOOR\"\n      },\n      \"locations\": [\n        {\n          \"id\": \"33333333-3333-3333-3333-333333333333\",\n          \"name\": \"Ngắm bình minh Cầu Thuận Phước\",\n          \"latitude\": 16.0944,\n          \"longitude\": 108.2234,\n          \"placeType\": \"OUTDOOR\",\n          \"durationMinutes\": 60,\n          \"visitStatus\": \"NOT_VISITED\"\n        }\n      ]\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/planning/itinerary/optimize-and-audit-multiday",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "public", "planning", "itinerary", "optimize-and-audit-multiday"]
+            },
+            "description": "Mục đích: Test tối ưu hóa nhiều ngày độc lập, kiểm tra tự động phát hiện tràn ngày (isSpillover=true do Bar chơi đến 01:30 sáng hôm sau), và kiểm tra CollisionRule phát hiện Day 2 bắt đầu lúc 01:30 đụng giờ kết thúc của Day 1 (SCHEDULE_COLLISION)."
+          }
+        },
+        {
+          "name": "4.7 Tối ưu 1 Ngày với Điểm Xuất Phát Cố Định (Khách sạn) & Giờ Rời Điểm Đầu",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"destination\": \"Đà Nẵng\",\n  \"tripDate\": \"2026-10-01\",\n  \"startTime\": \"08:00:00\",\n  \"isRoundTrip\": false,\n  \"originPlace\": {\n    \"id\": \"00000000-0000-0000-0000-000000000001\",\n    \"name\": \"Khách sạn Mường Thanh Đà Nẵng\",\n    \"latitude\": 16.0592,\n    \"longitude\": 108.2464,\n    \"placeType\": \"INDOOR\"\n  },\n  \"locations\": [\n    {\n      \"id\": \"11111111-1111-1111-1111-111111111111\",\n      \"name\": \"Bảo tàng Điêu khắc Chăm\",\n      \"latitude\": 16.0592,\n      \"longitude\": 108.2272,\n      \"placeType\": \"INDOOR\",\n      \"durationMinutes\": 60,\n      \"weeklyOpeningHours\": {\n        \"thursday\": { \"status\": \"OPEN\", \"openTime\": \"07:30:00\", \"closeTime\": \"17:00:00\" }\n      }\n    },\n    {\n      \"id\": \"22222222-2222-2222-2222-222222222222\",\n      \"name\": \"Cầu Rồng Đà Nẵng\",\n      \"latitude\": 16.0610,\n      \"longitude\": 108.2272,\n      \"placeType\": \"OUTDOOR\",\n      \"durationMinutes\": 45,\n      \"weeklyOpeningHours\": {\n        \"thursday\": { \"status\": \"OPEN\", \"openTime\": \"00:00:00\", \"closeTime\": \"23:59:59\" }\n      }\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/planning/itinerary/optimize-and-audit",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "public", "planning", "itinerary", "optimize-and-audit"]
+            },
+            "description": "Mục đích: Test tính toán timeline khi có originPlace (Khách sạn). Khách rời khách sạn đúng lúc 08:00:00 (chặng 1 là di chuyển từ khách sạn đến điểm 1, arrivalTime = 08:00 + travelTime)."
+          }
+        },
+        {
+          "name": "4.8 Tối ưu Lại Khi Chuyến Đi Đang Diễn Ra (In-Progress Re-optimization)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"destination\": \"Đà Nẵng\",\n  \"tripDate\": \"2026-10-01\",\n  \"startTime\": \"14:00:00\",\n  \"isRoundTrip\": false,\n  \"originPlace\": {\n    \"id\": \"22222222-2222-2222-2222-222222222222\",\n    \"name\": \"Cầu Rồng Đà Nẵng (Đang ở đây, chuẩn bị rời đi lúc 14:00)\",\n    \"latitude\": 16.0610,\n    \"longitude\": 108.2272,\n    \"placeType\": \"OUTDOOR\"\n  },\n  \"locations\": [\n    {\n      \"id\": \"11111111-1111-1111-1111-111111111111\",\n      \"name\": \"Bảo tàng Điêu khắc Chăm (Đã đi xong buổi sáng)\",\n      \"latitude\": 16.0592,\n      \"longitude\": 108.2272,\n      \"placeType\": \"INDOOR\",\n      \"durationMinutes\": 60,\n      \"visitStatus\": \"COMPLETED\"\n    },\n    {\n      \"id\": \"22222222-2222-2222-2222-222222222222\",\n      \"name\": \"Cầu Rồng Đà Nẵng (Đang tham quan)\",\n      \"latitude\": 16.0610,\n      \"longitude\": 108.2272,\n      \"placeType\": \"OUTDOOR\",\n      \"durationMinutes\": 45,\n      \"visitStatus\": \"IN_PROGRESS\"\n    },\n    {\n      \"id\": \"33333333-3333-3333-3333-333333333333\",\n      \"name\": \"Bán đảo Sơn Trà (Chưa đi)\",\n      \"latitude\": 16.1000,\n      \"longitude\": 108.2778,\n      \"placeType\": \"OUTDOOR\",\n      \"durationMinutes\": 90,\n      \"visitStatus\": \"NOT_VISITED\"\n    },\n    {\n      \"id\": \"44444444-4444-4444-4444-444444444444\",\n      \"name\": \"Bãi biển Mỹ Khê (Chưa đi)\",\n      \"latitude\": 16.0598,\n      \"longitude\": 108.2471,\n      \"placeType\": \"OUTDOOR\",\n      \"durationMinutes\": 60,\n      \"visitStatus\": \"NOT_VISITED\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/planning/itinerary/optimize-and-audit",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "public", "planning", "itinerary", "optimize-and-audit"]
+            },
+            "description": "Mục đích: Test tối ưu lại khi chuyến đi đang diễn ra. Điểm COMPLETED và IN_PROGRESS được giữ cố định làm neo, chỉ có các điểm NOT_VISITED được thuật toán sắp xếp lại tuyến đường tối ưu nhất."
+          }
+        }
+      ]
+    }
+  ]
+}

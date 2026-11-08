@@ -1,0 +1,19 @@
+# Opt-in isolated demo. Existing dev database and docker volume are unchanged.
+spring:
+  config:
+    import: classpath:application-rag.yaml
+  datasource:
+    url: jdbc:postgresql://localhost:${RAG_DEMO_DB_PORT:5435}/travel_rag_demo
+    username: travel_demo
+    password: ${RAG_DEMO_DB_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration,classpath:db/rag
+management:
+  health:
+    mail:
+      enabled: false # This demo has no SMTP service; DB/readiness health remains enabled.

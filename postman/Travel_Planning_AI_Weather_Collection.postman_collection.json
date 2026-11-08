@@ -1,0 +1,564 @@
+{
+  "info": {
+    "_postman_id": " travel-system-phase2-5-collection",
+    "name": "Travel Planning - Weather, Held-Karp, Rules & AI Copilot Suite",
+    "description": "Bộ kiểm thử toàn diện Postman bao gồm: Weather Module (Open-Meteo), TSP Held-Karp Router, Deterministic Rule Evaluator và AI Travel Copilot (Gemini 3.8 Flash HITL).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "1. Weather Module",
+      "description": "Các API truy vấn thời tiết thực tế và dự báo theo tọa độ GPS",
+      "item": [
+        {
+          "name": "1.1 GET Current Weather (Đà Nẵng)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/weather/current?latitude=16.0592&longitude=108.2464",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "public", "weather", "current"],
+              "query": [
+                { "key": "latitude", "value": "16.0592", "description": "Vĩ độ Đà Nẵng" },
+                { "key": "longitude", "value": "108.2464", "description": "Kinh độ Đà Nẵng" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Current weather data is returned correctly', function () {",
+                  "    var res = pm.response.json();",
+                  "    pm.expect(res.success).to.be.true;",
+                  "    pm.expect(res.data).to.have.property('temperature');",
+                  "    pm.expect(res.data).to.have.property('apparentTemperature');",
+                  "    pm.expect(res.data).to.have.property('condition');",
+                  "    pm.expect(res.data).to.have.property('outdoorRiskLevel');",
+                  "    pm.expect(['SAFE', 'MODERATE', 'HIGH', 'EXTREME']).to.include(res.data.outdoorRiskLevel);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.2 GET Weather Forecast 3 Days (Đà Nẵng)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/weather/forecast?latitude=16.0592&longitude=108.2464&startDate=2026-10-01&endDate=2026-10-03",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "public", "weather", "forecast"],
+              "query": [
+                { "key": "latitude", "value": "16.0592" },
+                { "key": "longitude", "value": "108.2464" },
+                { "key": "startDate", "value": "2026-10-01" },
+                { "key": "endDate", "value": "2026-10-03" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Weather forecast contains daily and hourly records', function () {",
+                  "    var res = pm.response.json();",
+                  "    pm.expect(res.success).to.be.true;",
+                  "    pm.expect(res.data.dailyForecasts).to.be.an('array').that.is.not.empty;",
+                  "    pm.expect(res.data.dailyForecasts[0]).to.have.property('date');",
+                  "    pm.expect(res.data.dailyForecasts[0]).to.have.property('weatherCondition');",
+                  "    pm.expect(res.data.dailyForecasts[0]).to.have.property('tempMax');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.3 GET Current Weather (Hà Nội - Hoàn Kiếm)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/weather/current?latitude=21.0285&longitude=105.8542",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "public", "weather", "current"],
+              "query": [
+                { "key": "latitude", "value": "21.0285" },
+                { "key": "longitude", "value": "105.8542" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Hanoi weather is valid', function () {",
+                  "    var res = pm.response.json();",
+                  "    pm.expect(res.success).to.be.true;",
+                  "    pm.expect(res.data.temperature).to.be.a('number');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. TSP Route Optimization (Held-Karp)",
+      "description": "Tối ưu hóa thứ tự ghé thăm điểm đến du lịch bằng thuật toán quy hoạch động Held-Karp",
+      "item": [
+        {
+          "name": "2.1 POST Optimize Route - Round Trip (Đà Nẵng)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"startPlaceId\": \"11111111-1111-1111-1111-111111111111\",\n  \"isRoundTrip\": true,\n  \"locations\": [\n    {\n      \"id\": \"11111111-1111-1111-1111-111111111111\",\n      \"name\": \"Khách sạn Novotel Đà Nẵng\",\n      \"latitude\": 16.0778,\n      \"longitude\": 108.2238,\n      \"placeType\": \"INDOOR\",\n      \"openingTime\": \"00:00:00\",\n      \"closingTime\": \"23:59:59\",\n      \"durationMinutes\": 30\n    },\n    {\n      \"id\": \"22222222-2222-2222-2222-222222222222\",\n      \"name\": \"Bảo tàng Điêu khắc Chăm\",\n      \"latitude\": 16.0592,\n      \"longitude\": 108.2272,\n      \"placeType\": \"INDOOR\",\n      \"openingTime\": \"07:30:00\",\n      \"closingTime\": \"17:00:00\",\n      \"durationMinutes\": 60\n    },\n    {\n      \"id\": \"33333333-3333-3333-3333-333333333333\",\n      \"name\": \"Bán đảo Sơn Trà & Chùa Linh Ứng\",\n      \"latitude\": 16.1000,\n      \"longitude\": 108.2778,\n      \"placeType\": \"OUTDOOR\",\n      \"openingTime\": \"06:00:00\",\n      \"closingTime\": \"18:00:00\",\n      \"durationMinutes\": 90\n    },\n    {\n      \"id\": \"44444444-4444-4444-4444-444444444444\",\n      \"name\": \"Cầu Rồng Đà Nẵng\",\n      \"latitude\": 16.0610,\n      \"longitude\": 108.2272,\n      \"placeType\": \"OUTDOOR\",\n      \"openingTime\": \"00:00:00\",\n      \"closingTime\": \"23:59:59\",\n      \"durationMinutes\": 45\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/planning/tsp/optimize",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "public", "planning", "tsp", "optimize"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('TSP route is optimized and returns round-trip sequence', function () {",
+                  "    var res = pm.response.json();",
+                  "    pm.expect(res.success).to.be.true;",
+                  "    pm.expect(res.data.isRoundTrip).to.be.true;",
+                  "    pm.expect(res.data.orderedPlaces).to.have.lengthOf(5);",
+                  "    pm.expect(res.data.orderedPlaces[0].id).to.eql('11111111-1111-1111-1111-111111111111');",
+                  "    pm.expect(res.data.orderedPlaces[4].id).to.eql('11111111-1111-1111-1111-111111111111');",
+                  "    pm.expect(res.data.totalDistanceKm).to.be.greaterThan(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.2 POST Optimize Route - One Way (Điểm bắt đầu chỉ định)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"startPlaceId\": \"11111111-1111-1111-1111-111111111111\",\n  \"isRoundTrip\": false,\n  \"locations\": [\n    {\n      \"id\": \"11111111-1111-1111-1111-111111111111\",\n      \"name\": \"Khách sạn Novotel Đà Nẵng\",\n      \"latitude\": 16.0778,\n      \"longitude\": 108.2238\n    },\n    {\n      \"id\": \"22222222-2222-2222-2222-222222222222\",\n      \"name\": \"Bảo tàng Điêu khắc Chăm\",\n      \"latitude\": 16.0592,\n      \"longitude\": 108.2272\n    },\n    {\n      \"id\": \"33333333-3333-3333-3333-333333333333\",\n      \"name\": \"Cầu Rồng Đà Nẵng\",\n      \"latitude\": 16.0610,\n      \"longitude\": 108.2272\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/planning/tsp/optimize",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "public", "planning", "tsp", "optimize"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('One-way route has exact N places without returning to start', function () {",
+                  "    var res = pm.response.json();",
+                  "    pm.expect(res.success).to.be.true;",
+                  "    pm.expect(res.data.isRoundTrip).to.be.false;",
+                  "    pm.expect(res.data.orderedPlaces).to.have.lengthOf(3);",
+                  "    pm.expect(res.data.orderedPlaces[0].id).to.eql('11111111-1111-1111-1111-111111111111');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.3 POST Optimize Route - Validation Error (< 2 locations)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isRoundTrip\": false,\n  \"locations\": [\n    {\n      \"id\": \"11111111-1111-1111-1111-111111111111\",\n      \"name\": \"Chỉ có 1 điểm\",\n      \"latitude\": 16.0778,\n      \"longitude\": 108.2238\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/planning/tsp/optimize",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "public", "planning", "tsp", "optimize"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 400 Bad Request', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test('Validation error returned in error payload', function () {",
+                  "    var res = pm.response.json();",
+                  "    pm.expect(res.success).to.be.false;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Deterministic Rule Evaluator",
+      "description": "Bộ thẩm định các quy tắc xác định (Giờ mở cửa, thời tiết ngoài trời, tính khả thi di chuyển)",
+      "item": [
+        {
+          "name": "3.1 POST Evaluate Schedule - Clean (AI Trigger = False)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"placeId\": \"11111111-1111-1111-1111-111111111111\",\n      \"placeName\": \"Bảo tàng Điêu khắc Chăm\",\n      \"latitude\": 16.0592,\n      \"longitude\": 108.2272,\n      \"placeType\": \"INDOOR\",\n      \"openingTime\": \"07:30:00\",\n      \"closingTime\": \"17:00:00\",\n      \"arrivalTime\": \"2026-10-01T09:00:00\",\n      \"durationMinutes\": 60,\n      \"transitDistanceKmFromPrev\": 2.0,\n      \"transitMinutesFromPrev\": 15\n    },\n    {\n      \"placeId\": \"22222222-2222-2222-2222-222222222222\",\n      \"placeName\": \"Nhà hàng Bếp Trang\",\n      \"latitude\": 16.0650,\n      \"longitude\": 108.2250,\n      \"placeType\": \"INDOOR\",\n      \"openingTime\": \"10:00:00\",\n      \"closingTime\": \"21:00:00\",\n      \"arrivalTime\": \"2026-10-01T11:00:00\",\n      \"durationMinutes\": 60,\n      \"transitDistanceKmFromPrev\": 1.2,\n      \"transitMinutesFromPrev\": 10\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/planning/rules/evaluate",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "public", "planning", "rules", "evaluate"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Clean schedule does NOT trigger AI (shouldTriggerAi is false)', function () {",
+                  "    var res = pm.response.json();",
+                  "    pm.expect(res.success).to.be.true;",
+                  "    pm.expect(res.data.shouldTriggerAi).to.be.false;",
+                  "    pm.expect(res.data.hasCriticalIssues).to.be.false;",
+                  "    pm.expect(res.data.detectedIssues).to.be.empty;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3.2 POST Evaluate Schedule - Opening Hours Conflict",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"placeId\": \"11111111-1111-1111-1111-111111111111\",\n      \"placeName\": \"Bảo tàng Điêu khắc Chăm (Đóng cửa 17:00)\",\n      \"latitude\": 16.0592,\n      \"longitude\": 108.2272,\n      \"placeType\": \"INDOOR\",\n      \"openingTime\": \"07:30:00\",\n      \"closingTime\": \"17:00:00\",\n      \"arrivalTime\": \"2026-10-01T18:30:00\",\n      \"durationMinutes\": 60,\n      \"transitDistanceKmFromPrev\": 0.0,\n      \"transitMinutesFromPrev\": 0\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/planning/rules/evaluate",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "public", "planning", "rules", "evaluate"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Detects OPENING_HOURS violation and flags shouldTriggerAi = true', function () {",
+                  "    var res = pm.response.json();",
+                  "    pm.expect(res.success).to.be.true;",
+                  "    pm.expect(res.data.shouldTriggerAi).to.be.true;",
+                  "    pm.expect(res.data.detectedIssues).to.be.an('array').that.is.not.empty;",
+                  "    var issue = res.data.detectedIssues.find(i => i.category === 'OPENING_HOURS');",
+                  "    pm.expect(issue).to.not.be.undefined;",
+                  "    pm.expect(issue.severity).to.eql('HIGH');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3.3 POST Evaluate Schedule - Impossible Transit Time",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"placeId\": \"11111111-1111-1111-1111-111111111111\",\n      \"placeName\": \"Trung tâm Đà Nẵng\",\n      \"latitude\": 16.0592,\n      \"longitude\": 108.2272,\n      \"placeType\": \"INDOOR\",\n      \"arrivalTime\": \"2026-10-01T08:00:00\",\n      \"durationMinutes\": 60,\n      \"transitDistanceKmFromPrev\": 0.0,\n      \"transitMinutesFromPrev\": 0\n    },\n    {\n      \"placeId\": \"22222222-2222-2222-2222-222222222222\",\n      \"placeName\": \"Bà Nà Hills (Cách 35km nhưng chỉ cho 5 phút di chuyển)\",\n      \"latitude\": 15.9967,\n      \"longitude\": 107.9877,\n      \"placeType\": \"OUTDOOR\",\n      \"arrivalTime\": \"2026-10-01T09:05:00\",\n      \"durationMinutes\": 180,\n      \"transitDistanceKmFromPrev\": 35.0,\n      \"transitMinutesFromPrev\": 5\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/planning/rules/evaluate",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "public", "planning", "rules", "evaluate"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Detects TRANSIT_TIME issue and requires AI intervention', function () {",
+                  "    var res = pm.response.json();",
+                  "    pm.expect(res.success).to.be.true;",
+                  "    pm.expect(res.data.shouldTriggerAi).to.be.true;",
+                  "    var issue = res.data.detectedIssues.find(i => i.category === 'TRANSIT_TIME');",
+                  "    pm.expect(issue).to.not.be.undefined;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. AI Travel Copilot Pipeline (Gemini 3.8 Flash)",
+      "description": "Toàn bộ chu trình điều phối: Held-Karp + Weather + Rule Evaluator + Gemini 3.8 Flash Copilot (HITL)",
+      "item": [
+        {
+          "name": "4.1 POST Optimize & Audit - Clean Route (AI Silent - 0 Token)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"destination\": \"Đà Nẵng\",\n  \"tripDate\": \"2026-10-01\",\n  \"startTime\": \"08:30:00\",\n  \"isRoundTrip\": false,\n  \"userNotes\": \"Chuyến đi nhẹ nhàng cuối tuần\",\n  \"locations\": [\n    {\n      \"id\": \"11111111-1111-1111-1111-111111111111\",\n      \"name\": \"Bảo tàng Điêu khắc Chăm\",\n      \"latitude\": 16.0592,\n      \"longitude\": 108.2272,\n      \"placeType\": \"INDOOR\",\n      \"openingTime\": \"07:30:00\",\n      \"closingTime\": \"17:00:00\",\n      \"durationMinutes\": 60\n    },\n    {\n      \"id\": \"22222222-2222-2222-2222-222222222222\",\n      \"name\": \"Cầu Rồng Đà Nẵng\",\n      \"latitude\": 16.0610,\n      \"longitude\": 108.2272,\n      \"placeType\": \"OUTDOOR\",\n      \"openingTime\": \"00:00:00\",\n      \"closingTime\": \"23:59:59\",\n      \"durationMinutes\": 45\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/planning/itinerary/optimize-and-audit",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "public", "planning", "itinerary", "optimize-and-audit"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('AI Copilot stays SILENT when itinerary is flawless (0 token)', function () {",
+                  "    var res = pm.response.json();",
+                  "    pm.expect(res.success).to.be.true;",
+                  "    pm.expect(res.data.aiTriggered).to.be.false;",
+                  "    pm.expect(res.data.copilotAnalysis).to.be.null;",
+                  "    pm.expect(res.data.optimizedSchedule).to.be.an('array').that.is.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4.2 POST Optimize & Audit - Conflicted Route (Gemini 3.8 Triggered)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"destination\": \"Đà Nẵng\",\n  \"tripDate\": \"2026-10-01\",\n  \"startTime\": \"16:45:00\",\n  \"isRoundTrip\": false,\n  \"userNotes\": \"Chuyến tham quan chiều tối\",\n  \"locations\": [\n    {\n      \"id\": \"11111111-1111-1111-1111-111111111111\",\n      \"name\": \"Bảo tàng Điêu khắc Chăm (Đóng cửa 17:00)\",\n      \"latitude\": 16.0592,\n      \"longitude\": 108.2272,\n      \"placeType\": \"INDOOR\",\n      \"openingTime\": \"07:30:00\",\n      \"closingTime\": \"17:00:00\",\n      \"durationMinutes\": 60\n    },\n    {\n      \"id\": \"22222222-2222-2222-2222-222222222222\",\n      \"name\": \"Bán đảo Sơn Trà\",\n      \"latitude\": 16.1000,\n      \"longitude\": 108.2778,\n      \"placeType\": \"OUTDOOR\",\n      \"openingTime\": \"06:00:00\",\n      \"closingTime\": \"18:00:00\",\n      \"durationMinutes\": 90\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/planning/itinerary/optimize-and-audit",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "public", "planning", "itinerary", "optimize-and-audit"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('AI Copilot triggers and returns recommendation cards', function () {",
+                  "    var res = pm.response.json();",
+                  "    pm.expect(res.success).to.be.true;",
+                  "    pm.expect(res.data.aiTriggered).to.be.true;",
+                  "    pm.expect(res.data.copilotAnalysis).to.not.be.null;",
+                  "    pm.expect(res.data.copilotAnalysis.recommendationCards).to.be.an('array');",
+                  "    if (res.data.copilotAnalysis.recommendationCards.length > 0) {",
+                  "        var firstCard = res.data.copilotAnalysis.recommendationCards[0];",
+                  "        pm.environment.set('copilotCardId', firstCard.cardId);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4.3 POST HITL 1-Click Action - SWAP_PLACES",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cardId\": \"{{copilotCardId}}\",\n  \"actionType\": \"SWAP_PLACES\",\n  \"actionPayload\": {\n    \"targetPlaceId\": \"11111111-1111-1111-1111-111111111111\",\n    \"swapWithPlaceId\": \"22222222-2222-2222-2222-222222222222\"\n  },\n  \"currentSchedule\": [\n    {\n      \"placeId\": \"11111111-1111-1111-1111-111111111111\",\n      \"placeName\": \"Bảo tàng Điêu khắc Chăm\",\n      \"latitude\": 16.0592,\n      \"longitude\": 108.2272,\n      \"placeType\": \"INDOOR\",\n      \"openingTime\": \"07:30:00\",\n      \"closingTime\": \"17:00:00\",\n      \"arrivalTime\": \"2026-10-01T16:00:00\",\n      \"durationMinutes\": 60,\n      \"transitDistanceKmFromPrev\": 0.0,\n      \"transitMinutesFromPrev\": 0\n    },\n    {\n      \"placeId\": \"22222222-2222-2222-2222-222222222222\",\n      \"placeName\": \"Cầu Rồng Đà Nẵng\",\n      \"latitude\": 16.0610,\n      \"longitude\": 108.2272,\n      \"placeType\": \"OUTDOOR\",\n      \"openingTime\": \"00:00:00\",\n      \"closingTime\": \"23:59:59\",\n      \"arrivalTime\": \"2026-10-01T17:15:00\",\n      \"durationMinutes\": 45,\n      \"transitDistanceKmFromPrev\": 1.2,\n      \"transitMinutesFromPrev\": 15\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/planning/itinerary/apply-recommendation",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "public", "planning", "itinerary", "apply-recommendation"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('SWAP_PLACES successfully applied and re-evaluated', function () {",
+                  "    var res = pm.response.json();",
+                  "    pm.expect(res.success).to.be.true;",
+                  "    pm.expect(res.data.optimizedSchedule).to.have.lengthOf(2);",
+                  "    pm.expect(res.data.optimizedSchedule[0].placeId).to.eql('22222222-2222-2222-2222-222222222222');",
+                  "    pm.expect(res.data.optimizedSchedule[1].placeId).to.eql('11111111-1111-1111-1111-111111111111');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4.4 POST HITL 1-Click Action - CHANGE_TIME",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cardId\": \"{{copilotCardId}}\",\n  \"actionType\": \"CHANGE_TIME\",\n  \"actionPayload\": {\n    \"bufferAddMinutes\": 20\n  },\n  \"currentSchedule\": [\n    {\n      \"placeId\": \"11111111-1111-1111-1111-111111111111\",\n      \"placeName\": \"Bảo tàng Điêu khắc Chăm\",\n      \"latitude\": 16.0592,\n      \"longitude\": 108.2272,\n      \"placeType\": \"INDOOR\",\n      \"openingTime\": \"07:30:00\",\n      \"closingTime\": \"17:00:00\",\n      \"arrivalTime\": \"2026-10-01T09:00:00\",\n      \"durationMinutes\": 60,\n      \"transitDistanceKmFromPrev\": 0.0,\n      \"transitMinutesFromPrev\": 0\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/planning/itinerary/apply-recommendation",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "public", "planning", "itinerary", "apply-recommendation"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('CHANGE_TIME applied successfully', function () {",
+                  "    var res = pm.response.json();",
+                  "    pm.expect(res.success).to.be.true;",
+                  "    pm.expect(res.data.optimizedSchedule).to.be.an('array');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4.5 POST HITL 1-Click Action - DISMISS",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cardId\": \"{{copilotCardId}}\",\n  \"actionType\": \"DISMISS\",\n  \"actionPayload\": {},\n  \"currentSchedule\": [\n    {\n      \"placeId\": \"11111111-1111-1111-1111-111111111111\",\n      \"placeName\": \"Cầu Rồng Đà Nẵng\",\n      \"latitude\": 16.0610,\n      \"longitude\": 108.2272,\n      \"placeType\": \"OUTDOOR\",\n      \"arrivalTime\": \"2026-10-01T20:00:00\",\n      \"durationMinutes\": 45,\n      \"transitDistanceKmFromPrev\": 0.0,\n      \"transitMinutesFromPrev\": 0\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/public/planning/itinerary/apply-recommendation",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "public", "planning", "itinerary", "apply-recommendation"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200 OK', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('DISMISS keeps itinerary intact and returns result', function () {",
+                  "    var res = pm.response.json();",
+                  "    pm.expect(res.success).to.be.true;",
+                  "    pm.expect(res.data.optimizedSchedule).to.have.lengthOf(1);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

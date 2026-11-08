@@ -32,9 +32,11 @@ public record DayPlanRequest(
         List<TspLocationRequest> locations,
 
         @Schema(description = "Có quay về điểm xuất phát khi kết thúc ngày không", example = "false")
-        Boolean isRoundTrip
+        Boolean isRoundTrip,
+        com.travel.planning.enums.PlanningTravelMode travelMode
 ) {
     public DayPlanRequest {
+        if (travelMode == null) travelMode = com.travel.planning.enums.PlanningTravelMode.DRIVE;
         if (startTime == null) {
             startTime = LocalTime.of(8, 0);
         }
@@ -50,6 +52,10 @@ public record DayPlanRequest(
             List<TspLocationRequest> locations
     ) {
         this(dayDate, startTime, originPlace, locations, Boolean.FALSE);
+    }
+    public DayPlanRequest(LocalDate dayDate, LocalTime startTime, TspLocationRequest originPlace,
+            List<TspLocationRequest> locations, Boolean isRoundTrip) {
+        this(dayDate, startTime, originPlace, locations, isRoundTrip, com.travel.planning.enums.PlanningTravelMode.DRIVE);
     }
 
     public boolean roundTrip() {

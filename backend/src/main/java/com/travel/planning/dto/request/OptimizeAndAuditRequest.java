@@ -42,9 +42,11 @@ public record OptimizeAndAuditRequest(
         List<TspLocationRequest> locations,
 
         @Schema(description = "Ghi chú thêm của du khách", example = "Đi cùng gia đình có trẻ nhỏ, ưu tiên nhịp độ thư thả")
-        String userNotes
+        String userNotes,
+        com.travel.planning.enums.PlanningTravelMode travelMode
 ) {
     public OptimizeAndAuditRequest {
+        if (travelMode == null) travelMode = com.travel.planning.enums.PlanningTravelMode.DRIVE;
         if (tripDate == null) {
             tripDate = LocalDate.now();
         }
@@ -70,5 +72,10 @@ public record OptimizeAndAuditRequest(
 
     public boolean roundTrip() {
         return Boolean.TRUE.equals(isRoundTrip);
+    }
+    public OptimizeAndAuditRequest(String destination, LocalDate tripDate, LocalTime startTime, UUID startPlaceId,
+            TspLocationRequest originPlace, Boolean isRoundTrip, List<TspLocationRequest> locations, String userNotes) {
+        this(destination, tripDate, startTime, startPlaceId, originPlace, isRoundTrip, locations, userNotes,
+                com.travel.planning.enums.PlanningTravelMode.DRIVE);
     }
 }

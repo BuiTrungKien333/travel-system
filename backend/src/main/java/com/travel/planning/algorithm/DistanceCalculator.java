@@ -63,4 +63,7 @@ public final class DistanceCalculator {
     public static long calculateDurationSeconds(double distanceMeters) {
         return calculateDurationSeconds(distanceMeters, DEFAULT_SPEED_KM_PER_HOUR);
     }
+    public static long calculateDurationSeconds(double distanceMeters, com.travel.planning.enums.PlanningTravelMode mode) {
+        return calculateDurationSeconds(distanceMeters, mode == null ? DEFAULT_SPEED_KM_PER_HOUR : mode.speedKmPerHour());
+    }
 }

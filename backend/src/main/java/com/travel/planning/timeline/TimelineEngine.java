@@ -49,6 +49,13 @@ public class TimelineEngine {
             Map<UUID, TspLocationRequest> requestMap,
             List<com.travel.planning.algorithm.model.RouteLeg> legs
     ) {
+        return buildTimelineForDay(dayDate, startTime, originPlace, orderedPlaces, requestMap, legs,
+                com.travel.planning.enums.PlanningTravelMode.DRIVE);
+    }
+
+    public List<ScheduleItemContext> buildTimelineForDay(LocalDate dayDate, LocalTime startTime,
+            TspLocationRequest originPlace, List<Place> orderedPlaces, Map<UUID, TspLocationRequest> requestMap,
+            List<com.travel.planning.algorithm.model.RouteLeg> legs, com.travel.planning.enums.PlanningTravelMode mode) {
         if (orderedPlaces == null || orderedPlaces.isEmpty()) {
             return List.of();
         }
@@ -90,7 +97,7 @@ public class TimelineEngine {
                                 p.getLatitude(), p.getLongitude()
                         );
                         distFromPrev = Math.round((distMeters / 1000.0) * 10.0) / 10.0;
-                        transitFromPrev = (int) Math.ceil(DistanceCalculator.calculateDurationSeconds(distMeters) / 60.0);
+                        transitFromPrev = (int) Math.ceil(DistanceCalculator.calculateDurationSeconds(distMeters, mode) / 60.0);
                     }
                     arrivalTime = originDepartureTime.plusMinutes(transitFromPrev);
                 } else {
@@ -111,9 +118,15 @@ public class TimelineEngine {
                             p.getLatitude(), p.getLongitude()
                     );
                     distFromPrev = Math.round((distMeters / 1000.0) * 10.0) / 10.0;
-                    transitFromPrev = (int) Math.ceil(DistanceCalculator.calculateDurationSeconds(distMeters) / 60.0);
+                    transitFromPrev = (int) Math.ceil(DistanceCalculator.calculateDurationSeconds(distMeters, mode) / 60.0);
                 }
                 arrivalTime = currentTime.plusMinutes(transitFromPrev);
+            }
+
+            if (locReq != null && locReq.pinnedArrivalTime() != null) {
+                if (arrivalTime.isAfter(locReq.pinnedArrivalTime()))
+                    throw new com.travel.common.exception.AppException(com.travel.common.exception.ErrorCode.ITINERARY_PIN_CONFLICT);
+                arrivalTime = locReq.pinnedArrivalTime();
             }
 
             // Tính toán ngày hiển thị và thời gian chờ

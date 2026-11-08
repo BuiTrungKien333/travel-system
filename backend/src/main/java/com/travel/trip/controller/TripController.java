@@ -12,6 +12,7 @@ import com.travel.trip.dto.CreateTripRequest;
 import com.travel.trip.dto.UpdateTripRequest;
 import com.travel.trip.dto.TripDateChangeRequest;
 import com.travel.trip.dto.TripResponses;
+import com.travel.trip.dto.UpdateTripDayRequest;
 import com.travel.trip.service.TripCrudService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
@@ -19,8 +20,10 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 import java.net.URI;
+import java.time.LocalDate;
 import java.util.UUID;
 
 @RestController
@@ -56,6 +59,13 @@ public class TripController {
     @PostMapping("/{tripId}/date-change-preview")
     public ApiResponse<TripResponses.DateImpact> preview(@PathVariable UUID tripId, @Valid @RequestBody TripDateChangeRequest request) {
         return ApiResponse.success(service.previewDates(tripId, request));
+    }
+    @PutMapping("/{tripId}/days/{date}")
+    @Operation(summary = "Save day settings and changed visit durations atomically")
+    public ApiResponse<TripResponses.Read> updateDay(@PathVariable UUID tripId,
+            @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @Valid @RequestBody UpdateTripDayRequest request) {
+        return ApiResponse.success(service.updateDay(tripId, date, request));
     }
     @DeleteMapping("/{tripId}")
     public ResponseEntity<Void> delete(@PathVariable UUID tripId, @RequestParam long version) {

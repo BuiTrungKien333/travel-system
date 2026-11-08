@@ -46,6 +46,8 @@ public class ItineraryServiceImpl implements ItineraryService {
     private final TripPlaceRepository tripPlaces;
     private final ItineraryRepository itineraries;
     private final TripOptimizationService optimizer;
+    private final jakarta.persistence.EntityManager entityManager;
+    private final com.travel.trip.repository.TripCrudRepository tripSettings;
 
     @Override
     public ItineraryResponse get(UUID userId, UUID tripId) {
@@ -61,8 +63,14 @@ public class ItineraryServiceImpl implements ItineraryService {
     public ItineraryResponse save(UUID userId, UUID tripId, SaveItineraryRequest request) {
         Trip trip = trips.lockOwnedTrip(tripId, userId)
                 .orElseThrow(() -> new AppException(ErrorCode.TRIP_NOT_FOUND));
+        if (trip.getStatus() == com.travel.trip.enums.TripStatus.CANCELLED) throw new AppException(ErrorCode.TRIP_READ_ONLY);
 
         List<ItineraryStopRequest> stops = validateAndFlatten(request);
+        for (ItineraryDayRequest day : request.days()) {
+            if (trip.getStartDate() == null || trip.getEndDate() == null
+                    || day.date().isBefore(trip.getStartDate()) || day.date().isAfter(trip.getEndDate()))
+                throw new AppException(ErrorCode.INVALID_ITINERARY);
+        }
         Set<UUID> requestedPlaceIds = stops.stream().map(ItineraryStopRequest::placeId).collect(Collectors.toSet());
         Map<UUID, TripPlace> allowedPlaces = requestedPlaceIds.isEmpty()
                 ? Map.of()
@@ -74,6 +82,28 @@ public class ItineraryServiceImpl implements ItineraryService {
 
         Itinerary itinerary = itineraries.findFirstByTripIdOrderByUpdatedAtDescIdAsc(tripId)
                 .orElseGet(() -> newItinerary(trip));
+        if (request.expectedUpdatedAt() != null && !request.expectedUpdatedAt().equals(itinerary.getUpdatedAt()))
+            throw new AppException(ErrorCode.ITINERARY_CHANGED);
+        if (request.poolUpdates() != null && !request.poolUpdates().isEmpty()) {
+            // A pool metadata edit and removal from the schedule must succeed or roll back together.
+            if (request.expectedUpdatedAt() == null) throw new AppException(ErrorCode.INVALID_ITINERARY);
+            Set<UUID> poolIds = new HashSet<>();
+            for (var update : request.poolUpdates()) {
+                if (!poolIds.add(update.placeId()) || requestedPlaceIds.contains(update.placeId()))
+                    throw new AppException(ErrorCode.INVALID_ITINERARY);
+            }
+            var links = tripPlaces.findByTripIdAndPlaceIdIn(tripId, poolIds);
+            if (links.size() != poolIds.size()) throw new AppException(ErrorCode.ITINERARY_PLACE_NOT_IN_TRIP);
+            var updates = request.poolUpdates().stream().collect(Collectors.toMap(
+                    com.travel.itinerary.dto.request.PoolPlaceUpdateRequest::placeId, value -> value));
+            for (var link : links) {
+                var update = updates.get(link.getPlace().getId());
+                link.setEstimatedDuration(update.durationMinutes());
+                link.setNotes(trim(update.note()));
+            }
+        }
+        Map<PlannedStopKey, ItineraryItem> previousItems = itinerary.getItems().stream()
+                .collect(Collectors.toMap(item -> new PlannedStopKey(item.getDate(), item.getPlace().getId()), item -> item));
         List<ItineraryItem> replacement = new ArrayList<>(stops.size());
         for (ItineraryDayRequest day : request.days()) {
             for (ItineraryStopRequest stop : day.stops()) {
@@ -82,12 +112,16 @@ public class ItineraryServiceImpl implements ItineraryService {
                 item.setSchedule(day.date(), stop.arrivalTime(), stop.durationMinutes());
                 item.setSequence(stop.sequence());
                 item.setNote(trim(stop.note()));
+                var previous = previousItems.get(new PlannedStopKey(day.date(), stop.placeId()));
+                item.setPinned(stop.pinned() != null ? stop.pinned() : previous != null && previous.isPinned());
+                if (item.isPinned() && item.getArrivalAt() == null) throw new AppException(ErrorCode.INVALID_ITINERARY);
                 replacement.add(item);
             }
         }
         itinerary.setStatus("DRAFT");
         itinerary.replaceItems(replacement);
-        return response(itineraries.saveAndFlush(itinerary));
+        itinerary.setUpdatedAt(java.time.Instant.now());
+        return saveResponse(itinerary);
     }
 
     @Override
@@ -98,6 +132,9 @@ public class ItineraryServiceImpl implements ItineraryService {
         Itinerary itinerary = itineraries.findFirstByTripIdOrderByUpdatedAtDescIdAsc(tripId)
                 .orElseThrow(() -> new AppException(ErrorCode.ITINERARY_NOT_FOUND));
         if (itinerary.getItems().isEmpty()) throw new AppException(ErrorCode.INVALID_ITINERARY);
+        if (trip.getStatus() == com.travel.trip.enums.TripStatus.CANCELLED) throw new AppException(ErrorCode.TRIP_READ_ONLY);
+        var settingsByDate = tripSettings.days(tripId, trip.getStartDate()).stream()
+                .collect(Collectors.toMap(com.travel.trip.dto.TripResponses.Day::date, value -> value));
 
         Map<LocalDate, List<ItineraryItem>> byDate = itinerary.getItems().stream()
                 .sorted(Comparator.comparing(ItineraryItem::getDate)
@@ -106,14 +143,30 @@ public class ItineraryServiceImpl implements ItineraryService {
         List<DayPlanRequest> days = new ArrayList<>(byDate.size());
         for (var entry : byDate.entrySet()) {
             List<ItineraryItem> items = entry.getValue();
+            var settings = settingsByDate.get(entry.getKey());
             LocalTime startTime = items.stream()
                     .map(ItineraryItem::getArrivalAt)
                     .filter(Objects::nonNull)
                     .map(LocalDateTime::toLocalTime)
                     .findFirst()
                     .orElse(DEFAULT_START_TIME);
-            List<TspLocationRequest> locations = items.stream().map(item -> toLocation(item.getPlace(), item.getDurationMinutes())).toList();
-            days.add(new DayPlanRequest(entry.getKey(), startTime, null, locations, false));
+            if (settings != null && settings.startTime() != null) startTime = LocalTime.parse(settings.startTime());
+            TspLocationRequest origin = null;
+            if (settings != null) {
+                if ((settings.startLocation() != null || settings.returnToStart()) && settings.startCoordinate() == null)
+                    throw new AppException(ErrorCode.ITINERARY_ORIGIN_REQUIRED);
+                if (settings.startCoordinate() != null) origin = new TspLocationRequest(
+                        UUID.nameUUIDFromBytes(("trip-day-origin:" + settings.id()).getBytes(java.nio.charset.StandardCharsets.UTF_8)),
+                        settings.startLocation(), settings.startCoordinate().latitude(), settings.startCoordinate().longitude());
+            }
+            var mode = settings == null ? com.travel.planning.enums.PlanningTravelMode.DRIVE
+                    : switch (settings.transport()) {
+                        case "WALK" -> com.travel.planning.enums.PlanningTravelMode.WALK;
+                        case "MOTORCYCLE" -> com.travel.planning.enums.PlanningTravelMode.TWO_WHEELER;
+                        default -> com.travel.planning.enums.PlanningTravelMode.DRIVE;
+                    };
+            List<TspLocationRequest> locations = items.stream().map(this::toLocation).toList();
+            days.add(new DayPlanRequest(entry.getKey(), startTime, origin, locations, settings != null && settings.returnToStart(), mode));
         }
 
         String notes = trip.getConstraints() != null && !trip.getConstraints().isBlank()
@@ -126,8 +179,9 @@ public class ItineraryServiceImpl implements ItineraryService {
     @Override
     @Transactional
     public ItineraryResponse applyOptimization(UUID userId, UUID tripId, ApplyItineraryOptimizationRequest request) {
-        trips.lockOwnedTrip(tripId, userId)
+        Trip trip = trips.lockOwnedTrip(tripId, userId)
                 .orElseThrow(() -> new AppException(ErrorCode.TRIP_NOT_FOUND));
+        if (trip.getStatus() == com.travel.trip.enums.TripStatus.CANCELLED) throw new AppException(ErrorCode.TRIP_READ_ONLY);
         Itinerary itinerary = itineraries.findFirstByTripIdOrderByUpdatedAtDescIdAsc(tripId)
                 .orElseThrow(() -> new AppException(ErrorCode.ITINERARY_NOT_FOUND));
         if (request == null || request.expectedUpdatedAt() == null || request.proposal() == null
@@ -165,6 +219,16 @@ public class ItineraryServiceImpl implements ItineraryService {
             throw new AppException(ErrorCode.INVALID_ITINERARY);
         }
 
+        Map<LocalDate, Integer> nextSequence = new HashMap<>();
+        for (var entry : optimizedItems.entrySet()) {
+            int sequence = nextSequence.getOrDefault(entry.getKey().plannedDate(), 0);
+            nextSequence.put(entry.getKey().plannedDate(), sequence + 1);
+            ItineraryItem previous = currentItems.get(entry.getKey());
+            if (previous.isPinned() && (previous.getSequence() != sequence
+                    || !Objects.equals(previous.getArrivalAt(), entry.getValue().arrivalTime())))
+                throw new AppException(ErrorCode.ITINERARY_PIN_CONFLICT);
+        }
+
         Map<LocalDate, List<ItineraryItem>> replacementByDate = new TreeMap<>();
         for (var entry : optimizedItems.entrySet()) {
             LocalDate plannedDate = entry.getKey().plannedDate();
@@ -176,6 +240,7 @@ public class ItineraryServiceImpl implements ItineraryService {
             item.setDistanceFromPrevious(optimized.transitDistanceKmFromPrev());
             item.setTravelTimeFromPrevious(optimized.transitMinutesFromPrev());
             item.setNote(previous.getNote());
+            item.setPinned(previous.isPinned());
             replacementByDate.computeIfAbsent(plannedDate, ignored -> new ArrayList<>()).add(item);
         }
         List<ItineraryItem> replacement = new ArrayList<>();
@@ -187,7 +252,15 @@ public class ItineraryServiceImpl implements ItineraryService {
         }
         itinerary.setStatus("FINAL");
         itinerary.replaceItems(replacement);
-        return response(itineraries.saveAndFlush(itinerary));
+        itinerary.setUpdatedAt(java.time.Instant.now());
+        return saveResponse(itinerary);
+    }
+
+    private ItineraryResponse saveResponse(Itinerary itinerary) {
+        var saved = itineraries.saveAndFlush(itinerary);
+        // PostgreSQL stores microseconds; return its actual lock token rather than the pre-flush nanosecond value.
+        entityManager.refresh(saved);
+        return response(saved);
     }
 
     private List<ItineraryStopRequest> validateAndFlatten(SaveItineraryRequest request) {
@@ -205,6 +278,7 @@ public class ItineraryServiceImpl implements ItineraryService {
                         || stop.sequence() < 0 || stop.sequence() >= sequences.length
                         || sequences[stop.sequence()] || stop.durationMinutes() == null
                         || stop.durationMinutes() < 1 || stop.durationMinutes() > 1440
+                        || (Boolean.TRUE.equals(stop.pinned()) && stop.arrivalTime() == null)
                         || !dayPlaceIds.add(stop.placeId())) {
                     throw new AppException(ErrorCode.INVALID_ITINERARY);
                 }
@@ -239,7 +313,7 @@ public class ItineraryServiceImpl implements ItineraryService {
                                     item.getId(), place.getId(), place.getName(), place.getAddress(),
                                     place.getLatitude(), place.getLongitude(), place.getCategory(),
                                     item.getArrivalAt(), item.getDurationMinutes(), item.getSequence(),
-                                    item.getNote(), item.getDistanceFromPrevious(), item.getTravelTimeFromPrevious()));
+                                    item.getNote(), item.getDistanceFromPrevious(), item.getTravelTimeFromPrevious(), item.isPinned()));
                 });
         List<ItineraryResponse.ItineraryDayResponse> days = byDate.entrySet().stream()
                 .map(entry -> new ItineraryResponse.ItineraryDayResponse(entry.getKey(), entry.getValue()))
@@ -252,9 +326,11 @@ public class ItineraryServiceImpl implements ItineraryService {
         return new ItineraryResponse(null, tripId, "Main", "DRAFT", List.of(), null);
     }
 
-    private TspLocationRequest toLocation(Place place, int durationMinutes) {
+    private TspLocationRequest toLocation(ItineraryItem item) {
+        Place place = item.getPlace();
         return new TspLocationRequest(place.getId(), place.getName(), place.getLatitude(), place.getLongitude(),
-                place.getPlaceType(), place.getOpeningTime(), place.getClosingTime(), durationMinutes);
+                place.getPlaceType(), place.getOpeningTime(), place.getClosingTime(), item.getDurationMinutes(), null, null,
+                item.isPinned() ? item.getSequence() : null, item.isPinned() ? item.getArrivalAt() : null);
     }
 
     private static String trim(String value) {

@@ -2,6 +2,7 @@ package com.travel.trip.repository;
 
 import com.travel.trip.dto.CreateTripRequest;
 import com.travel.trip.dto.TripResponses;
+import com.travel.trip.dto.UpdateTripDayRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -85,6 +86,8 @@ public class TripCrudRepository {
             WHERE i.id=ii.itinerary_id AND i.trip_id=? AND ii.removed_at IS NULL AND (ii.date<? OR ii.date>?)
             """, java.sql.Timestamp.from(now), java.sql.Timestamp.from(now), id, start, end);
         jdbc.update("DELETE FROM trip_days WHERE trip_id=? AND (date<? OR date>?)", id, start, end);
+        jdbc.update("UPDATE itineraries SET updated_at=GREATEST(?, updated_at + interval '1 microsecond') WHERE trip_id=?",
+                java.sql.Timestamp.from(now), id);
         var dates = start.datesUntil(end.plusDays(1)).toList();
         jdbc.batchUpdate("INSERT INTO trip_days(trip_id,date) VALUES (?,?) ON CONFLICT (trip_id,date) DO NOTHING", dates, 100,
                 (ps, date) -> { ps.setObject(1,id); ps.setObject(2,date); });
@@ -121,11 +124,51 @@ public class TripCrudRepository {
                 (ps, place) -> { ps.setObject(1,id); ps.setObject(2,place); });
     }
     public List<TripResponses.Day> days(UUID id, LocalDate start) {
-        return jdbc.query("SELECT id,date FROM trip_days WHERE trip_id=? ORDER BY date", (rs,n) -> {
+        return jdbc.query("SELECT * FROM trip_days WHERE trip_id=? ORDER BY date", (rs,n) -> {
             LocalDate day = rs.getObject("date",LocalDate.class);
+            var time = rs.getTime("start_time");
             return new TripResponses.Day(rs.getObject("id",UUID.class),day,
-                start == null ? n + 1 : Math.toIntExact(java.time.temporal.ChronoUnit.DAYS.between(start,day) + 1));
+                start == null ? n + 1 : Math.toIntExact(java.time.temporal.ChronoUnit.DAYS.between(start,day) + 1),
+                rs.getString("start_location"), time == null ? null : time.toLocalTime().format(java.time.format.DateTimeFormatter.ofPattern("HH:mm")),
+                rs.getBoolean("return_to_start"), rs.getString("transport"),
+                rs.getObject("start_latitude") == null ? null : new com.travel.trip.dto.TripCoordinate(
+                        rs.getObject("start_latitude", Double.class), rs.getObject("start_longitude", Double.class)));
         },id);
+    }
+    public record Schedule(UUID id, java.time.Instant updatedAt) { }
+    public Optional<Schedule> schedule(UUID tripId) {
+        return jdbc.query("SELECT id,updated_at FROM itineraries WHERE trip_id=? ORDER BY updated_at DESC,id ASC LIMIT 1",
+                (rs, n) -> new Schedule(rs.getObject("id", UUID.class), rs.getTimestamp("updated_at").toInstant()), tripId)
+                .stream().findFirst();
+    }
+    public Map<UUID, Integer> durations(UUID itineraryId, LocalDate date) {
+        Map<UUID, Integer> result = new HashMap<>();
+        jdbc.query("SELECT place_id,duration_minutes FROM itinerary_items WHERE itinerary_id=? AND date=? AND removed_at IS NULL",
+                (org.springframework.jdbc.core.RowCallbackHandler) rs -> result.put(rs.getObject("place_id", UUID.class), rs.getInt("duration_minutes")),
+                itineraryId, date);
+        return result;
+    }
+    public void updateDay(UUID tripId, LocalDate date, UpdateTripDayRequest request, java.time.Instant now) {
+        jdbc.update("""
+            UPDATE trip_days SET start_location=?,start_time=?,return_to_start=?,transport=?,updated_at=?,start_latitude=?,start_longitude=?
+            WHERE trip_id=? AND date=?
+            """, request.getStartLocation(), request.getStartTime() == null ? null : java.sql.Time.valueOf(request.getStartTime() + ":00"),
+                request.getReturnToStart(), request.getTransport().name(), java.sql.Timestamp.from(now),
+                request.getStartCoordinate() == null ? null : request.getStartCoordinate().latitude(),
+                request.getStartCoordinate() == null ? null : request.getStartCoordinate().longitude(), tripId, date);
+    }
+    public void updateDuration(UUID itineraryId, LocalDate date, UpdateTripDayRequest.VisitDuration value, java.time.Instant now) {
+        jdbc.update("""
+            UPDATE itinerary_items SET duration_minutes=?,
+                end_time=CASE WHEN start_time IS NULL THEN NULL ELSE start_time + (? * interval '1 minute') END, updated_at=?
+            WHERE itinerary_id=? AND date=? AND place_id=? AND removed_at IS NULL
+            """, value.durationMinutes(), value.durationMinutes(), java.sql.Timestamp.from(now), itineraryId, date, value.stopId());
+    }
+    public void touchSchedule(UUID itineraryId, java.time.Instant now) {
+        jdbc.update("UPDATE itineraries SET updated_at=? WHERE id=?", java.sql.Timestamp.from(now), itineraryId);
+    }
+    public void touchTrip(UUID tripId, java.time.Instant now) {
+        jdbc.update("UPDATE trips SET version=version+1,updated_at=? WHERE id=?", java.sql.Timestamp.from(now), tripId);
     }
     public record Filter(String clause, List<Object> values) { }
     public Filter filter(UUID owner, String mode, String q, LocalDate today) {

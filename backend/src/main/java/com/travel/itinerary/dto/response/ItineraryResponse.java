@@ -30,6 +30,7 @@ public record ItineraryResponse(
             int sequence,
             String note,
             Double distanceFromPreviousKm,
-            Integer travelMinutesFromPrevious
+            Integer travelMinutesFromPrevious,
+            boolean pinned
     ) {}
 }

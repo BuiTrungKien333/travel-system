@@ -68,33 +68,7 @@ public class Memory extends BaseEntity {
         }
     }
 
-    /**
-     * Helper method to remove a media item and dissociate.
-     */
-    public void removeMedia(Media mediaItem) {
-        if (mediaItem != null) {
-            this.media.remove(mediaItem);
-            mediaItem.setMemory(null);
-        }
-    }
-
-    /**
-     * Helper method to clear all media items.
-     */
-    public void clearMedia() {
-        for (Media item : this.media) {
-            item.setMemory(null);
-        }
-        this.media.clear();
-    }
-
     public void updateNote(String note) {
         this.note = note;
-    }
-
-    public void updateExperiencedAt(Instant experiencedAt) {
-        if (experiencedAt != null) {
-            this.experiencedAt = experiencedAt;
-        }
     }
 }

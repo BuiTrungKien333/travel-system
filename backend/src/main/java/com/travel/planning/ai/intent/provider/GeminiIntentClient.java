@@ -43,7 +43,6 @@ public class GeminiIntentClient {
 
     @Autowired
     public GeminiIntentClient(
-            RagProperties properties,
             ObjectMapper mapper,
             TravelIntentValidator validator,
             GeminiStructuredClient client
@@ -61,7 +60,7 @@ public class GeminiIntentClient {
             TravelIntentValidator validator,
             RestClient client
     ) throws IOException {
-        this(properties, mapper, validator, new GeminiStructuredClient(properties, mapper, client));
+        this(mapper, validator, new GeminiStructuredClient(properties, mapper, client));
     }
 
     public TravelIntent extract(String text) {

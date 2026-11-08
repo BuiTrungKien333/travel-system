@@ -5,6 +5,7 @@ import com.travel.media.entity.Media;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.BatchSize;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -16,6 +17,16 @@ import java.util.UUID;
 @Getter
 @NoArgsConstructor
 public class Memory extends BaseEntity {
+
+    @Version
+    @Column(nullable = false)
+    private long version;
+
+    @Column(name = "client_request_id")
+    private UUID clientRequestId;
+
+    @Column(name = "create_request_hash", length = 64)
+    private String createRequestHash;
 
     @Column(name = "user_id", nullable = false)
     private UUID userId;
@@ -34,6 +45,7 @@ public class Memory extends BaseEntity {
 
     @OneToMany(mappedBy = "memory", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("displayOrder ASC")
+    @BatchSize(size = 50)
     private List<Media> media = new ArrayList<>();
 
     /**
@@ -88,4 +100,6 @@ public class Memory extends BaseEntity {
             this.experiencedAt = experiencedAt;
         }
     }
+
+    public void markChanged() { touch(); }
 }

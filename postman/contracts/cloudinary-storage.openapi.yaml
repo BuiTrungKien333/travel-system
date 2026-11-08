@@ -1,0 +1,76 @@
+openapi: 3.0.3
+info:
+  title: Cloudinary image storage subset
+  version: 1.0.0
+  description: Subset used by CloudinaryStorage; based on the provider Upload API reference, not a replacement for its full contract.
+servers:
+  - url: https://api.cloudinary.com
+paths:
+  /v1_1/{cloudName}/image/upload:
+    parameters:
+      - in: path
+        name: cloudName
+        required: true
+        schema: { type: string }
+    post:
+      operationId: uploadImage
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, public_id, api_key, timestamp, signature]
+              properties:
+                file: { type: string, format: binary }
+                public_id: { type: string }
+                api_key: { type: string }
+                timestamp: { type: integer }
+                signature: { type: string }
+      responses:
+        '200':
+          description: Uploaded image
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [public_id, secure_url, bytes, width, height]
+                properties:
+                  public_id: { type: string }
+                  secure_url: { type: string, format: uri }
+                  bytes: { type: integer }
+                  width: { type: integer }
+                  height: { type: integer }
+        '500': { description: Storage provider failure }
+  /v1_1/{cloudName}/image/destroy:
+    parameters:
+      - in: path
+        name: cloudName
+        required: true
+        schema: { type: string }
+    post:
+      operationId: destroyImage
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [public_id, api_key, timestamp, signature]
+              properties:
+                public_id: { type: string }
+                api_key: { type: string }
+                timestamp: { type: integer }
+                signature: { type: string }
+                invalidate: { type: boolean }
+      responses:
+        '200':
+          description: Deleted or already missing image
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result: { type: string, enum: [ok, not found] }
+        '404': { description: Asset not found }
+        '500': { description: Storage provider failure }

@@ -1,6 +1,7 @@
 'use client';
 
 import Image from 'next/image';
+import { useState } from 'react';
 import { MapPin, Image as ImageIcon } from 'lucide-react';
 import { formatDateShort } from '@/lib/utils';
 import type { Memory } from '../types';
@@ -11,6 +12,7 @@ interface MemoryCardProps {
 }
 
 export function MemoryCard({ memory }: MemoryCardProps) {
+  const [imageFailed, setImageFailed] = useState(false);
   const openLightbox = useMemoryUIStore((s) => s.openLightbox);
 
   return (
@@ -19,20 +21,21 @@ export function MemoryCard({ memory }: MemoryCardProps) {
       onClick={() => {
         openLightbox({
           ...memory,
-          media: memory.coverMediaUrl
+          media: memory.media ?? (memory.coverMediaUrl
             ? [{ id: 'm1', memoryId: memory.id, storageKey: '', url: memory.coverMediaUrl, sortOrder: 0, createdAt: memory.createdAt }]
-            : []
+            : [])
         }, 0);
       }}
       aria-label={`Kỷ niệm tại ${memory.placeName ?? 'chuyến đi'}`}
     >
       {/* Cover image */}
       <div className="relative aspect-[4/3] bg-muted overflow-hidden">
-        {memory.coverMediaUrl ? (
+        {memory.coverMediaUrl && !imageFailed ? (
           <Image
             src={memory.coverMediaUrl}
             alt={memory.placeName ?? 'Kỷ niệm chuyến đi'}
             fill
+            onError={() => setImageFailed(true)}
             className="object-cover transition-transform duration-300 ease-out group-hover:scale-[1.02]"
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
           />

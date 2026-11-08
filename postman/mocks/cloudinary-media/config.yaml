@@ -1,0 +1,12 @@
+version: 1
+id: 769a911b-6b6a-44b1-9f03-265ada6139a7
+name: cloudinary-media
+slug: cloudinary-media
+protocol: http
+interceptRequests: true
+origin: api.cloudinary.com
+port: 4507
+scenarios:
+  - name: default
+    path: ./default.js
+    default: true

@@ -1,0 +1,23 @@
+purpose:
+  stands_in_for: Cloudinary image upload and destroy APIs.
+  unblocks: Real Java SDK HTTP checks without credentials, charges, or changes to the user's Cloudinary account.
+assumptions:
+  - id: sdk-signed-upload-and-invalidation
+    status: supported
+    claim: The current Java caller sends signed multipart fields, consumes the documented upload response, and requests CDN invalidation on destroy.
+    reason: Three CloudinaryStorageHttpTest cases passed against the local Postman simulation using the real Cloudinary Java SDK. This verifies the caller against the modeled contract, not account permissions or the real CDN.
+    verification: On 2026-11-04 ran mvnw test -Dtest=CloudinaryStorageHttpTest -Dcloudinary.simulation-url=http://127.0.0.1:4508/cloudinary. Simulation recorded upload and destroy requests, provider 500 responses and malformed metadata; tests asserted success, repeat deletion, and failure handling.
+    source: backend/src/test/java/com/travel/media/service/CloudinaryStorageHttpTest.java; backend/src/main/java/com/travel/media/service/CloudinaryStorage.java; postman/contracts/cloudinary-storage.openapi.yaml; https://cloudinary.com/documentation/image_upload_api_reference
+    updated_at: '2026-11-04'
+  - id: live-account-and-delivery
+    status: unknown
+    claim: Production credentials can upload, delete and invalidate the user's Cloudinary assets and deliver them through the configured CDN.
+    reason: Only synthetic fixtures and test credentials were used. The simulation returns synthetic CDN URLs and does not model actual image delivery. The CLI was signed out, so the provider owner's published mock was not searched or pulled.
+    verification: No live Cloudinary account requests were made. Confirm account configuration with a disposable image before release.
+    source: backend/src/main/java/com/travel/config/CloudinaryConfig.java; postman/mocks/cloudinary-media/default.js
+    updated_at: '2026-11-04'
+fingerprints:
+  - id: memory-storage-local
+    date: '2026-11-04'
+    commit: 44a53a9
+    cli: 1.73.0

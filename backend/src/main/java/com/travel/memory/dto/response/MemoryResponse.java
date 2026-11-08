@@ -16,6 +16,7 @@ import java.util.UUID;
 @AllArgsConstructor
 public class MemoryResponse {
     private UUID id;
+    private long version;
     private UUID userId;
     private UUID tripId;
     private UUID placeId;

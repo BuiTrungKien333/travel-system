@@ -40,6 +40,10 @@ public abstract class BaseEntity {
         this.deletedAt = null;
     }
 
+    protected void touch() {
+        this.updatedAt = Instant.now();
+    }
+
     public boolean isDeleted() {
         return deletedAt != null;
     }

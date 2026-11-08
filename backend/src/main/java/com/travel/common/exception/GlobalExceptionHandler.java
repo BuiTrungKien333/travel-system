@@ -239,7 +239,7 @@ public class GlobalExceptionHandler {
                 .timestamp(Instant.now())
                 .build();
 
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(response);
     }
 
     /*
@@ -281,7 +281,21 @@ public class GlobalExceptionHandler {
         ErrorCode errorCode = e.getErrorCode();
         log.warn("Business exception [{}]: uri={}, messageKey={}",
                 errorCode.getCode(), request.getRequestURI(), errorCode.getMessageKey());
-        return buildErrorResponse(errorCode, e.getFieldErrors());
+        var response = buildErrorResponse(errorCode, e.getFieldErrors());
+        if (errorCode == ErrorCode.UPLOAD_RATE_LIMITED)
+            return ResponseEntity.status(errorCode.getHttpStatus()).header("Retry-After", "60").body(response.getBody());
+        return response;
+    }
+
+    @ExceptionHandler(org.springframework.web.multipart.support.MissingServletRequestPartException.class)
+    public ResponseEntity<ErrorResponse> handleMissingUploadPart(Exception e) {
+        return buildErrorResponse(ErrorCode.VALIDATION_ERROR, Map.of("files", "Image file is required"));
+    }
+
+    @ExceptionHandler(org.springframework.orm.ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<ErrorResponse> handleStaleMemory(org.springframework.orm.ObjectOptimisticLockingFailureException e) {
+        return buildErrorResponse(e.getPersistentClass() == com.travel.memory.entity.Memory.class
+                ? ErrorCode.MEMORY_VERSION_CONFLICT : ErrorCode.TRIP_VERSION_CONFLICT, null);
     }
 
     @ExceptionHandler(org.springframework.dao.InvalidDataAccessApiUsageException.class)

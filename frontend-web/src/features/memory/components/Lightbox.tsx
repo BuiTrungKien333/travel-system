@@ -1,155 +1,130 @@
 'use client';
 
-import { useEffect, useCallback } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, ChevronLeft, ChevronRight, MapPin } from 'lucide-react';
+import { X, ChevronLeft, ChevronRight, ImagePlus, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { useMemoryUIStore } from '../store/useMemoryUIStore';
-import { formatDateShort } from '@/lib/utils';
+import { useDeleteMemoryMutation } from '../api/useDeleteMemoryMutation';
+import { getMemory, useDeleteMediaMutation, useUpdateMemoryMutation } from '../api/useMemoryActions';
+import { UploadMemoryDialog } from './UploadMemoryDialog';
+import type { MemoryDetail } from '../types';
+
+function localDate(value?: string) {
+  const date = value ? new Date(value) : new Date();
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+}
 
 export function Lightbox() {
-  const { lightboxMemory, lightboxMediaIndex, closeLightbox, setLightboxMediaIndex } = useMemoryUIStore();
+  const memory = useMemoryUIStore(s => s.lightboxMemory);
+  return memory ? <MemoryViewer key={memory.id} memory={memory} /> : null;
+}
 
-  const handleNext = useCallback((e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    if (!lightboxMemory || !lightboxMemory.media.length) return;
-    if (lightboxMediaIndex < lightboxMemory.media.length - 1) {
-      setLightboxMediaIndex(lightboxMediaIndex + 1);
-    } else {
-      setLightboxMediaIndex(0); // loop
-    }
-  }, [lightboxMemory, lightboxMediaIndex, setLightboxMediaIndex]);
+function MemoryViewer({ memory }: { memory: MemoryDetail }) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const { closeLightbox, openLightbox, lightboxMediaIndex: index, setLightboxMediaIndex } = useMemoryUIStore();
+  const [note, setNote] = useState(memory.note ?? '');
+  const [date, setDate] = useState(localDate(memory.experiencedAt ?? memory.createdAt));
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+  const [adding, setAdding] = useState(false);
+  const [failedUrl, setFailedUrl] = useState('');
+  const update = useUpdateMemoryMutation();
+  const removePhoto = useDeleteMediaMutation();
+  const removeMemory = useDeleteMemoryMutation();
+  const busy = update.isPending || removePhoto.isPending || removeMemory.isPending;
+  const current = memory.media[index];
 
-  const handlePrev = useCallback((e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    if (!lightboxMemory || !lightboxMemory.media.length) return;
-    if (lightboxMediaIndex > 0) {
-      setLightboxMediaIndex(lightboxMediaIndex - 1);
-    } else {
-      setLightboxMediaIndex(lightboxMemory.media.length - 1); // loop
-    }
-  }, [lightboxMemory, lightboxMediaIndex, setLightboxMediaIndex]);
-
-  // Keyboard navigation
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (!lightboxMemory) return;
-      if (e.key === 'Escape') closeLightbox();
-      if (e.key === 'ArrowRight') handleNext();
-      if (e.key === 'ArrowLeft') handlePrev();
-    };
+    dialog.current?.showModal();
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = previous; };
+  }, []);
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [lightboxMemory, closeLightbox, handleNext, handlePrev]);
+  function navigate(delta: number) {
+    if (memory.media.length) setLightboxMediaIndex((index + delta + memory.media.length) % memory.media.length);
+  }
+  async function reload() {
+    try {
+      const fresh = await getMemory(memory.id);
+      openLightbox(fresh, Math.min(index, Math.max(0, fresh.media.length - 1)));
+      setNote(fresh.note ?? ''); setError('');
+    } catch (e) { setError(e instanceof Error ? e.message : 'Không thể tải lại.'); }
+  }
+  async function save(event: React.FormEvent) {
+    event.preventDefault(); setError(''); setMessage('');
+    try {
+      const changedDate = date !== localDate(memory.experiencedAt ?? memory.createdAt);
+      const saved = await update.mutateAsync({ id: memory.id, version: memory.version!, note: note.trim() || null,
+        ...(changedDate ? { experiencedAt: new Date(date).toISOString() } : {}) });
+      openLightbox(saved, index); setMessage('Đã lưu thay đổi.');
+    } catch (e) { setError(e instanceof Error ? e.message : 'Không thể lưu.'); }
+  }
 
-  if (!lightboxMemory) return null;
-
-  const currentMedia = lightboxMemory.media[lightboxMediaIndex];
-
-  return (
-    <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-sm"
-        onClick={closeLightbox}
-      >
-        {/* Close Button */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            closeLightbox();
-          }}
-          className="absolute top-6 right-6 z-[110] rounded-full bg-white/10 p-2.5 text-white hover:bg-white/20 transition-colors"
-        >
-          <X className="h-6 w-6" />
-        </button>
-
-        {/* Media Container */}
-        <div className="relative w-full max-w-5xl h-[85vh] flex items-center justify-center p-4">
-          {currentMedia && (
-            <motion.div
-              key={currentMedia.id}
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              transition={{ duration: 0.2 }}
-              className="relative w-full h-full"
-            >
-              <Image
-                src={currentMedia.url}
-                alt={lightboxMemory.note || 'Memory photo'}
-                fill
-                className="object-contain"
-                sizes="100vw"
-                priority
-              />
-            </motion.div>
-          )}
-
-          {/* Navigation Controls */}
-          {lightboxMemory.media.length > 1 && (
-            <>
-              <button
-                onClick={handlePrev}
-                className="absolute left-4 md:left-12 top-1/2 -translate-y-1/2 rounded-full bg-white/10 p-3 text-white hover:bg-white/20 transition-colors"
-              >
-                <ChevronLeft className="h-8 w-8" />
-              </button>
-              <button
-                onClick={handleNext}
-                className="absolute right-4 md:right-12 top-1/2 -translate-y-1/2 rounded-full bg-white/10 p-3 text-white hover:bg-white/20 transition-colors"
-              >
-                <ChevronRight className="h-8 w-8" />
-              </button>
-            </>
-          )}
+  return <>
+    <dialog ref={dialog} aria-label="Chi tiết kỷ niệm" onCancel={event => { event.preventDefault(); if (!busy) closeLightbox(); }}
+      onKeyDown={event => {
+        const tag = (event.target as HTMLElement).tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+        if (event.key === 'ArrowLeft') { event.preventDefault(); navigate(-1); }
+        if (event.key === 'ArrowRight') { event.preventDefault(); navigate(1); }
+      }} className="m-auto h-[90dvh] w-[95vw] max-w-6xl overflow-auto rounded-2xl bg-background p-0 text-foreground shadow-xl backdrop:bg-black/80">
+      <div className="flex min-h-full flex-col md:flex-row">
+        <div className="relative min-h-[40vh] flex-1 bg-black md:min-h-[85dvh]">
+          {current && failedUrl !== current.url ? <Image src={current.url} alt={memory.note || 'Ảnh kỷ niệm'} fill sizes="(max-width: 768px) 95vw, 65vw" className="object-contain" priority onError={() => setFailedUrl(current.url)} />
+            : current ? <div className="flex min-h-[40vh] h-full flex-col items-center justify-center gap-3 p-8 text-sm text-white/70"><p>Chưa tải được ảnh.</p><button onClick={() => setFailedUrl('')} className="underline">Thử tải ảnh lại</button></div>
+            : <p className="flex h-full min-h-[40vh] items-center justify-center p-8 text-sm text-white/70">Kỷ niệm này chưa có ảnh.</p>}
+          {memory.media.length > 1 && <>
+            <button onClick={() => navigate(-1)} aria-label="Ảnh trước" className="absolute left-2 top-1/2 rounded-full bg-black/60 p-2 text-white"><ChevronLeft /></button>
+            <button onClick={() => navigate(1)} aria-label="Ảnh kế tiếp" className="absolute right-2 top-1/2 rounded-full bg-black/60 p-2 text-white"><ChevronRight /></button>
+            <span className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/70 px-3 py-1 text-xs text-white">{index + 1}/{memory.media.length}</span>
+          </>}
         </div>
-
-        {/* Info Overlay */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent p-6 pb-8 text-white pointer-events-none"
-        >
-          <div className="max-w-5xl mx-auto space-y-2 pointer-events-auto" onClick={(e) => e.stopPropagation()}>
-            {lightboxMemory.placeName && (
-              <div className="flex items-center gap-2 text-sm text-white/80 font-medium">
-                <MapPin className="h-4 w-4 text-primary" />
-                <span>{lightboxMemory.placeName}</span>
-              </div>
-            )}
-            <p className="text-xs text-white/60">
-              {formatDateShort(lightboxMemory.createdAt)}
-            </p>
-            {lightboxMemory.note && (
-              <p className="text-base md:text-lg mt-3 max-w-2xl text-white/95 leading-relaxed">
-                {lightboxMemory.note}
-              </p>
-            )}
-
-            {/* Pagination Indicators */}
-            {lightboxMemory.media.length > 1 && (
-              <div className="flex items-center justify-center gap-1.5 mt-6 mb-2">
-                {lightboxMemory.media.map((_, idx) => (
-                  <button
-                    key={idx}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setLightboxMediaIndex(idx);
-                    }}
-                    className={`h-1.5 rounded-full transition-all ${
-                      idx === lightboxMediaIndex ? 'bg-primary w-6' : 'bg-white/40 w-1.5 hover:bg-white/60'
-                    }`}
-                  />
-                ))}
-              </div>
-            )}
+        <div className="w-full space-y-4 p-5 md:w-80 md:shrink-0">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="font-semibold">Kỷ niệm của bạn</h2>
+            <button onClick={closeLightbox} disabled={busy} aria-label="Đóng chi tiết" className="rounded-lg p-2 hover:bg-muted disabled:opacity-40"><X size={20} /></button>
           </div>
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
-  );
+          {memory.version !== undefined && <form onSubmit={save} className="space-y-3">
+            <label className="block space-y-1 text-sm"><span>Ghi chú</span>
+              <textarea value={note} onChange={e => setNote(e.target.value)} maxLength={2000} rows={4} disabled={busy} className="w-full rounded-lg border border-border bg-background p-2" />
+              <span className="block text-right text-xs text-muted-foreground">{note.length}/2000</span>
+            </label>
+            <label className="block space-y-1 text-sm"><span>Thời gian trải nghiệm</span>
+              <input type="datetime-local" required max={localDate()} value={date} onChange={e => setDate(e.target.value)} disabled={busy} className="w-full rounded-lg border border-border bg-background p-2" />
+            </label>
+            <button disabled={busy} className="w-full rounded-lg bg-primary p-2 text-sm font-semibold text-primary-foreground disabled:opacity-50">{update.isPending ? 'Đang lưu…' : 'Lưu thay đổi'}</button>
+          </form>}
+          {error && <div role="alert" className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive"><p>{error}</p>
+            <button type="button" onClick={reload} disabled={busy} className="mt-2 underline">Tải lại bản mới nhất</button>
+          </div>}
+          {message && <p role="status" className="text-sm text-primary">{message}</p>}
+          {memory.version !== undefined && <div className="space-y-2 border-t border-border pt-4">
+            <button disabled={busy} onClick={() => setAdding(true)} className="flex w-full items-center gap-2 rounded-lg border border-border p-2 text-sm"><ImagePlus size={16} />Thêm ảnh</button>
+            {current && <>
+              {index > 0 && <button disabled={busy} onClick={async () => {
+                try {
+                  const order = [current.id, ...memory.media.filter(m => m.id !== current.id).map(m => m.id)];
+                  const saved = await update.mutateAsync({ id: memory.id, version: memory.version!, mediaOrder: order });
+                  openLightbox(saved, 0); setMessage('Đã đổi ảnh bìa.'); setError('');
+                } catch (e) { setError(e instanceof Error ? e.message : 'Không thể đổi ảnh bìa.'); }
+              }} className="w-full rounded-lg border border-border p-2 text-sm">Đặt ảnh này làm ảnh bìa</button>}
+              <button disabled={busy} onClick={async () => {
+                if (!window.confirm('Xóa ảnh này khỏi kỷ niệm? Ảnh sẽ được xóa khỏi kho lưu trữ.')) return;
+                try { await removePhoto.mutateAsync(current.id); await reload(); setMessage('Đã xóa ảnh.'); }
+                catch (e) { setError(e instanceof Error ? e.message : 'Không thể xóa ảnh.'); }
+              }} className="w-full rounded-lg border border-border p-2 text-sm text-destructive">Xóa ảnh đang xem</button>
+            </>}
+            <button disabled={busy} onClick={async () => {
+              if (!window.confirm('Xóa kỷ niệm và tất cả ảnh của nó? Bạn không thể hoàn tác thao tác này.')) return;
+              try { await removeMemory.mutateAsync(memory.id); closeLightbox(); toast.success('Đã xóa kỷ niệm'); }
+              catch (e) { setError(e instanceof Error ? e.message : 'Không thể xóa kỷ niệm.'); }
+            }} className="flex w-full items-center gap-2 rounded-lg p-2 text-sm text-destructive"><Trash2 size={16} />Xóa kỷ niệm</button>
+          </div>}
+        </div>
+      </div>
+    </dialog>
+    {adding && <UploadMemoryDialog tripId={memory.tripId || undefined} memory={memory} onClose={() => setAdding(false)} onSaved={saved => openLightbox(saved, index)} />}
+  </>;
 }

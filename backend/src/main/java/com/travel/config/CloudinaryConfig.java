@@ -19,6 +19,9 @@ public class CloudinaryConfig {
     @Value("${app.cloudinary.api-secret}")
     private String apiSecret;
 
+    @Value("${app.cloudinary.upload-prefix:https://api.cloudinary.com}")
+    private String uploadPrefix;
+
 
     @Bean
     public Cloudinary cloudinary() {
@@ -26,6 +29,7 @@ public class CloudinaryConfig {
                 "cloud_name", cloudName,
                 "api_key", apiKey,
                 "api_secret", apiSecret,
+                "upload_prefix", uploadPrefix,
                 "secure", true
         ));
     }

@@ -35,6 +35,12 @@ public class Media {
     @Column(name = "url", nullable = false, length = 2048)
     private String url;
 
+    @Column(name = "public_id", length = 255)
+    private String publicId;
+
+    @Column(name = "content_hash", length = 64)
+    private String contentHash;
+
     @Column(name = "mime_type", length = 50)
     private String mimeType;
 

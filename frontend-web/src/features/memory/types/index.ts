@@ -10,6 +10,10 @@ export interface Memory {
   mediaCount: number;    // count of Media[] attached
   coverMediaUrl?: string; // first media URL for thumbnail
   createdAt: string;
+  version?: number;
+  experiencedAt?: string;
+  updatedAt?: string;
+  media?: Media[];
 }
 
 export interface Media {
@@ -30,7 +34,8 @@ export interface MemoryDetail extends Memory {
 }
 
 export interface CreateMemoryRequest {
-  tripId: string;
+  tripId?: string;
+  clientRequestId?: string;
   placeId?: string;
   note?: string;
   // Media files are uploaded separately via multipart POST

@@ -30,6 +30,7 @@ export const TRIP_STATUS = {
   READY: 'READY',
   ACTIVE: 'ACTIVE',
   COMPLETED: 'COMPLETED',
+  CANCELLED: 'CANCELLED',
 } as const;
 
 export type TripStatus = (typeof TRIP_STATUS)[keyof typeof TRIP_STATUS];
@@ -39,6 +40,7 @@ export const TRIP_STATUS_LABELS: Record<TripStatus, string> = {
   READY: 'Sẵn sàng',
   ACTIVE: 'Đang diễn ra',
   COMPLETED: 'Đã hoàn thành',
+  CANCELLED: 'Đã hủy',
 };
 
 export const TRIP_STATUS_COLORS: Record<TripStatus, string> = {
@@ -46,6 +48,7 @@ export const TRIP_STATUS_COLORS: Record<TripStatus, string> = {
   READY: 'bg-blue-100 text-blue-800',
   ACTIVE: 'bg-green-100 text-green-800',
   COMPLETED: 'bg-gray-100 text-gray-700',
+  CANCELLED: 'bg-red-100 text-red-700',
 };
 
 // ─── Place Categories ─────────────────────────────────────────────────────────

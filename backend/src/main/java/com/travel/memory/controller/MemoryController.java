@@ -2,6 +2,7 @@ package com.travel.memory.controller;
 
 import com.travel.common.response.ApiResponse;
 import com.travel.memory.dto.request.CreateMemoryRequest;
+import com.travel.memory.dto.request.UpdateMemoryRequest;
 import com.travel.memory.dto.response.MemoryResponse;
 import com.travel.memory.service.MemoryService;
 import com.travel.security.util.SecurityUtils;
@@ -28,6 +29,22 @@ import java.util.UUID;
 public class MemoryController {
 
     private final MemoryService memoryService;
+
+    @GetMapping("/{id}")
+    @Operation(summary = "Get a private memory with all its media and edit version")
+    public ApiResponse<MemoryResponse> detail(@PathVariable UUID id) {
+        return ApiResponse.success(memoryService.getMemoryById(id, SecurityUtils.getCurrentUserId()));
+    }
+
+    @PatchMapping("/{id}")
+    @Operation(summary = "Edit a memory or reorder photos", description = "Requires the current version. Omitted fields are preserved; note=null clears the note. mediaOrder must contain every photo ID exactly once.")
+    public ApiResponse<MemoryResponse> update(@PathVariable UUID id, @Valid @RequestBody UpdateMemoryRequest request) {
+        return ApiResponse.success(memoryService.updateMemory(id, SecurityUtils.getCurrentUserId(), request));
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@PathVariable UUID id) { memoryService.deleteMemory(id, SecurityUtils.getCurrentUserId()); }
 
     /**
      * Create a new travel memory with optional attached media.

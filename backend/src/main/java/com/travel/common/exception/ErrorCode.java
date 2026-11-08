@@ -64,14 +64,20 @@ public enum ErrorCode {
 
     MEMORY_NOT_FOUND("MEMORY_001", "error.memory.not-found", HttpStatus.NOT_FOUND),
     MEMORY_ACCESS_DENIED("MEMORY_002", "error.memory.access-denied", HttpStatus.FORBIDDEN),
+    MEMORY_VERSION_CONFLICT("MEMORY_003", "error.memory.version-conflict", HttpStatus.CONFLICT),
+    MEMORY_REQUEST_CONFLICT("MEMORY_004", "error.memory.request-conflict", HttpStatus.CONFLICT),
     MEDIA_NOT_FOUND("MEDIA_001", "error.media.not-found", HttpStatus.NOT_FOUND),
 
     // --- UPLOAD ---
     UPLOAD_FILE_EMPTY("UPLOAD_001", "error.upload.file-empty", HttpStatus.BAD_REQUEST),
-    UPLOAD_FILE_TOO_LARGE("UPLOAD_002", "error.upload.file-too-large", HttpStatus.BAD_REQUEST),
+    UPLOAD_FILE_TOO_LARGE("UPLOAD_002", "error.upload.file-too-large", HttpStatus.PAYLOAD_TOO_LARGE),
     UPLOAD_INVALID_FILE_TYPE("UPLOAD_003", "error.upload.invalid-file-type", HttpStatus.BAD_REQUEST),
     UPLOAD_FAILED("UPLOAD_004", "error.upload.failed", HttpStatus.INTERNAL_SERVER_ERROR),
-    UPLOAD_TOO_MANY_FILES("UPLOAD_005", "error.upload.too-many-files", HttpStatus.BAD_REQUEST);
+    UPLOAD_TOO_MANY_FILES("UPLOAD_005", "error.upload.too-many-files", HttpStatus.BAD_REQUEST),
+    UPLOAD_BATCH_TOO_LARGE("UPLOAD_006", "error.upload.batch-too-large", HttpStatus.PAYLOAD_TOO_LARGE),
+    UPLOAD_MEMORY_LIMIT("UPLOAD_007", "error.upload.memory-limit", HttpStatus.CONFLICT),
+    UPLOAD_IMAGE_TOO_LARGE("UPLOAD_008", "error.upload.image-too-large", HttpStatus.BAD_REQUEST),
+    UPLOAD_RATE_LIMITED("UPLOAD_009", "error.upload.rate-limited", HttpStatus.TOO_MANY_REQUESTS);
 
     private final String code;
     private final String messageKey;

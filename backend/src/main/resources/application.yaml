@@ -28,12 +28,21 @@ spring:
   servlet:
     multipart:
       max-file-size: 10MB
-      max-request-size: 100MB
+      max-request-size: 51MB
 
 server:
   port: ${SERVER_PORT:8080}
 
 app:
+  media:
+    max-file-bytes: ${MEDIA_MAX_FILE_BYTES:10485760}
+    max-batch-bytes: ${MEDIA_MAX_BATCH_BYTES:52428800}
+    max-files-per-request: ${MEDIA_MAX_FILES_PER_REQUEST:10}
+    max-files-per-memory: ${MEDIA_MAX_FILES_PER_MEMORY:20}
+    max-pixels: ${MEDIA_MAX_PIXELS:25000000}
+    uploads-per-minute: ${MEDIA_UPLOADS_PER_MINUTE:20}
+    concurrent-uploads-per-user: ${MEDIA_CONCURRENT_UPLOADS_PER_USER:2}
+    concurrent-uploads: ${MEDIA_CONCURRENT_UPLOADS:2}
   cloudinary:
     cloud-name: ${CLOUDINARY_CLOUD_NAME}
     api-key: ${CLOUDINARY_API_KEY}

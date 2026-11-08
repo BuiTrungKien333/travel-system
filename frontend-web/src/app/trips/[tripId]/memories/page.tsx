@@ -6,6 +6,7 @@ import { useMemoryQuery } from '@/features/memory/api/useMemoryQuery';
 import { useMemoryUIStore } from '@/features/memory/store/useMemoryUIStore';
 import { MemoryGallery } from '@/features/memory/components/MemoryGallery';
 import { Lightbox } from '@/features/memory/components/Lightbox';
+import { UploadMemoryDialog } from '@/features/memory/components/UploadMemoryDialog';
 
 export default function TripMemoriesPage({
   params,
@@ -14,7 +15,9 @@ export default function TripMemoriesPage({
 }) {
   const resolvedParams = use(params);
   const { tripId } = resolvedParams;
-  const { data: memories, isLoading } = useMemoryQuery(tripId);
+  const query = useMemoryQuery(tripId);
+  const memories = query.data?.pages.flatMap(page => page.content) ?? [];
+  const isUploadOpen = useMemoryUIStore(s => s.isUploadOpen);
   const setIsUploadOpen = useMemoryUIStore((s) => s.setIsUploadOpen);
 
   return (
@@ -40,10 +43,17 @@ export default function TripMemoriesPage({
       </div>
 
       {/* Gallery & timeline */}
-      <MemoryGallery memories={memories ?? []} isLoading={isLoading} />
+      {query.isError && <div role="alert" className="rounded-lg border border-destructive/30 p-4 text-sm text-destructive">
+        <p>{query.error.message}</p><button onClick={() => query.refetch()} className="mt-2 underline">Thử lại</button>
+      </div>}
+      {(!query.isError || memories.length > 0) && <MemoryGallery memories={memories} isLoading={query.isPending} />}
+      {query.hasNextPage && <button disabled={query.isFetchingNextPage} onClick={() => query.fetchNextPage()} className="mx-auto block rounded-lg border border-border px-5 py-2 text-sm">
+        {query.isFetchingNextPage ? 'Đang tải…' : 'Tải thêm kỷ niệm'}
+      </button>}
 
       {/* Full-screen Lightbox Portal */}
       <Lightbox />
+      {isUploadOpen && <UploadMemoryDialog tripId={tripId} onClose={() => setIsUploadOpen(false)} />}
     </div>
   );
 }

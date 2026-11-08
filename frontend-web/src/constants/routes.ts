@@ -16,9 +16,9 @@ export const ROUTES = {
   tripSettings: (tripId: string) => `/trips/${tripId}/settings`,
 
   // Journey & Memory
-  journal: '/journal',
+  journal: '/memory',
   journey: '/journey',
-  memory: '/journal',
+  memory: '/memory',
   memoryDetail: (memoryId: string) => `/memories/${memoryId}`,
 
   // Account

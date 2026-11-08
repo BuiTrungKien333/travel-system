@@ -1,0 +1,7 @@
+simulation: memory-storage
+routing: path
+mocks:
+  - name: Cloudinary storage
+    routeKey: cloudinary
+    origin: [api.cloudinary.com]
+    path: postman/mocks/cloudinary-media/config.yaml

@@ -43,6 +43,12 @@
         </dependencies>
     </dependencyManagement>
     <dependencies>
+        <!-- ImageIO needs a decoder to verify WebP pixels, not only client MIME headers. -->
+        <dependency>
+            <groupId>com.twelvemonkeys.imageio</groupId>
+            <artifactId>imageio-webp</artifactId>
+            <version>3.15.3</version>
+        </dependency>
 
         <!-- Verify Google ID tokens with Nimbus/Spring Security and cached Google JWKS. -->
         <dependency>

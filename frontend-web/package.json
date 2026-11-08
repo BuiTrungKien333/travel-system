@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
-    "test:auth": "node scripts/check-auth-contract.cjs"
+    "test:auth": "node scripts/check-auth-contract.cjs",
+    "test:memory": "node --test scripts/check-memory-contract.cjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

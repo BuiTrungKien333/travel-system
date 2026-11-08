@@ -23,6 +23,7 @@ import java.util.UUID;
 public class CreateMemoryRequest {
 
     private UUID tripId;
+    private UUID clientRequestId;
 
     private UUID placeId;
 
@@ -33,6 +34,7 @@ public class CreateMemoryRequest {
     private Instant experiencedAt;
 
     @Valid
+    @Size(max = 0, message = "Create the memory first, then upload image files to /media/uploads")
     @Builder.Default
     private List<CreateMediaRequest> media = new ArrayList<>();
 }

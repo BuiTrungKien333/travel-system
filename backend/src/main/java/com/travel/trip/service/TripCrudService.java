@@ -114,6 +114,20 @@ public class TripCrudService {
         return impact(row, request.startDate(), request.endDate());
     }
     @Transactional
+    public Read complete(UUID id, long version) {
+        if (version < 0) invalid("version");
+        var row = ownedLocked(id);
+        requireWritable(row);
+        Instant now = clock.instant();
+        // A lost response may be retried with the version from before completion.
+        if ("COMPLETED".equals(row.status())) return read(row, now);
+        requireVersion(row, version);
+        if (!"LIVE".equals(TripCalendar.mode(row.status(), row.start(), row.end(), context(now).evaluatedDate())))
+            throw new AppException(ErrorCode.TRIP_READ_ONLY);
+        if (!repository.complete(id, version, now)) throw new AppException(ErrorCode.TRIP_VERSION_CONFLICT);
+        return read(repository.find(SecurityUtils.getCurrentUserId(), id).orElseThrow(), now);
+    }
+    @Transactional
     public void delete(UUID id, long version) {
         if (version < 0) invalid("version");
         var row = ownedLocked(id);

@@ -1,6 +1,7 @@
 package com.travel.media.service;
 
 import com.travel.media.dto.UploadResponse;
+import com.travel.media.dto.BatchUploadResponse;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -27,9 +28,9 @@ public interface MediaService {
      * @param userId   the user ID
      * @param tripId   the trip ID
      * @param memoryId the memory ID
-     * @return list of UploadResponse
+     * @return per-file results, including failures; successful files remain saved
      */
-    List<UploadResponse> uploadImages(List<MultipartFile> files, UUID userId, UUID tripId, UUID memoryId);
+    BatchUploadResponse uploadImages(List<MultipartFile> files, UUID userId, UUID tripId, UUID memoryId);
 
     /**
      * Upload a single image file to Cloudinary (misc folder — backward compatible).
@@ -41,15 +42,6 @@ public interface MediaService {
     UploadResponse uploadImage(MultipartFile file, UUID userId);
 
     /**
-     * Upload multiple image files to Cloudinary (up to 10, misc folder — backward compatible).
-     *
-     * @param files  the list of multipart files
-     * @param userId the user ID
-     * @return list of UploadResponse
-     */
-    List<UploadResponse> uploadImages(List<MultipartFile> files, UUID userId);
-
-    /**
      * Delete a specific Media entity from a memory. Validates ownership.
      *
      * @param mediaId       the ID of the media item to delete
@@ -57,10 +49,4 @@ public interface MediaService {
      */
     void deleteMedia(UUID mediaId, UUID requestUserId);
 
-    /**
-     * Delete an image from Cloudinary by its publicId.
-     *
-     * @param publicId the Cloudinary publicId
-     */
-    void deleteCloudinaryImage(String publicId);
 }

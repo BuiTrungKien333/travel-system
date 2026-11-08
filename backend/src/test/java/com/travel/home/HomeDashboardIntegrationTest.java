@@ -859,4 +859,41 @@ class HomeDashboardIntegrationTest {
         assertThat(readItinerary(trip)).isEqualTo(before);
     }
 
+    @Test void completedTripHomeAndDayAlbumUseOwnerDataWithLocalDateBoundariesAndStayReadOnly() throws Exception {
+        UUID id=trip(owner,TODAY.minusDays(2),TODAY.minusDays(1),"COMPLETED",1), province=province(), first=place(province);
+        link(id,first,true); UUID itinerary=itinerary(id); stop(itinerary,first,TODAY.minusDays(1),0);
+        Instant start=TODAY.minusDays(1).atStartOfDay(com.travel.trip.service.TripCalendar.ZONE).toInstant();
+        UUID before=memory(owner,id,first,start.minusSeconds(1));photo(before,0);
+        UUID atStart=memory(owner,id,first,start);photo(atStart,0);photo(atStart,1);
+        UUID atEnd=memory(owner,id,first,start.plusSeconds(86400).minusSeconds(1));
+        UUID nextDay=memory(owner,id,first,start.plusSeconds(86400));photo(nextDay,0);
+        UUID deleted=memory(owner,id,first,start.plusSeconds(100));photo(deleted,0);
+        jdbc.update("UPDATE memories SET deleted_at=now() WHERE id=?",deleted);
+        UUID foreign=memory(stranger,id,first,start.plusSeconds(200));photo(foreign,0);
+        var dashboard=home();
+        assertThat(dashboard.path("state").asText()).isEqualTo("RETURNING");
+        assertThat(dashboard.at("/selectedTrip/trip/id").asText()).isEqualTo(id.toString());
+        assertThat(dashboard.at("/selectedTrip/trip/mode").asText()).isEqualTo("RECAP");
+        assertThat(dashboard.at("/selectedTrip/trip/stopCount").asInt()).isEqualTo(1);
+        assertThat(dashboard.at("/selectedTrip/trip/memoryCount").asInt()).isEqualTo(4);
+        assertThat(dashboard.path("recentPhotos")).extracting(node->node.path("memoryId").asText()).doesNotContain(foreign.toString(),deleted.toString());
+        var album=data(mvc.perform(get("/api/v1/journal/memories").param("tripId",id.toString())
+                .param("date",TODAY.minusDays(1).toString()).param("size","1")
+                .header("Authorization","Bearer "+token)).andExpect(status().isOk()));
+        assertThat(album.path("totalElements").asInt()).isEqualTo(2);
+        assertThat(album.at("/content/0/id").asText()).isEqualTo(atEnd.toString());
+        assertThat(album.at("/content/0/media").size()).isZero();
+        var page2=data(mvc.perform(get("/api/v1/journal/memories").param("tripId",id.toString())
+                .param("date",TODAY.minusDays(1).toString()).param("size","1").param("page","1")
+                .header("Authorization","Bearer "+token)).andExpect(status().isOk()));
+        assertThat(page2.at("/content/0/id").asText()).isEqualTo(atStart.toString());
+        assertThat(page2.at("/content/0/media").size()).isEqualTo(2);
+        var base=readItinerary(id);
+        saveDay(id,TODAY.minusDays(1),base.path("updatedAt").asText(),List.of()).andExpect(status().isConflict());
+        assertThat(readItinerary(id)).isEqualTo(base);
+        UUID other=trip(stranger,TODAY.minusDays(2),TODAY.minusDays(1),"COMPLETED",2);
+        mvc.perform(get("/api/v1/journal/memories").param("tripId",other.toString()).param("date",TODAY.minusDays(1).toString())
+                .header("Authorization","Bearer "+token)).andExpect(status().isNotFound());
+    }
+
 }

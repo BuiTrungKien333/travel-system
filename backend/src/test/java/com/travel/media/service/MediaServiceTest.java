@@ -5,10 +5,7 @@ import com.cloudinary.Uploader;
 import com.travel.common.exception.AppException;
 import com.travel.common.exception.ErrorCode;
 import com.travel.media.dto.UploadResponse;
-import com.travel.media.entity.Media;
-import com.travel.media.repository.MediaRepository;
 import com.travel.media.service.impl.MediaServiceImpl;
-import com.travel.memory.entity.Memory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -18,11 +15,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.time.Instant;
 import java.util.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -44,63 +39,18 @@ class MediaServiceTest {
     private Uploader uploader;
 
     @Mock
-    private MediaRepository mediaRepository;
+    private MediaDeletionService deletion;
 
     @InjectMocks
     private MediaServiceImpl mediaService;
 
     private UUID userId;
     private UUID tripId;
-    private UUID placeId;
 
     @BeforeEach
     void setUp() {
         userId = UUID.randomUUID();
         tripId = UUID.randomUUID();
-        placeId = UUID.randomUUID();
-    }
-
-    @Test
-    @DisplayName("Delete media succeeds when owned by user")
-    void deleteMedia_Success() {
-        Memory memory = Memory.create(userId, tripId, placeId, "Memory with media", Instant.now());
-        Media media = Media.create("https://cdn.travel.com/image.jpg", "image/jpeg", 1024L, 800, 600, 0);
-        memory.addMedia(media);
-
-        UUID mediaId = UUID.randomUUID();
-        when(mediaRepository.findById(mediaId)).thenReturn(Optional.of(media));
-
-        mediaService.deleteMedia(mediaId, userId);
-
-        assertThat(memory.getMedia()).isEmpty();
-        verify(mediaRepository, times(1)).delete(media);
-    }
-
-    @Test
-    @DisplayName("Delete media throws exception when media does not exist")
-    void deleteMedia_NotFound() {
-        UUID mediaId = UUID.randomUUID();
-        when(mediaRepository.findById(mediaId)).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> mediaService.deleteMedia(mediaId, userId))
-                .isInstanceOf(AppException.class)
-                .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(ErrorCode.MEDIA_NOT_FOUND));
-    }
-
-    @Test
-    @DisplayName("Delete media throws exception when user does not own memory")
-    void deleteMedia_AccessDenied() {
-        Memory memory = Memory.create(userId, tripId, placeId, "Memory with media", Instant.now());
-        Media media = Media.create("https://cdn.travel.com/image.jpg", "image/jpeg", 1024L, 800, 600, 0);
-        memory.addMedia(media);
-
-        UUID mediaId = UUID.randomUUID();
-        UUID otherUserId = UUID.randomUUID();
-        when(mediaRepository.findById(mediaId)).thenReturn(Optional.of(media));
-
-        assertThatThrownBy(() -> mediaService.deleteMedia(mediaId, otherUserId))
-                .isInstanceOf(AppException.class)
-                .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(ErrorCode.MEMORY_ACCESS_DENIED));
     }
 
     @Test
@@ -143,7 +93,7 @@ class MediaServiceTest {
                     assertThat(error.getErrorCode()).isEqualTo(ErrorCode.MEDIA_STORAGE_UNAVAILABLE);
                     assertThat(error.getErrorCode().getHttpStatus().value()).isEqualTo(503);
                 });
-        verifyNoInteractions(cloudinary, uploader, mediaRepository);
+        verifyNoInteractions(cloudinary, uploader, deletion);
     }
 
     @Test
@@ -176,7 +126,7 @@ class MediaServiceTest {
             files.add(new MockMultipartFile("file", "test" + i + ".jpg", "image/jpeg", "content".getBytes()));
         }
 
-        assertThatThrownBy(() -> mediaService.uploadImages(files, userId))
+        assertThatThrownBy(() -> mediaService.uploadImages(files, userId, UUID.randomUUID(), UUID.randomUUID()))
                 .isInstanceOf(AppException.class)
                 .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(ErrorCode.UPLOAD_TOO_MANY_FILES));
     }

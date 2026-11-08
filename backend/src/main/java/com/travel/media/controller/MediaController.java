@@ -2,6 +2,7 @@ package com.travel.media.controller;
 
 import com.travel.common.response.ApiResponse;
 import com.travel.media.dto.UploadResponse;
+import com.travel.media.dto.BatchUploadResponse;
 import com.travel.media.service.MediaService;
 import com.travel.media.util.ImageUploadPolicy;
 import com.travel.common.exception.AppException;
@@ -78,29 +79,22 @@ public class MediaController {
      * POST /api/v1/media/uploads?tripId=...&memoryId=...
      */
     @PostMapping(value = "/uploads", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @ResponseStatus(HttpStatus.CREATED)
+    @ResponseStatus(HttpStatus.OK)
     @Operation(
             summary = "Upload multiple images",
-            description = "Upload up to 10 image files at once. Each file must be JPEG, PNG, GIF, or WebP. Max 10MB per file. "
-                    + "Organized into folder structure if tripId & memoryId are provided."
+            description = "Processes up to 10 images in submission order for an owned memory and trip. Returns per-file media or errorCode/errorStatus with original index; successful files remain saved even if others fail. Retrying identical files in the same memory is idempotent. Max 10MB per file."
     )
-    public ApiResponse<List<UploadResponse>> uploadImages(
+    public ApiResponse<BatchUploadResponse> uploadImages(
             @RequestParam("files") List<MultipartFile> files,
-            @RequestParam(value = "tripId", required = false) UUID tripId,
-            @RequestParam(value = "memoryId", required = false) UUID memoryId
+            @RequestParam("tripId") UUID tripId,
+            @RequestParam("memoryId") UUID memoryId
     ) {
         if ((tripId == null) != (memoryId == null)) throw new AppException(ErrorCode.VALIDATION_ERROR);
         UUID currentUserId = SecurityUtils.getCurrentUserId();
         log.info("User [{}] uploading {} images, tripId={}, memoryId={}",
                 currentUserId, files.size(), tripId, memoryId);
 
-        List<UploadResponse> responses;
-        if (tripId != null && memoryId != null) {
-            responses = mediaService.uploadImages(files, currentUserId, tripId, memoryId);
-        } else {
-            responses = mediaService.uploadImages(files, currentUserId);
-        }
-        return ApiResponse.success("Images uploaded successfully", responses);
+        return ApiResponse.success("Image batch processed", mediaService.uploadImages(files, currentUserId, tripId, memoryId));
     }
     /**
      * Delete a specific media item by ID.
@@ -110,7 +104,7 @@ public class MediaController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(
             summary = "Delete media item",
-            description = "Permanently deletes a specific media item from a memory. Requires ownership."
+            description = "Owner-only. Confirms provider deletion and requests CDN invalidation before removing the database photo. Repeated requests are idempotent; failed cleanup is retained for retry. CDN propagation is asynchronous."
     )
     public void deleteMedia(@RequestParam("id") UUID id) {
         UUID currentUserId = SecurityUtils.getCurrentUserId();

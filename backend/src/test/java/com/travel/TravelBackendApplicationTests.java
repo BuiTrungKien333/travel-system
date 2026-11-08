@@ -20,6 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @Import(TestcontainersConfiguration.class)
 @ActiveProfiles("test")
 class TravelBackendApplicationTests {
+    private static final int LATEST_SCHEMA_VERSION = 19;
     // Recorded from the released V11 dev database, not calculated from today's files.
     private static final Map<String, Integer> RELEASED = Map.ofEntries(
             Map.entry("V1__init_schema.sql", 2030714601),
@@ -78,7 +79,7 @@ class TravelBackendApplicationTests {
                 }
             }
             Flyway latest = migration(schema,MigrationVersion.LATEST);
-            assertThat(latest.migrate().migrationsExecuted).isEqualTo(1);
+            assertThat(latest.migrate().migrationsExecuted).isEqualTo(LATEST_SCHEMA_VERSION - 15);
             latest.validate();
             try (var connection = dataSource.getConnection()) {
                 connection.setSchema(schema);
@@ -110,7 +111,7 @@ class TravelBackendApplicationTests {
         try {
             flyway.migrate();
             flyway.validate();
-            assertThat(flyway.info().current().getVersion().toString()).isEqualTo("16");
+            assertThat(flyway.info().current().getVersion().toString()).isEqualTo(String.valueOf(LATEST_SCHEMA_VERSION));
             try (var connection = dataSource.getConnection()) {
                 connection.setSchema(schema);
                 try (var statement = connection.createStatement(); var rows = statement.executeQuery("""
@@ -163,7 +164,7 @@ class TravelBackendApplicationTests {
                 }
             }
             Flyway latest = migration(schema, MigrationVersion.LATEST);
-            assertThat(latest.migrate().migrationsExecuted).isEqualTo(5);
+            assertThat(latest.migrate().migrationsExecuted).isEqualTo(LATEST_SCHEMA_VERSION - 11);
             latest.validate();
             assertThat(Arrays.stream(latest.info().applied()).filter(info -> info.getVersion() != null).limit(before.size()).map(this::fingerprint).toList())
                     .isEqualTo(before);

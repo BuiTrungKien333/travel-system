@@ -4,25 +4,21 @@ import com.cloudinary.Cloudinary;
 import com.travel.common.exception.AppException;
 import com.travel.common.exception.ErrorCode;
 import com.travel.media.dto.UploadResponse;
-import com.travel.media.entity.Media;
-import com.travel.media.repository.MediaRepository;
+import com.travel.media.dto.BatchUploadResponse;
 import com.travel.media.service.MediaService;
+import com.travel.media.service.MediaDeletionService;
 import com.travel.media.util.CloudinaryPathBuilder;
 import com.travel.media.util.MediaPersistenceHelper;
 import com.travel.media.util.ImageUploadPolicy;
-import com.travel.memory.entity.Memory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -31,15 +27,9 @@ import java.util.UUID;
 public class MediaServiceImpl implements MediaService {
 
     private final ObjectProvider<Cloudinary> cloudinaryProvider;
-    private final MediaRepository mediaRepository;
     private final MediaPersistenceHelper mediaPersistenceHelper;
+    private final MediaDeletionService deletion;
     private static final int MAX_FILES_PER_REQUEST = 10;
-    private static final Set<String> ALLOWED_MIME_TYPES = Set.of(
-            "image/jpeg",
-            "image/png",
-            "image/gif",
-            "image/webp"
-    );
     @Override
     public UploadResponse uploadImage(MultipartFile file, UUID userId, UUID tripId, UUID memoryId) {
         var image = ImageUploadPolicy.inspect(file);
@@ -48,14 +38,33 @@ public class MediaServiceImpl implements MediaService {
         String folder = CloudinaryPathBuilder.memoryFolder(userId, tripId, memoryId);
         // Stable per-memory/content ID also survives response loss between provider and DB.
         UploadResponse response = doUpload(image, folder, image.hash());
-        return mediaPersistenceHelper.complete(userId, tripId, memoryId, image.hash(), response);
+        try {
+            return mediaPersistenceHelper.complete(userId, tripId, memoryId, image.hash(), response);
+        } catch (AppException failure) {
+            deletion.cleanLateUpload(userId, memoryId, image.hash(), response.getPublicId());
+            throw failure;
+        }
     }
     @Override
-    public List<UploadResponse> uploadImages(List<MultipartFile> files, UUID userId, UUID tripId, UUID memoryId) {
+    public BatchUploadResponse uploadImages(List<MultipartFile> files, UUID userId, UUID tripId, UUID memoryId) {
         validateFileList(files);
-        List<UploadResponse> responses = new ArrayList<>();
-        for (MultipartFile file : files) responses.add(uploadImage(file, userId, tripId, memoryId));
-        return responses;
+        mediaPersistenceHelper.validateOwner(userId, tripId, memoryId);
+        List<BatchUploadResponse.Item> results = new ArrayList<>();
+        int succeeded = 0;
+        for (int index = 0; index < files.size(); index++) {
+            try {
+                var uploaded = uploadImage(files.get(index), userId, tripId, memoryId);
+                results.add(new BatchUploadResponse.Item(index, uploaded, null, null));
+                succeeded++;
+            } catch (AppException failure) {
+                var code = failure.getErrorCode();
+                results.add(new BatchUploadResponse.Item(index, null, code.getCode(), code.getHttpStatus().value()));
+            } catch (RuntimeException failure) {
+                log.warn("Image batch item failed ({})", failure.getClass().getSimpleName());
+                results.add(new BatchUploadResponse.Item(index, null, ErrorCode.INTERNAL_SERVER_ERROR.getCode(), 500));
+            }
+        }
+        return new BatchUploadResponse(List.copyOf(results), succeeded, files.size() - succeeded);
     }
 
     @Override
@@ -67,46 +76,8 @@ public class MediaServiceImpl implements MediaService {
     }
 
     @Override
-    public List<UploadResponse> uploadImages(List<MultipartFile> files, UUID userId) {
-        validateFileList(files);
-        String folder = CloudinaryPathBuilder.miscFolder(userId);
-
-        List<UploadResponse> responses = new ArrayList<>();
-        for (int i = 0; i < files.size(); i++) {
-            String publicId = CloudinaryPathBuilder.generateMemoryFileName(i + 1);
-            responses.add(doUpload(ImageUploadPolicy.inspect(files.get(i)), folder, publicId));
-        }
-        return responses;
-    }
-    @Override
-    @Transactional
     public void deleteMedia(UUID mediaId, UUID requestUserId) {
-        Media media = mediaRepository.findById(mediaId)
-                .orElseThrow(() -> new AppException(ErrorCode.MEDIA_NOT_FOUND));
-
-        Memory memory = media.getMemory();
-        if (memory == null || memory.isDeleted() || !memory.getUserId().equals(requestUserId)) {
-            throw new AppException(ErrorCode.MEMORY_ACCESS_DENIED);
-        }
-
-        memory.removeMedia(media);
-        mediaRepository.delete(media);
-        log.info("Media deleted: mediaId={}, memoryId={}, userId={}", mediaId, memory.getId(), requestUserId);
-    }
-
-    @Override
-    public void deleteCloudinaryImage(String publicId) {
-        if (publicId == null || publicId.isBlank()) {
-            return;
-        }
-        Cloudinary cloudinary = requireCloudinary();
-        try {
-            Map<?, ?> result = cloudinary.uploader().destroy(publicId, Map.of());
-            log.info("Cloudinary delete result for publicId [{}]: {}", publicId, result.get("result"));
-        } catch (IOException e) {
-            log.warn("Cloudinary deletion failed");
-            throw new AppException(ErrorCode.UPLOAD_FAILED);
-        }
+        deletion.delete(mediaId, requestUserId);
     }
     private Cloudinary requireCloudinary() {
         Cloudinary client = cloudinaryProvider.getIfAvailable();
@@ -163,22 +134,6 @@ public class MediaServiceImpl implements MediaService {
         }
     }
 
-    private void validateFile(MultipartFile file) {
-        if (file == null || file.isEmpty()) {
-            log.warn("File is empty");
-            throw new AppException(ErrorCode.UPLOAD_FILE_EMPTY);
-        }
-        String contentType = file.getContentType();
-        if (contentType == null || !ALLOWED_MIME_TYPES.contains(contentType.toLowerCase())) {
-            log.warn("Invalid file type attempted: {}", contentType);
-            throw new AppException(ErrorCode.UPLOAD_INVALID_FILE_TYPE);
-        }
-        if (file.getSize() > ImageUploadPolicy.MAX_FILE_BYTES) {
-            log.warn("File too large: {} bytes", file.getSize());
-            throw new AppException(ErrorCode.UPLOAD_FILE_TOO_LARGE);
-        }
-    }
-
     private void validateFileList(List<MultipartFile> files) {
         if (files == null || files.isEmpty()) {
             throw new AppException(ErrorCode.UPLOAD_FILE_EMPTY);
@@ -186,6 +141,5 @@ public class MediaServiceImpl implements MediaService {
         if (files.size() > MAX_FILES_PER_REQUEST) {
             throw new AppException(ErrorCode.UPLOAD_TOO_MANY_FILES);
         }
-        files.forEach(this::validateFile);
     }
 }

@@ -49,6 +49,7 @@ class MemoryCaptureIntegrationTest {
     @Autowired JdbcTemplate jdbc;
     @Autowired UserRepository users;
     @Autowired PasswordEncoder encoder;
+    @Autowired com.travel.media.service.MediaDeletionService deletion;
     @MockitoBean AuthEmailSender mail;
     @MockitoBean Cloudinary cloudinary;
     Uploader uploader;
@@ -237,5 +238,258 @@ class MemoryCaptureIntegrationTest {
                 .param("memoryId", id.toString()).param("tripId", trip.toString()).header("Authorization", bearer()))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("UPLOAD_003"));
         assertThat(count("media", id)).isZero(); verifyNoInteractions(uploader);
+    }
+
+    @Test void batchReportsInvalidFilesAndContinuesWithoutDuplicatingSuccessfulPhotos() throws Exception {
+        UUID memory = create();
+        var second = Arrays.copyOf(image, image.length + 1);
+        var request = multipart("/api/v1/media/uploads")
+                .file(new MockMultipartFile("files", "first.jpg", "image/jpeg", image))
+                .file(new MockMultipartFile("files", "invalid.jpg", "image/jpeg", "not an image".getBytes()))
+                .file(new MockMultipartFile("files", "second.jpg", "image/jpeg", second))
+                .param("tripId", trip.toString()).param("memoryId", memory.toString()).header("Authorization", bearer());
+        mvc.perform(request).andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.succeeded").value(2)).andExpect(jsonPath("$.data.failed").value(1))
+                .andExpect(jsonPath("$.data.items[0].media.mediaId").exists())
+                .andExpect(jsonPath("$.data.items[1].index").value(1))
+                .andExpect(jsonPath("$.data.items[1].errorCode").value("UPLOAD_003"))
+                .andExpect(jsonPath("$.data.items[2].media.mediaId").exists());
+        mvc.perform(request).andExpect(status().isOk()).andExpect(jsonPath("$.data.succeeded").value(2));
+        assertThat(count("media", memory)).isEqualTo(2);
+        verify(uploader, times(2)).upload(any(byte[].class), anyMap());
+    }
+
+    @Test void batchProviderFailureDoesNotPreventOtherItemsAndCanRetry() throws Exception {
+        UUID memory = create();
+        var calls = new java.util.concurrent.atomic.AtomicInteger();
+        doAnswer(invocation -> {
+            assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+            if (calls.getAndIncrement() == 0) throw new IOException("fixture failure");
+            Map<?, ?> params = invocation.getArgument(1);
+            return Map.of("secure_url", "https://res.cloudinary.com/fixture/image/upload/photo.jpg",
+                    "public_id", params.get("folder") + "/" + params.get("public_id"));
+        }).when(uploader).upload(any(byte[].class), anyMap());
+        var request = multipart("/api/v1/media/uploads")
+                .file(new MockMultipartFile("files", "first.jpg", "image/jpeg", image))
+                .file(new MockMultipartFile("files", "second.jpg", "image/jpeg", Arrays.copyOf(image, image.length + 1)))
+                .param("tripId", trip.toString()).param("memoryId", memory.toString()).header("Authorization", bearer());
+        mvc.perform(request).andExpect(status().isOk()).andExpect(jsonPath("$.data.succeeded").value(1))
+                .andExpect(jsonPath("$.data.items[0].errorCode").value("UPLOAD_004"));
+        mvc.perform(request).andExpect(status().isOk()).andExpect(jsonPath("$.data.succeeded").value(2));
+        assertThat(count("media", memory)).isEqualTo(2);
+        assertThat(calls.get()).isEqualTo(3);
+    }
+
+    @Test void batchRequiresOwnedMemoryAndEnforcesRequestBoundariesBeforeProviderCalls() throws Exception {
+        UUID memory = create();
+        var request = multipart("/api/v1/media/uploads").param("tripId", trip.toString())
+                .param("memoryId", memory.toString()).header("Authorization", bearer());
+        for (int i=0; i<11; i++) request.file(new MockMultipartFile("files", "photo.jpg", "image/jpeg", image));
+        mvc.perform(request).andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("UPLOAD_005"));
+        jdbc.update("UPDATE memories SET user_id=? WHERE id=?", otherOwner(), memory);
+        mvc.perform(multipart("/api/v1/media/uploads").file(new MockMultipartFile("files", "photo.jpg", "image/jpeg", image))
+                .param("tripId", trip.toString()).param("memoryId", memory.toString()).header("Authorization", bearer()))
+                .andExpect(status().isForbidden());
+        mvc.perform(multipart("/api/v1/media/uploads").file(new MockMultipartFile("files", "photo.jpg", "image/jpeg", image))
+                .param("tripId", trip.toString()).header("Authorization", bearer())).andExpect(status().isBadRequest());
+        mvc.perform(multipart("/api/v1/media/uploads").file(new MockMultipartFile("files", "photo.jpg", "image/jpeg", image))
+                .param("tripId", trip.toString()).param("memoryId", memory.toString())).andExpect(status().isUnauthorized());
+        verifyNoInteractions(uploader);
+    }
+
+    UUID uploadedPhoto(UUID memory) throws Exception {
+        return UUID.fromString(data(upload(memory).andExpect(status().isCreated())).path("mediaId").asText());
+    }
+    ResultActions erase(UUID media) throws Exception {
+        return mvc.perform(delete("/api/v1/media").param("id", media.toString()).header("Authorization", bearer()));
+    }
+    void storageDeletesSuccessfully() throws Exception {
+        doAnswer(invocation -> {
+            assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+            Map<?, ?> parameters = invocation.getArgument(1);
+            assertThat(parameters.get("invalidate")).isEqualTo(true);
+            assertThat(parameters.get("resource_type")).isEqualTo("image");
+            return Map.of("result", "ok");
+        }).when(uploader).destroy(anyString(), anyMap());
+    }
+
+    @Test void deleteConfirmsCloudAndRepeatsWithoutAnotherProviderCall() throws Exception {
+        UUID memory = create(), photo = uploadedPhoto(memory);
+        storageDeletesSuccessfully();
+        erase(photo).andExpect(status().isNoContent());
+        assertThat(count("media", memory)).isZero();
+        assertThat(jdbc.queryForObject("SELECT completed_at IS NOT NULL FROM media_deletions WHERE media_id=?", Boolean.class, photo)).isTrue();
+        assertThat(jdbc.queryForObject("SELECT deleted_at IS NULL FROM memories WHERE id=?", Boolean.class, memory)).isTrue();
+        erase(photo).andExpect(status().isNoContent());
+        verify(uploader, times(1)).destroy(anyString(), anyMap());
+        mvc.perform(get("/api/v1/journal/memories/detail").param("memoryId", memory.toString()).header("Authorization", bearer()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.mediaCount").value(0));
+        upload(memory).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("MEDIA_004"));
+        verify(uploader, times(1)).upload(any(byte[].class), anyMap());
+    }
+
+    @Test void providerFailureKeepsPhotoAndRequestAndManualRetryCompletes() throws Exception {
+        UUID memory = create(), photo = uploadedPhoto(memory);
+        when(uploader.destroy(anyString(), anyMap())).thenThrow(new IOException("fixture failure"));
+        erase(photo).andExpect(status().isServiceUnavailable()).andExpect(jsonPath("$.code").value("MEDIA_002"));
+        assertThat(count("media", memory)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT completed_at IS NULL AND attempts=1 FROM media_deletions WHERE media_id=?", Boolean.class, photo)).isTrue();
+        storageDeletesSuccessfully();
+        erase(photo).andExpect(status().isNoContent());
+        assertThat(count("media", memory)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM media_deletions WHERE media_id=?", Long.class, photo)).isEqualTo(1);
+    }
+
+    @Test void cloudSuccessFollowedByDatabaseFailureRetainsTheReceiptForSafeRetry() throws Exception {
+        UUID memory = create(), photo = uploadedPhoto(memory);
+        storageDeletesSuccessfully();
+        jdbc.execute("CREATE FUNCTION media_delete_fixture_failure() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN "
+                + "IF OLD.id='" + photo + "'::uuid THEN RAISE EXCEPTION 'fixture deletion failure'; END IF; RETURN OLD; END; $$");
+        jdbc.execute("CREATE TRIGGER media_delete_fixture BEFORE DELETE ON media FOR EACH ROW EXECUTE FUNCTION media_delete_fixture_failure()");
+        try {
+            erase(photo).andExpect(status().isInternalServerError());
+            assertThat(count("media", memory)).isEqualTo(1);
+            assertThat(jdbc.queryForObject("SELECT completed_at IS NULL FROM media_deletions WHERE media_id=?", Boolean.class, photo)).isTrue();
+        } finally {
+            jdbc.execute("DROP TRIGGER media_delete_fixture ON media");
+            jdbc.execute("DROP FUNCTION media_delete_fixture_failure()");
+        }
+        doReturn(Map.of("result", "not found")).when(uploader).destroy(anyString(), anyMap());
+        erase(photo).andExpect(status().isNoContent());
+        assertThat(count("media", memory)).isZero();
+    }
+
+    @Test void unknownProviderResponseFailsAndNotFoundOnRetryIsAccepted() throws Exception {
+        UUID memory = create(), photo = uploadedPhoto(memory);
+        when(uploader.destroy(anyString(), anyMap())).thenReturn(Map.of("result", "unexpected"));
+        erase(photo).andExpect(status().isServiceUnavailable());
+        assertThat(count("media", memory)).isEqualTo(1);
+        doReturn(Map.of("result", "not found")).when(uploader).destroy(anyString(), anyMap());
+        erase(photo).andExpect(status().isNoContent());
+        assertThat(count("media", memory)).isZero();
+    }
+
+    @Test void persistedPendingDeletionIsRecoveredByCleanup() throws Exception {
+        UUID memory = create(), photo = uploadedPhoto(memory);
+        when(uploader.destroy(anyString(), anyMap())).thenThrow(new IOException("fixture failure"));
+        erase(photo).andExpect(status().isServiceUnavailable());
+        jdbc.update("UPDATE media_deletions SET next_attempt_at=now()-interval '1 second' WHERE media_id=?", photo);
+        storageDeletesSuccessfully();
+        deletion.retryPending();
+        assertThat(count("media", memory)).isZero();
+        assertThat(jdbc.queryForObject("SELECT completed_at IS NOT NULL FROM media_deletions WHERE media_id=?", Boolean.class, photo)).isTrue();
+    }
+
+    @Test void deletionRequiresAuthenticationAndOwnershipBeforeCloud() throws Exception {
+        UUID memory = create(), photo = uploadedPhoto(memory);
+        jdbc.update("UPDATE memories SET user_id=? WHERE id=?", otherOwner(), memory);
+        erase(photo).andExpect(status().isNotFound());
+        erase(UUID.randomUUID()).andExpect(status().isNotFound());
+        mvc.perform(delete("/api/v1/media").param("id", photo.toString())).andExpect(status().isUnauthorized());
+        verify(uploader, never()).destroy(anyString(), anyMap());
+        assertThat(count("media", memory)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM media_deletions WHERE media_id=?", Long.class, photo)).isZero();
+    }
+
+    @Test void deletingOnlyPhotoArchivesEmptyMemoryAndPreservesNoteMemories() throws Exception {
+        var body = request(); body.put("note", "");
+        UUID memory = UUID.fromString(data(create(body).andExpect(status().isCreated())).path("id").asText());
+        UUID photo = uploadedPhoto(memory);
+        storageDeletesSuccessfully();
+        erase(photo).andExpect(status().isNoContent());
+        assertThat(jdbc.queryForObject("SELECT deleted_at IS NOT NULL FROM memories WHERE id=?", Boolean.class, memory)).isTrue();
+        erase(photo).andExpect(status().isNoContent());
+    }
+
+    @Test void deletingMemoryOrTripEventuallyCleansCloudAssets() throws Exception {
+        UUID memory = create(); uploadedPhoto(memory);
+        mvc.perform(delete("/api/v1/journal/memories").param("id", memory.toString()).header("Authorization", bearer()))
+                .andExpect(status().isNoContent());
+        storageDeletesSuccessfully();
+        deletion.retryPending();
+        assertThat(count("media", memory)).isZero();
+        UUID second = create(); uploadedPhoto(second);
+        mvc.perform(delete("/api/v1/trips/" + trip).param("version", "0").header("Authorization", bearer()))
+                .andExpect(status().isNoContent());
+        deletion.retryPending();
+        assertThat(count("media", second)).isZero();
+    }
+
+    @Test void oldCloudinaryPhotoWithoutIdentityIsRetainedRatherThanGuessing() throws Exception {
+        UUID memory = create(), photo = uploadedPhoto(memory);
+        jdbc.update("UPDATE media SET public_id=NULL WHERE id=?", photo);
+        erase(photo).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("MEDIA_003"));
+        assertThat(count("media", memory)).isEqualTo(1);
+        verify(uploader, never()).destroy(anyString(), anyMap());
+    }
+
+    @Test void concurrentDeletesConvergeOnOneReceipt() throws Exception {
+        UUID memory = create(), photo = uploadedPhoto(memory);
+        var barrier = new CyclicBarrier(2);
+        when(uploader.destroy(anyString(), anyMap())).thenAnswer(invocation -> {
+            assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+            barrier.await(10, TimeUnit.SECONDS);
+            return Map.of("result", "ok");
+        });
+        try (var pool = Executors.newFixedThreadPool(2)) {
+            var first = pool.submit(() -> erase(photo).andExpect(status().isNoContent()));
+            var second = pool.submit(() -> erase(photo).andExpect(status().isNoContent()));
+            first.get(20, TimeUnit.SECONDS); second.get(20, TimeUnit.SECONDS);
+        }
+        assertThat(count("media", memory)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM media_deletions WHERE media_id=?", Long.class, photo)).isEqualTo(1);
+    }
+
+    @Test void uploadFinishingAfterMemoryDeletionIsCleanedWithoutAttachingAnAsset() throws Exception {
+        UUID memory = create();
+        var entered = new CountDownLatch(1); var release = new CountDownLatch(1);
+        when(uploader.upload(any(byte[].class), anyMap())).thenAnswer(invocation -> {
+            entered.countDown(); assertThat(release.await(20, TimeUnit.SECONDS)).isTrue();
+            Map<?, ?> parameters = invocation.getArgument(1);
+            return Map.of("secure_url", "https://res.cloudinary.com/fixture/image/upload/photo.jpg",
+                    "public_id", parameters.get("folder") + "/" + parameters.get("public_id"),
+                    "bytes", image.length, "width", 8, "height", 6);
+        });
+        storageDeletesSuccessfully();
+        try (var pool = Executors.newSingleThreadExecutor()) {
+            var pending = pool.submit(() -> upload(memory));
+            try {
+                assertThat(entered.await(10, TimeUnit.SECONDS)).isTrue();
+                mvc.perform(delete("/api/v1/journal/memories").param("id", memory.toString()).header("Authorization", bearer()))
+                        .andExpect(status().isNoContent());
+            } finally { release.countDown(); }
+            pending.get(20, TimeUnit.SECONDS).andExpect(status().isNotFound());
+        }
+        assertThat(count("media", memory)).isZero();
+        verify(uploader, times(1)).destroy(anyString(), anyMap());
+        assertThat(jdbc.queryForObject("SELECT completed_at IS NOT NULL FROM media_deletions WHERE memory_id=?", Boolean.class, memory)).isTrue();
+    }
+
+    @Test void uploadInFlightCannotResurrectDeletedPhoto() throws Exception {
+        UUID memory = create();
+        var entered = new CountDownLatch(1); var release = new CountDownLatch(1);
+        var calls = new java.util.concurrent.atomic.AtomicInteger();
+        when(uploader.upload(any(byte[].class), anyMap())).thenAnswer(invocation -> {
+            if (calls.getAndIncrement() == 0) {
+                entered.countDown(); assertThat(release.await(20, TimeUnit.SECONDS)).isTrue();
+            }
+            Map<?, ?> parameters = invocation.getArgument(1);
+            return Map.of("secure_url", "https://res.cloudinary.com/fixture/image/upload/photo.jpg",
+                    "public_id", parameters.get("folder") + "/" + parameters.get("public_id"),
+                    "bytes", image.length, "width", 8, "height", 6);
+        });
+        storageDeletesSuccessfully();
+        try (var pool = Executors.newSingleThreadExecutor()) {
+            var first = pool.submit(() -> upload(memory));
+            try {
+                assertThat(entered.await(10, TimeUnit.SECONDS)).isTrue();
+                UUID photo = uploadedPhoto(memory);
+                erase(photo).andExpect(status().isNoContent());
+            } finally { release.countDown(); }
+            first.get(20, TimeUnit.SECONDS).andExpect(status().isConflict());
+        }
+        assertThat(count("media", memory)).isZero();
+        verify(uploader, times(2)).destroy(anyString(), anyMap());
+        assertThat(jdbc.queryForObject("SELECT completed_at IS NOT NULL FROM media_deletions WHERE memory_id=?", Boolean.class, memory)).isTrue();
     }
 }

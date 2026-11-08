@@ -101,7 +101,7 @@ public class MemoryController {
      */
     @DeleteMapping(value = {"", "/delete-memory"})
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @Operation(summary = "Delete memory", description = "Soft deletes a memory by its ID query parameter. Requires ownership.")
+    @Operation(summary = "Delete memory", description = "Archives an owned memory immediately. Its stored images are cleaned up asynchronously with retries.")
     public void deleteMemory(
             @RequestParam("id") UUID id
     ) {

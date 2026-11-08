@@ -72,6 +72,9 @@ public enum ErrorCode {
     MEMORY_VERSION_CONFLICT("MEMORY_003", "error.memory.version-conflict", HttpStatus.CONFLICT),
     MEMORY_REQUEST_CONFLICT("MEMORY_004", "error.memory.request-conflict", HttpStatus.CONFLICT),
     MEDIA_NOT_FOUND("MEDIA_001", "error.media.not-found", HttpStatus.NOT_FOUND),
+    MEDIA_DELETE_FAILED("MEDIA_002", "error.media.delete-failed", HttpStatus.SERVICE_UNAVAILABLE),
+    MEDIA_DELETE_IDENTITY_MISSING("MEDIA_003", "error.media.delete-identity-missing", HttpStatus.CONFLICT),
+    MEDIA_UPLOAD_REMOVED("MEDIA_004", "error.media.upload-removed", HttpStatus.CONFLICT),
 
     // --- UPLOAD ---
     UPLOAD_FILE_EMPTY("UPLOAD_001", "error.upload.file-empty", HttpStatus.BAD_REQUEST),

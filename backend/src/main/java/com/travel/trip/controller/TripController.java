@@ -3,6 +3,7 @@ package com.travel.trip.controller;
 import com.travel.common.response.ApiResponse;
 import com.travel.security.util.SecurityUtils;
 import com.travel.trip.dto.CreateTripRequest;
+import com.travel.trip.dto.CompleteTripRequest;
 import com.travel.trip.dto.TripDateChangeRequest;
 import com.travel.trip.dto.TripResponses;
 import com.travel.trip.dto.UpdateTripRequest;
@@ -89,6 +90,15 @@ public class TripController {
             @PathVariable UUID tripId,
             @Valid @RequestBody TripDateChangeRequest request) {
         return ApiResponse.success(tripCrudService.previewDates(tripId, request));
+    }
+
+    @PostMapping("/{tripId}/complete")
+    @Operation(summary = "End an ongoing trip explicitly without changing its dates or visit history",
+            description = "Owner only; requires the current version. Repeating completion is idempotent. Visiting all places never completes a trip automatically.")
+    public ApiResponse<TripResponses.Read> complete(
+            @PathVariable UUID tripId,
+            @Valid @RequestBody CompleteTripRequest request) {
+        return ApiResponse.success(tripCrudService.complete(tripId, request.version()));
     }
 
     @DeleteMapping("/{tripId}")

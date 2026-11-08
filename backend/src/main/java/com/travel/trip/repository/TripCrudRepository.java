@@ -94,6 +94,12 @@ public class TripCrudRepository {
         jdbc.update("UPDATE trips SET deleted_at=?, updated_at=?, version=version+1 WHERE id=? AND deleted_at IS NULL", timestamp, timestamp, id);
         jdbc.update("UPDATE memories SET deleted_at=?, updated_at=? WHERE trip_id=? AND user_id=(SELECT user_id FROM trips WHERE id=?) AND deleted_at IS NULL", timestamp, timestamp, id, id);
     }
+    public boolean complete(UUID id, long version, java.time.Instant now) {
+        return jdbc.update("""
+            UPDATE trips SET status='COMPLETED', version=version+1, updated_at=?
+            WHERE id=? AND version=? AND deleted_at IS NULL
+            """, java.sql.Timestamp.from(now), id, version) == 1;
+    }
     public boolean referencesExist(UUID owner, CreateTripRequest r) {
         if (r.destination().provinceId() != null && !Boolean.TRUE.equals(jdbc.queryForObject(
                 "SELECT EXISTS(SELECT 1 FROM provinces WHERE id=?)", Boolean.class, r.destination().provinceId()))) return false;

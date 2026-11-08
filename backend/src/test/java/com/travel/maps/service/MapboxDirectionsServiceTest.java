@@ -87,4 +87,30 @@ class MapboxDirectionsServiceTest {
         assertThatThrownBy(() -> service.route(points, DRIVE)).isInstanceOf(AppException.class);
         server.verify();
     }
+    @Test void matrixReadsDirectedRoadDurationsAndDistancesInOneRequest() {
+        server.expect(request -> assertThat(request.getURI().getPath()).startsWith("/directions-matrix/v1/mapbox/driving/"))
+                .andExpect(queryParam("annotations", "duration,distance"))
+                .andRespond(withSuccess("""
+                    {"code":"Ok","durations":[[0,20,5],[40,0,6],[8,9,0]],
+                     "distances":[[0,200,50],[400,0,60],[80,90,0]]}
+                    """, MediaType.APPLICATION_JSON));
+        var matrix = service.matrix(points.subList(0, 3), DRIVE);
+        assertThat(matrix.durations()[0][1]).isEqualTo(20);
+        assertThat(matrix.durations()[1][0]).isEqualTo(40);
+        assertThat(matrix.distances()[2][1]).isEqualTo(90);
+        server.verify();
+    }
+    @Test void matrixKeepsUnreachablePairsUnknownInsteadOfInventingTravelTimes() {
+        server.expect(queryParam("annotations", "duration,distance"))
+                .andRespond(withSuccess("{\"code\":\"Ok\",\"durations\":[[0,null],[7,0]],\"distances\":[[0,null],[70,0]]}", MediaType.APPLICATION_JSON));
+        assertThat(service.matrix(points.subList(0, 2), DRIVE).durations()[0][1]).isInfinite();
+        server.verify();
+    }
+    @Test void matrixRejectsWrongDimensionsAndNegativeDurations() {
+        server.expect(queryParam("annotations", "duration,distance"))
+                .andRespond(withSuccess("{\"code\":\"Ok\",\"durations\":[[0,-1],[7,0]],\"distances\":[[0,2],[3,0]]}", MediaType.APPLICATION_JSON));
+        assertThatThrownBy(() -> service.matrix(points.subList(0, 2), DRIVE)).isInstanceOf(AppException.class);
+        server.verify();
+    }
+
 }

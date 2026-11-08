@@ -35,7 +35,7 @@ public class TripRouteRepository {
             JOIN trips t ON t.id = saved.trip_id AND t.user_id = ? AND t.deleted_at IS NULL
             WHERE s.itinerary_id = (SELECT id FROM itineraries WHERE trip_id = ? ORDER BY updated_at DESC, id ASC LIMIT 1)
               AND s.date = ? AND s.removed_at IS NULL AND (p.source = 'INTERNAL' OR p.owner_id = ?)
-            ORDER BY s.sequence, s.id LIMIT 26
+            ORDER BY s.sequence, s.id LIMIT 101
             """, (row, index) -> new Waypoint(row.getObject(1, UUID.class),
                 new RoutePoint(null, row.getObject(2, Double.class), row.getObject(3, Double.class)), row.getBoolean(4)),
                 tripId, owner, tripId, date, owner);

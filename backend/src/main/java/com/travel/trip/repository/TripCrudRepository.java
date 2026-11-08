@@ -19,7 +19,7 @@ public class TripCrudRepository {
             LocalDate start, LocalDate end, String zone, String status, long version,
             java.time.Instant created, java.time.Instant updated, Long budget,
             String preferences, String accommodation, String notes, String hash,
-            boolean deleted, long stopCount, long unscheduledCount, long memoryCount) { }
+            boolean deleted, long stopCount, long unscheduledCount, long memoryCount, String coverImage) { }
 
     private static final String PROJECTION = """
         SELECT t.*,
@@ -38,7 +38,7 @@ public class TripCrudRepository {
             rs.getLong("version"), rs.getTimestamp("created_at").toInstant(), rs.getTimestamp("updated_at").toInstant(),
             rs.getObject("budget_amount", Long.class), rs.getString("preferences"), rs.getString("accommodation"),
             rs.getString("notes"), rs.getString("create_request_hash"), rs.getTimestamp("deleted_at") != null,
-            rs.getLong("stop_count"), rs.getLong("unscheduled_count"), rs.getLong("memory_count"));
+            rs.getLong("stop_count"), rs.getLong("unscheduled_count"), rs.getLong("memory_count"), rs.getString("cover_image"));
     }
     public Optional<Row> find(UUID owner, UUID id) {
         return jdbc.query(PROJECTION + " WHERE t.user_id=? AND t.id=? AND t.deleted_at IS NULL", this::map, owner, id).stream().findFirst();

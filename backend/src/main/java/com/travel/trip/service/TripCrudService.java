@@ -165,7 +165,7 @@ public class TripCrudService {
         int count=TripCalendar.days(r.start(),r.end());
         return new Summary(r.id(),r.title(),new Destination(r.destination(),r.provinceId()),r.start(),r.end(),r.zone(),r.status(),
             TripCalendar.mode(r.status(),r.start(),r.end(),today),new Readiness(count>0,r.stopCount()>0,r.unscheduledCount()),
-            count,r.stopCount(),r.memoryCount(),null,r.version(),r.created(),r.updated());
+            count,r.stopCount(),r.memoryCount(),r.coverImage(),r.version(),r.created(),r.updated());
     }
     private Read read(TripCrudRepository.Row r,Instant now) {
         Context context=context(now); Summary s=summary(r,context.evaluatedDate());

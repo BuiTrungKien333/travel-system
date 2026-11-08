@@ -8,6 +8,7 @@ import com.travel.maps.dto.TripDayRoute;
 import com.travel.maps.repository.TripRouteRepository;
 import com.travel.maps.service.MapboxDirectionsService.Mode;
 import com.travel.trip.service.TripCalendar;
+import com.travel.planning.algorithm.HeldKarpSolver;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -25,6 +26,7 @@ public class TripDayRoutingService {
     private final TripRouteRepository repository;
     private final MapboxDirectionsService directions;
     private final Clock clock;
+    private final HeldKarpSolver solver;
 
     public TripDayRoute.Response route(UUID owner, UUID tripId, LocalDate date, Mode mode) {
         validateDay(tripId, owner, date);
@@ -55,8 +57,9 @@ public class TripDayRoutingService {
         if (date.isBefore(today) || "CANCELLED".equals(modeOfTrip) || "RECAP".equals(modeOfTrip))
             throw new AppException(ErrorCode.TRIP_READ_ONLY);
         var points = repository.orderedPoints(tripId, owner, date);
-        if (points.stream().anyMatch(TripRouteRepository.Waypoint::visited)) throw new AppException(ErrorCode.TRIP_READ_ONLY);
         var settings = repository.settings(tripId, owner, date).orElse(null);
+        if (points.stream().anyMatch(TripRouteRepository.Waypoint::visited))
+            return optimizeRemaining(points, settings, selectedMode(settings, mode));
         boolean origin = settings != null && settings.origin() != null;
         boolean roundtrip = origin && settings.returnToStart();
         var proposal = directions.optimize(locations(points, settings, false), selectedMode(settings, mode), roundtrip);
@@ -64,6 +67,42 @@ public class TripDayRoutingService {
                 .map(index -> points.get(index - (origin ? 1 : 0)).placeId()).toList(),
                 points.stream().map(TripRouteRepository.Waypoint::placeId).toList(),
                 proposal.distanceMeters(), proposal.durationSeconds());
+    }
+
+    private TripDayRoute.Proposal optimizeRemaining(List<TripRouteRepository.Waypoint> points, DaySettings settings, Mode mode) {
+        if (points.size() > 100) throw new AppException(ErrorCode.INVALID_ITINERARY);
+        var visited = points.stream().filter(TripRouteRepository.Waypoint::visited).toList();
+        var pending = points.stream().filter(point -> !point.visited()).toList();
+        if (pending.isEmpty()) throw new AppException(ErrorCode.INVALID_ITINERARY);
+        var locations = new ArrayList<RoutePoint>();
+        locations.add(visited.getLast().point());
+        pending.forEach(point -> locations.add(point.point()));
+        boolean returns = settings != null && settings.origin() != null && settings.returnToStart();
+        if (returns) locations.add(new RoutePoint(null, settings.origin().latitude(), settings.origin().longitude()));
+        if (locations.size() > 12) throw new AppException(ErrorCode.INVALID_ITINERARY);
+        var matrix = directions.matrix(locations, mode);
+        Integer terminal = returns ? locations.size() - 1 : null;
+        var optimized = solver.solveFixedStart(matrix.durations(), terminal);
+        var original = java.util.stream.IntStream.range(0, locations.size()).boxed().toList();
+        var order = new ArrayList<UUID>(visited.stream().map(TripRouteRepository.Waypoint::placeId).toList());
+        optimized.stream().filter(index -> index > 0 && (!returns || index != terminal))
+                .forEach(index -> order.add(pending.get(index - 1).placeId()));
+        var before = sum(matrix, original);
+        var after = sum(matrix, optimized);
+        return new TripDayRoute.Proposal(order, points.stream().map(TripRouteRepository.Waypoint::placeId).toList(),
+                after.distanceMeters(), after.durationSeconds(),
+                visited.stream().map(TripRouteRepository.Waypoint::placeId).toList(), before.distanceMeters(), before.durationSeconds());
+    }
+
+    private TripDayRoute.Leg sum(MapboxDirectionsService.RoadMatrix matrix, List<Integer> order) {
+        double distance = 0, duration = 0;
+        for (int i = 1; i < order.size(); i++) {
+            distance += matrix.distances()[order.get(i - 1)][order.get(i)];
+            duration += matrix.durations()[order.get(i - 1)][order.get(i)];
+        }
+        if (!Double.isFinite(distance) || !Double.isFinite(duration))
+            throw new AppException(ErrorCode.RESOURCE_NOT_FOUND);
+        return new TripDayRoute.Leg(distance, duration);
     }
 
     private List<RoutePoint> locations(List<TripRouteRepository.Waypoint> stops, DaySettings settings, boolean includeReturn) {

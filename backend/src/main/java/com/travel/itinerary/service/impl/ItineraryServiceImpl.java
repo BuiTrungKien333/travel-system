@@ -131,6 +131,32 @@ public class ItineraryServiceImpl implements ItineraryService {
         for (ItineraryItem item : itinerary.getItems()) {
             if (date.equals(item.getDate())) previous.putIfAbsent(item.getPlace().getId(), item);
         }
+        if (request.expectedVisitedPlaceIds() != null) {
+            var actual = tripPlaces.findByTripIdAndPlaceIdIn(tripId, previous.keySet()).stream()
+                    .filter(TripPlace::isVisited)
+                    .sorted(Comparator.comparingInt(link -> previous.get(link.getPlace().getId()).getSequence()))
+                    .map(link -> link.getPlace().getId()).toList();
+            if (!actual.equals(request.expectedVisitedPlaceIds())) throw new AppException(ErrorCode.ITINERARY_CHANGED);
+            var ordered = stops.stream().sorted(Comparator.comparingInt(ItineraryStopRequest::sequence))
+                    .map(ItineraryStopRequest::placeId).toList();
+            if (!previous.keySet().equals(placeIds) || ordered.size() < actual.size()
+                    || !ordered.subList(0, actual.size()).equals(actual))
+                throw new AppException(ErrorCode.INVALID_ITINERARY);
+        }
+        if (request.expectedVisitedPlaceIds() != null || (date.equals(TripCalendar.today(clock)) && "LIVE".equals(TripCalendar.mode(trip.getStatus().name(),
+                trip.getStartDate(), trip.getEndDate(), TripCalendar.today(clock))))) {
+            var visited = tripPlaces.findByTripIdAndPlaceIdIn(tripId, previous.keySet()).stream()
+                    .filter(TripPlace::isVisited).map(link -> link.getPlace().getId()).collect(Collectors.toSet());
+            var requested = stops.stream().collect(Collectors.toMap(ItineraryStopRequest::placeId, stop -> stop));
+            for (UUID id : visited) {
+                var old = previous.get(id);
+                var next = requested.get(id);
+                if (next == null || (request.expectedVisitedPlaceIds() == null && next.sequence() != old.getSequence())
+                        || next.durationMinutes() != old.getDurationMinutes()
+                        || !Objects.equals(next.arrivalTime(), old.getArrivalAt()))
+                    throw new AppException(ErrorCode.TRIP_READ_ONLY);
+            }
+        }
         for (ItineraryStopRequest stop : stops) {
             var old = previous.get(stop.placeId());
             if (stop.arrivalTime() != null && !date.equals(stop.arrivalTime().toLocalDate())

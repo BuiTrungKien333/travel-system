@@ -257,4 +257,20 @@ class HeldKarpSolverTest {
         }
         System.out.println("=========================================================\n");
     }
+    @Test void directedDurationCostsKeepStartButChooseTheBestFreeEnd() {
+        double[][] costs = {{0, 100, 1}, {100, 0, 100}, {100, 1, 0}};
+        assertThat(solver.solveFixedStart(costs, null)).containsExactly(0, 2, 1);
+        assertThat(solver.solveFixedStart(new double[][]{{0, 7}, {20, 0}}, null)).containsExactly(0, 1);
+    }
+    @Test void directedCostsCanKeepAnExplicitReturnDestination() {
+        double[][] costs = {{0, 100, 1, 50}, {100, 0, 100, 1}, {100, 1, 0, 100}, {100, 100, 100, 0}};
+        assertThat(solver.solveFixedStart(costs, 3)).containsExactly(0, 2, 1, 3);
+    }
+    @Test void directedCostsRejectMalformedAndUnreachablePaths() {
+        assertThatThrownBy(() -> solver.solveFixedStart(new double[][]{{0, Double.POSITIVE_INFINITY}, {1, 0}}, null))
+                .isInstanceOf(AppException.class).extracting("errorCode").isEqualTo(ErrorCode.RESOURCE_NOT_FOUND);
+        assertThatThrownBy(() -> solver.solveFixedStart(new double[][]{{0, -1}, {1, 0}}, null)).isInstanceOf(AppException.class);
+        assertThatThrownBy(() -> solver.solveFixedStart(new double[][]{{0}, {1, 0}}, null)).isInstanceOf(AppException.class);
+    }
+
 }

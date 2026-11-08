@@ -27,6 +27,7 @@ import java.util.stream.Collectors;
 @Service
 public class MapboxDirectionsService {
     public record OptimizedOrder(List<Integer> order, double distanceMeters, double durationSeconds) { }
+    public record RoadMatrix(double[][] distances, double[][] durations) { }
     public enum Mode {
         DRIVE("driving"), WALK("walking"), BICYCLE("cycling");
         private final String profile;
@@ -85,6 +86,37 @@ public class MapboxDirectionsService {
 
     public OptimizedOrder optimize(List<RoutePoint> points, Mode mode) {
         return optimize(points, mode, false);
+    }
+
+    public RoadMatrix matrix(List<RoutePoint> points, Mode mode) {
+        if (points.size() < 2 || points.size() > 12 || points.stream().anyMatch(point -> !valid(point)))
+            throw new AppException(ErrorCode.INVALID_ITINERARY);
+        if (token.isBlank()) throw new AppException(ErrorCode.PLACE_PROVIDER_UNAVAILABLE);
+        var response = request(uri("directions-matrix/v1", points, mode)
+                .queryParam("annotations", "duration,distance").build().encode().toUri());
+        if ("NoRoute".equals(response.path("code").asText()))
+            throw new AppException(ErrorCode.RESOURCE_NOT_FOUND);
+        if (!"Ok".equals(response.path("code").asText())) throw invalid();
+        return new RoadMatrix(matrixValues(response.path("distances"), points.size()),
+                matrixValues(response.path("durations"), points.size()));
+    }
+
+    private double[][] matrixValues(JsonNode rows, int size) {
+        if (!rows.isArray() || rows.size() != size) throw invalid();
+        double[][] result = new double[size][size];
+        for (int from = 0; from < size; from++) {
+            var row = rows.get(from);
+            if (!row.isArray() || row.size() != size) throw invalid();
+            for (int to = 0; to < size; to++) {
+                var value = row.get(to);
+                if (value.isNull()) result[from][to] = Double.POSITIVE_INFINITY;
+                else {
+                    if (!value.isNumber() || !Double.isFinite(value.asDouble()) || value.asDouble() < 0) throw invalid();
+                    result[from][to] = value.asDouble();
+                }
+            }
+        }
+        return result;
     }
 
     public OptimizedOrder optimize(List<RoutePoint> points, Mode mode, boolean roundtrip) {

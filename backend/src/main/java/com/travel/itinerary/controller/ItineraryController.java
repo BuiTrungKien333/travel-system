@@ -51,11 +51,11 @@ public class ItineraryController {
     }
 
     @PutMapping("/days/{date}")
-    @Operation(summary = "Save one itinerary day", description = "Replaces one day's active schedule and checks the trip and itinerary revisions. Removed stops stay in the trip.")
+    @Operation(summary = "Save one itinerary day", description = "Replaces one day's schedule with revision checks. Saved departure settings recalculate arrivals after route or duration changes; visited stops today stay unchanged. Removed stops stay in the trip.")
     public ApiResponse<ItineraryResponse> saveDay(@PathVariable UUID tripId,
             @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
             @Valid @RequestBody SaveItineraryDayRequest request) {
-        return ApiResponse.success(service.saveDay(SecurityUtils.getCurrentUserId(), tripId, date, request));
+        return ApiResponse.success(daySchedules.saveDay(SecurityUtils.getCurrentUserId(), tripId, date, request));
     }
 
     @PostMapping("/optimize")

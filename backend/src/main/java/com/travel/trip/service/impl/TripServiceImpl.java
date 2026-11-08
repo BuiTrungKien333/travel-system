@@ -6,6 +6,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.travel.common.exception.AppException;
 import com.travel.common.exception.ErrorCode;
 import com.travel.itinerary.service.ItineraryService;
+import com.travel.itinerary.service.DayScheduleService;
+import com.travel.itinerary.dto.request.SaveItineraryDayRequest;
 import com.travel.place.entity.Place;
 import com.travel.place.repository.PlaceRepository;
 import com.travel.place.repository.ProvinceRepository;
@@ -20,6 +22,9 @@ import com.travel.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDate;
 import java.util.*;
@@ -37,6 +42,8 @@ public class TripServiceImpl implements TripService {
     private final UserRepository users;
     private final ObjectMapper json;
     private final ItineraryService itineraryService;
+    private final DayScheduleService daySchedules;
+    private final PlatformTransactionManager transactions;
 
     @Override
     @Transactional
@@ -123,10 +130,21 @@ public class TripServiceImpl implements TripService {
     }
 
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public List<TripPlaceResponse> addPlaces(UUID userId, UUID tripId, AddTripPlacesRequest request) {
+        // Resolve route I/O first; append and computed arrivals then commit together.
+        var schedule = request.date() == null ? null
+                : daySchedules.prepareAppend(userId, tripId, request.date(), request.placeIds());
+        return new TransactionTemplate(transactions).execute(status -> addPlacesAtomically(userId, tripId, request, schedule));
+    }
+
+    private List<TripPlaceResponse> addPlacesAtomically(UUID userId, UUID tripId, AddTripPlacesRequest request,
+            SaveItineraryDayRequest schedule) {
         Trip trip = lockedTrip(userId, tripId);
         ensureMutable(trip);
+        if (schedule != null && (!Objects.equals(schedule.expectedTripVersion(), trip.getVersion())
+                || !Objects.equals(schedule.expectedUpdatedAt(), itineraryService.get(userId, tripId).updatedAt())))
+            throw new AppException(ErrorCode.ITINERARY_CHANGED);
         if (new HashSet<>(request.placeIds()).size() != request.placeIds().size())
             throw new AppException(ErrorCode.VALIDATION_ERROR);
         var visible = places.findVisibleByIds(request.placeIds(),userId).stream()
@@ -145,6 +163,11 @@ public class TripServiceImpl implements TripService {
         tripPlaces.saveAllAndFlush(additions);
         var selected = request.placeIds().stream().map(links::get).toList();
         if (request.date() != null) itineraryService.appendPlacesToDay(trip, request.date(), selected);
+        if (schedule != null) {
+            var appended = itineraryService.get(userId, tripId);
+            itineraryService.saveDay(userId, tripId, request.date(), new SaveItineraryDayRequest(
+                    trip.getVersion(), appended.updatedAt(), schedule.stops(), schedule.settings()));
+        }
         return selected.stream().map(this::placeResponse).toList();
     }
 

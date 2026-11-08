@@ -121,6 +121,33 @@ public class HeldKarpSolver {
 
         log.debug("[HELD_KARP] Starting Held-Karp solver for N={}, roundTrip={}", n, request.isRoundTrip());
 
+        List<Integer> optimalPathIndices = solvePath(dist,
+                request.getStartPlaceId() != null || request.isRoundTrip(), request.isRoundTrip(), fixedEndIndex);
+
+        return buildTspResult(places, optimalPathIndices, dist, request.isRoundTrip());
+    }
+
+    /** Minimize directed road costs with a fixed first node and an optional fixed terminal. */
+    public List<Integer> solveFixedStart(double[][] costs, Integer fixedEndIndex) {
+        if (costs == null || costs.length < 2 || costs.length > MAX_LOCATIONS
+                || (fixedEndIndex != null && (fixedEndIndex <= 0 || fixedEndIndex >= costs.length)))
+            throw new AppException(ErrorCode.INVALID_TSP_LOCATIONS);
+        int n = costs.length;
+        for (double[] row : costs) {
+            if (row == null || row.length != n) throw new AppException(ErrorCode.INVALID_TSP_LOCATIONS);
+            for (double value : row) if (Double.isNaN(value) || value < 0)
+                throw new AppException(ErrorCode.INVALID_TSP_LOCATIONS);
+        }
+        var path = solvePath(costs, true, false, fixedEndIndex);
+        if (path.size() != n || path.getFirst() != 0 || new HashSet<>(path).size() != n)
+            throw new AppException(ErrorCode.RESOURCE_NOT_FOUND);
+        for (int i = 1; i < n; i++) if (!Double.isFinite(costs[path.get(i - 1)][path.get(i)]))
+            throw new AppException(ErrorCode.RESOURCE_NOT_FOUND);
+        return path;
+    }
+
+    private List<Integer> solvePath(double[][] dist, boolean startFixed, boolean roundTrip, Integer fixedEndIndex) {
+        int n = dist.length;
         int totalSubsets = 1 << n;
         double[][] dp = new double[totalSubsets][n];
         int[][] parent = new int[totalSubsets][n];
@@ -138,7 +165,6 @@ public class HeldKarpSolver {
             Arrays.fill(parent[mask], -1);
         }
 
-        boolean startFixed = (request.getStartPlaceId() != null) || request.isRoundTrip();
 
         // Khởi tạo trạng thái cơ sở
         if (startFixed) {
@@ -188,13 +214,13 @@ public class HeldKarpSolver {
         int fullMask = totalSubsets - 1;
         List<Integer> optimalPathIndices;
 
-        if (request.isRoundTrip()) {
+        if (roundTrip) {
             optimalPathIndices = reconstructRoundTripPath(n, fullMask, dp, parent, dist);
         } else {
             optimalPathIndices = reconstructOneWayPath(n, fullMask, dp, parent, fixedEndIndex);
         }
 
-        return buildTspResult(places, optimalPathIndices, dist, request.isRoundTrip());
+        return optimalPathIndices;
     }
 
     private List<Place> arrangePlacesWithStartNode(List<Place> originalPlaces, UUID startPlaceId) {

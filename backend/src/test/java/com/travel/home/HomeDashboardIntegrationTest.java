@@ -261,6 +261,38 @@ class HomeDashboardIntegrationTest {
         jdbc.update("UPDATE trip_places SET visited=true WHERE trip_id=?",trip);
         assertThat(home().path("nextStop").isNull()).isTrue();
     }
+
+    @Test void liveCoverIsReturnedByHomeDetailAndList() throws Exception {
+        UUID id=trip(owner,TODAY,TODAY.plusDays(2),"ACTIVE",1);
+        String cover="https://example.com/trip-cover.jpg";
+        jdbc.update("UPDATE trips SET cover_image=? WHERE id=?",cover,id);
+        assertThat(home().path("selectedTrip").path("trip").path("coverImageUrl").asText()).isEqualTo(cover);
+        mvc.perform(get("/api/v1/trips/{id}",id).header("Authorization","Bearer "+token))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.trip.coverImageUrl").value(cover));
+        mvc.perform(get("/api/v1/trips").header("Authorization","Bearer "+token))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.content[0].coverImageUrl").value(cover));
+    }
+
+    @Test void liveVisitAndUndoAdvanceHomeAndRejectForeignWrites() throws Exception {
+        UUID id=trip(owner,TODAY,TODAY.plusDays(1),"ACTIVE",1), schedule=itinerary(id);
+        UUID first=place(province()),second=place(province());
+        link(id,first,false);link(id,second,false);stop(schedule,first,TODAY,0);stop(schedule,second,TODAY,1);
+        mvc.perform(put("/api/v1/trips/{trip}/places/{place}",id,first).header("Authorization","Bearer "+token)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"visited\":true}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.visited").value(true));
+        assertThat(home().path("nextStop").path("placeId").asText()).isEqualTo(second.toString());
+        mvc.perform(put("/api/v1/trips/{trip}/places/{place}",id,first).header("Authorization","Bearer "+token)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"visited\":false}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.data.visited").value(false));
+        assertThat(home().path("nextStop").path("placeId").asText()).isEqualTo(first.toString());
+        UUID foreign=trip(stranger,TODAY,TODAY.plusDays(1),"ACTIVE",2);link(foreign,first,false);
+        mvc.perform(put("/api/v1/trips/{trip}/places/{place}",foreign,first).header("Authorization","Bearer "+token)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"visited\":true}")).andExpect(status().isNotFound());
+        assertThat(jdbc.queryForObject("SELECT visited FROM trip_places WHERE trip_id=? AND place_id=?",Boolean.class,foreign,first)).isFalse();
+        jdbc.update("UPDATE trips SET status='CANCELLED' WHERE id=?",id);
+        mvc.perform(put("/api/v1/trips/{trip}/places/{place}",id,first).header("Authorization","Bearer "+token)
+                .contentType(MediaType.APPLICATION_JSON).content("{\"visited\":true}")).andExpect(status().isConflict());
+    }
     @Test void completionUsesSavedScheduleNotMerelyTripMemberships() throws Exception {
         UUID trip=trip(owner,TODAY.plusDays(3),TODAY.plusDays(5),"PLANNING",1), schedule=itinerary(trip);
         UUID p=place(province());link(trip,p,false);stop(schedule,p,TODAY.plusDays(3),0);
@@ -477,8 +509,11 @@ class HomeDashboardIntegrationTest {
                 .andExpect(jsonPath("$.code").value("TRIP_008"));
 
         saveDay(trip, TODAY, secondRevision, List.of()).andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.days[0].date").value(tomorrow.toString()))
-                .andExpect(jsonPath("$.data.days[0].stops[0].note").value("Bring water"));
+                .andExpect(jsonPath("$.data.days[0].date").value(TODAY.toString()))
+                .andExpect(jsonPath("$.data.days[0].stops.length()").value(0))
+                .andExpect(jsonPath("$.data.days[0].settings.departureTime").value("09:30:00"))
+                .andExpect(jsonPath("$.data.days[1].date").value(tomorrow.toString()))
+                .andExpect(jsonPath("$.data.days[1].stops[0].note").value("Bring water"));
         assertThat(home().path("todayStopCount").asInt()).isZero();
         assertThat(jdbc.queryForObject("SELECT count(*) FROM trip_places WHERE trip_id=?", Long.class, trip)).isEqualTo(2L);
     }
@@ -506,4 +541,322 @@ class HomeDashboardIntegrationTest {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.days[0].stops.length()").value(1));
         assertThat(jdbc.queryForObject("SELECT count(*) FROM itinerary_items WHERE itinerary_id=? AND removed_at IS NOT NULL", Long.class, itinerary)).isEqualTo(1L);
     }
+
+    private JsonNode readItinerary(UUID id) throws Exception {
+        return data(mvc.perform(get("/api/v1/trips/{id}/itinerary", id).header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk()));
+    }
+    private Map<String, Object> simpleSettings(String time) {
+        var value = new HashMap<String, Object>();
+        value.put("origin", null); value.put("departureTime", time);
+        value.put("returnToStart", false); value.put("travelMode", "DRIVE");
+        return value;
+    }
+    private void tenMinuteLegs() {
+        org.mockito.Mockito.doAnswer(invocation -> {
+            assertThat(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+            var locations = (List<?>) invocation.getArgument(0);
+            assertThat(locations).allMatch(value -> {
+                var point = (com.travel.maps.dto.RoutePoint)value;
+                return point.latitude() != null && Math.abs(point.latitude()) <= 85.0511;
+            });
+            int size = locations.size() - 1;
+            var legs = java.util.stream.IntStream.range(0, size)
+                    .mapToObj(index -> new com.travel.maps.dto.TripDayRoute.Leg(1000, 600)).toList();
+            return new com.travel.maps.dto.TripDayRoute(com.travel.maps.dto.TripDayRoute.Status.READY,
+                    new com.travel.maps.dto.TripDayRoute.Route(size * 1000, size * 600, "_p~iF~ps|U_ulLnnqC", legs));
+        }).when(directions).route(org.mockito.ArgumentMatchers.anyList(), org.mockito.ArgumentMatchers.any());
+    }
+    private ResultActions appendToDay(UUID trip, LocalDate day, UUID... places) throws Exception {
+        return mvc.perform(post("/api/v1/trips/{id}/places/batch", trip).header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of("date", day, "placeIds", List.of(places)))));
+    }
+
+    @Test void estimatedTimelineRecalculatesAppendReorderDurationAndRemovalAndSurvivesReload() throws Exception {
+        LocalDate date = TODAY.plusDays(1);
+        UUID trip = trip(owner, date, date.plusDays(1), "PLANNING", 1), province = province();
+        UUID first = place(province), second = place(province), third = place(province), other = place(province);
+        link(trip, first, false); link(trip, second, false); link(trip, other, false);
+        UUID itinerary = itinerary(trip);
+        stop(itinerary, first, date, 0); stop(itinerary, second, date, 1); stop(itinerary, other, date.plusDays(1), 0);
+        tenMinuteLegs();
+        var before = readItinerary(trip);
+        var saved = data(daySchedule(trip, date, before.path("updatedAt").asText(), simpleSettings("08:00"),
+                List.of(Map.of("placeId", first, "minutes", 45), Map.of("placeId", second, "minutes", 60))).andExpect(status().isOk()));
+        assertThat(saved.at("/days/0/stops/0/arrivalTime").asText()).isEqualTo(date + "T08:00:00");
+        assertThat(saved.at("/days/0/stops/1/arrivalTime").asText()).isEqualTo(date + "T08:55:00");
+        var untouchedDay = before.at("/days/1");
+        appendToDay(trip, date, third).andExpect(status().isOk());
+        var appended = readItinerary(trip);
+        assertThat(appended.at("/days/0/stops/2/durationMinutes").asInt()).isEqualTo(45);
+        assertThat(appended.at("/days/0/stops/2/arrivalTime").asText()).isEqualTo(date + "T10:05:00");
+        assertThat(appended.at("/days/1")).isEqualTo(untouchedDay);
+        var stops = appended.at("/days/0/stops");
+        var reordered = json.createArrayNode();
+        reordered.add(stops.get(1).deepCopy()); reordered.add(stops.get(0).deepCopy()); reordered.add(stops.get(2).deepCopy());
+        var body = json.createObjectNode().put("expectedTripVersion", 0).put("expectedUpdatedAt", appended.path("updatedAt").asText());
+        var requestStops = json.createArrayNode();
+        for (int i = 0; i < reordered.size(); i++) {
+            var entry = reordered.get(i);
+            requestStops.addObject().put("placeId", entry.path("placeId").asText()).put("sequence", i)
+                    .put("arrivalTime", stops.get(i).path("arrivalTime").asText())
+                    .put("durationMinutes", entry.path("durationMinutes").asInt()).putNull("note");
+        }
+        body.set("stops", requestStops);
+        var changed = data(mvc.perform(put("/api/v1/trips/{id}/itinerary/days/{day}", trip, date)
+                .header("Authorization", "Bearer " + token).contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+                .andExpect(status().isOk()));
+        assertThat(changed.at("/days/0/stops/0/placeId").asText()).isEqualTo(second.toString());
+        assertThat(changed.at("/days/0/stops/1/arrivalTime").asText()).isEqualTo(date + "T09:10:00");
+        assertThat(changed.at("/days/0/stops/1/id")).isEqualTo(appended.at("/days/0/stops/0/id"));
+        ((com.fasterxml.jackson.databind.node.ObjectNode) requestStops.get(1)).put("durationMinutes", 60);
+        // Keep actual saved arrival times; only the duration changes in this request.
+        for (int i = 0; i < requestStops.size(); i++) ((com.fasterxml.jackson.databind.node.ObjectNode) requestStops.get(i))
+                .put("arrivalTime", changed.at("/days/0/stops/" + i + "/arrivalTime").asText());
+        body.put("expectedUpdatedAt", changed.path("updatedAt").asText());
+        var resized = data(mvc.perform(put("/api/v1/trips/{id}/itinerary/days/{day}", trip, date)
+                .header("Authorization", "Bearer " + token).contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+                .andExpect(status().isOk()));
+        assertThat(resized.at("/days/0/stops/2/arrivalTime").asText()).isEqualTo(date + "T10:20:00");
+        requestStops.remove(1); ((com.fasterxml.jackson.databind.node.ObjectNode) requestStops.get(1)).put("sequence", 1);
+        body.put("expectedUpdatedAt", resized.path("updatedAt").asText());
+        var removed = data(mvc.perform(put("/api/v1/trips/{id}/itinerary/days/{day}", trip, date)
+                .header("Authorization", "Bearer " + token).contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+                .andExpect(status().isOk()));
+        assertThat(removed.at("/days/0/stops/1/arrivalTime").asText()).isEqualTo(date + "T09:10:00");
+        assertThat(readItinerary(trip)).isEqualTo(removed);
+        assertThat(removed.at("/days/1")).isEqualTo(untouchedDay);
+    }
+
+    @Test void liveTimelinePreservesVisitedTimesAndRejectsChangingVisitedDurationOrRemovingVisitedStop() throws Exception {
+        UUID trip = trip(owner, TODAY, TODAY, "ACTIVE", 1), province = province();
+        UUID first = place(province), second = place(province), third = place(province);
+        link(trip, first, true); link(trip, second, false);
+        UUID itinerary = itinerary(trip); stop(itinerary, first, TODAY, 0); stop(itinerary, second, TODAY, 1);
+        tenMinuteLegs();
+        var before = readItinerary(trip);
+        var saved = data(daySchedule(trip, TODAY, before.path("updatedAt").asText(), simpleSettings("08:00"),
+                List.of(Map.of("placeId", first, "minutes", 45), Map.of("placeId", second, "minutes", 60))).andExpect(status().isOk()));
+        assertThat(saved.at("/days/0/stops/0/arrivalTime")).isEqualTo(before.at("/days/0/stops/0/arrivalTime"));
+        assertThat(saved.at("/days/0/stops/1/arrivalTime").asText()).isEqualTo(TODAY + "T09:55:00");
+        daySchedule(trip, TODAY, saved.path("updatedAt").asText(), simpleSettings("08:00"),
+                List.of(Map.of("placeId", first, "minutes", 60), Map.of("placeId", second, "minutes", 60)))
+                .andExpect(status().isConflict());
+        saveDay(trip, TODAY, saved.path("updatedAt").asText(), List.of(scheduledStop(second, TODAY, 0, "")))
+                .andExpect(status().isConflict());
+        appendToDay(trip, TODAY, third).andExpect(status().isOk());
+        assertThat(readItinerary(trip).at("/days/0/stops/2/arrivalTime").asText()).isEqualTo(TODAY + "T11:05:00");
+    }
+
+    @Test void noRouteLeavesUnknownArrivalsUnsetAndNoDepartureLeavesNewStopsUnscheduledInTimeOnly() throws Exception {
+        LocalDate date = TODAY.plusDays(1);
+        UUID trip = trip(owner, date, date, "PLANNING", 1), first = place(province()), second = place(province());
+        appendToDay(trip, date, first, second).andExpect(status().isOk());
+        var initial = readItinerary(trip);
+        assertThat(initial.at("/days/0/stops/0/arrivalTime").isNull()).isTrue();
+        assertThat(initial.at("/days/0/stops/0/durationMinutes").asInt()).isEqualTo(45);
+        var saved = data(daySchedule(trip, date, initial.path("updatedAt").asText(), simpleSettings("08:00"),
+                List.of(Map.of("placeId", first, "minutes", 45), Map.of("placeId", second, "minutes", 45))).andExpect(status().isOk()));
+        assertThat(saved.at("/days/0/stops/0/arrivalTime").asText()).isEqualTo(date + "T08:00:00");
+        assertThat(saved.at("/days/0/stops/1/arrivalTime").isNull()).isTrue();
+    }
+
+    @Test void concurrentScheduleChangeDuringAppendDoesNotPartiallyAddMemberships() throws Exception {
+        LocalDate date = TODAY.plusDays(1);
+        UUID trip = trip(owner, date, date, "PLANNING", 1), first = place(province()), second = place(province());
+        appendToDay(trip, date, first).andExpect(status().isOk());
+        var before = readItinerary(trip);
+        daySchedule(trip, date, before.path("updatedAt").asText(), simpleSettings("08:00"),
+                List.of(Map.of("placeId", first, "minutes", 45))).andExpect(status().isOk());
+        org.mockito.Mockito.doAnswer(invocation -> {
+            assertThat(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+            jdbc.update("UPDATE itineraries SET updated_at=updated_at+interval '1 second' WHERE trip_id=?", trip);
+            return com.travel.maps.dto.TripDayRoute.unavailable(com.travel.maps.dto.TripDayRoute.Status.NOT_CONFIGURED);
+        }).when(directions).route(org.mockito.ArgumentMatchers.anyList(), org.mockito.ArgumentMatchers.any());
+        appendToDay(trip, date, second).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("TRIP_008"));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM trip_places WHERE trip_id=? AND place_id=?", Long.class, trip, second)).isZero();
+        assertThat(readItinerary(trip).at("/days/0/stops").size()).isEqualTo(1);
+    }
+
+    @Test void calculatedScheduleCannotRunPastMidnight() throws Exception {
+        LocalDate date = TODAY.plusDays(1);
+        UUID trip = trip(owner, date, date, "PLANNING", 1), first = place(province()), second = place(province());
+        appendToDay(trip, date, first, second).andExpect(status().isOk());
+        tenMinuteLegs(); var before = readItinerary(trip);
+        daySchedule(trip, date, before.path("updatedAt").asText(), simpleSettings("23:30"),
+                List.of(Map.of("placeId", first, "minutes", 45), Map.of("placeId", second, "minutes", 45)))
+                .andExpect(status().isBadRequest());
+        assertThat(readItinerary(trip)).isEqualTo(before);
+    }
+
+
+    @Test void explicitArrivalEditRecalculatesFollowingStopsButNoteOnlyEditDoesNotCallProvider() throws Exception {
+        LocalDate date = TODAY.plusDays(1);
+        UUID trip = trip(owner, date, date, "PLANNING", 1), first = place(province()), second = place(province());
+        appendToDay(trip, date, first, second).andExpect(status().isOk());
+        tenMinuteLegs(); var before = readItinerary(trip);
+        var saved = data(daySchedule(trip, date, before.path("updatedAt").asText(), simpleSettings("08:00"),
+                List.of(Map.of("placeId", first, "minutes", 45), Map.of("placeId", second, "minutes", 45))).andExpect(status().isOk()));
+        var stops = List.of(scheduledStop(first, date, 0, "Meet here"), Map.<String, Object>of(
+                "placeId", second, "sequence", 1, "arrivalTime", saved.at("/days/0/stops/1/arrivalTime").asText(),
+                "durationMinutes", 45, "note", ""));
+        var changed = data(saveDay(trip, date, saved.path("updatedAt").asText(), stops).andExpect(status().isOk()));
+        assertThat(changed.at("/days/0/stops/0/arrivalTime").asText()).isEqualTo(date + "T09:30:00");
+        assertThat(changed.at("/days/0/stops/1/arrivalTime").asText()).isEqualTo(date + "T10:25:00");
+        org.mockito.Mockito.doThrow(new com.travel.common.exception.AppException(com.travel.common.exception.ErrorCode.PLACE_PROVIDER_UNAVAILABLE))
+                .when(directions).route(org.mockito.ArgumentMatchers.anyList(), org.mockito.ArgumentMatchers.any());
+        var notes = List.of(scheduledStop(first, date, 0, "Changed note only"), Map.<String, Object>of(
+                "placeId", second, "sequence", 1, "arrivalTime", changed.at("/days/0/stops/1/arrivalTime").asText(),
+                "durationMinutes", 45, "note", ""));
+        var noted = data(saveDay(trip, date, changed.path("updatedAt").asText(), notes).andExpect(status().isOk()));
+        assertThat(noted.at("/days/0/stops/0/note").asText()).isEqualTo("Changed note only");
+        assertThat(noted.at("/days/0/stops/1/arrivalTime")).isEqualTo(changed.at("/days/0/stops/1/arrivalTime"));
+    }
+
+
+    @Test void firstTimedStopIsEnoughToScheduleFollowingStopsWithoutDaySettings() throws Exception {
+        LocalDate date = TODAY.plusDays(1);
+        UUID trip = trip(owner, date, date, "PLANNING", 1), province = province();
+        UUID first = place(province), second = place(province), third = place(province);
+        link(trip, first, false); link(trip, second, false);
+        UUID itinerary = itinerary(trip); stop(itinerary, first, date, 0); stop(itinerary, second, date, 1);
+        jdbc.update("UPDATE itinerary_items SET arrival_at=NULL,start_time=NULL,end_time=NULL WHERE itinerary_id=? AND place_id=?", itinerary, second);
+        tenMinuteLegs(); var before = readItinerary(trip);
+        var body = json.createObjectNode().put("expectedTripVersion", 0).put("expectedUpdatedAt", before.path("updatedAt").asText());
+        var stops = body.putArray("stops");
+        stops.addObject().put("placeId", first.toString()).put("sequence", 0).put("arrivalTime", date + "T08:00:00").put("durationMinutes", 45).putNull("note");
+        stops.addObject().put("placeId", second.toString()).put("sequence", 1).putNull("arrivalTime").put("durationMinutes", 45).putNull("note");
+        var saved = data(mvc.perform(put("/api/v1/trips/{id}/itinerary/days/{day}", trip, date)
+                .header("Authorization", "Bearer " + token).contentType(MediaType.APPLICATION_JSON).content(body.toString())).andExpect(status().isOk()));
+        assertThat(saved.at("/days/0/stops/0/arrivalTime").asText()).isEqualTo(date + "T08:00:00");
+        assertThat(saved.at("/days/0/stops/1/arrivalTime").asText()).isEqualTo(date + "T08:55:00");
+        assertThat(saved.at("/days/0/settings/departureTime").asText()).isEqualTo("08:00:00");
+        appendToDay(trip, date, third).andExpect(status().isOk());
+        assertThat(readItinerary(trip).at("/days/0/stops/2/arrivalTime").asText()).isEqualTo(date + "T09:50:00");
+    }
+
+    @Test void addingToLegacyDayInfersDepartureFromFirstExistingArrival() throws Exception {
+        LocalDate date = TODAY.plusDays(1);
+        UUID trip = trip(owner, date, date, "PLANNING", 1), first = place(province()), second = place(province());
+        link(trip, first, false); UUID itinerary = itinerary(trip); stop(itinerary, first, date, 0);
+        tenMinuteLegs(); appendToDay(trip, date, second).andExpect(status().isOk());
+        var saved = readItinerary(trip);
+        assertThat(saved.at("/days/0/stops/0/arrivalTime").asText()).isEqualTo(date + "T09:00:00");
+        assertThat(saved.at("/days/0/stops/1/arrivalTime").asText()).isEqualTo(date + "T09:55:00");
+        assertThat(saved.at("/days/0/settings/departureTime").asText()).isEqualTo("09:00:00");
+    }
+
+    private void remainingMatrix(boolean returns) {
+        org.mockito.Mockito.doAnswer(invocation -> {
+            assertThat(org.springframework.transaction.support.TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+            assertThat((List<?>) invocation.getArgument(0)).hasSize(returns ? 4 : 3);
+            assertThat(((com.travel.maps.dto.RoutePoint)((List<?>)invocation.getArgument(0)).getFirst()).latitude()).isEqualTo(16.02);
+            return returns ? new com.travel.maps.service.MapboxDirectionsService.RoadMatrix(
+                    new double[][]{{0,9000,1000,9000},{9000,0,9000,1000},{9000,1000,0,9000},{9000,9000,9000,0}},
+                    new double[][]{{0,3600,600,3600},{3600,0,3600,600},{3600,600,0,3600},{3600,3600,3600,0}})
+                    : new com.travel.maps.service.MapboxDirectionsService.RoadMatrix(
+                    new double[][]{{0,9000,1000},{9000,0,9000},{9000,1000,0}},
+                    new double[][]{{0,3600,600},{3600,0,3600},{3600,600,0}});
+        }).when(directions).matrix(org.mockito.ArgumentMatchers.anyList(), org.mockito.ArgumentMatchers.any());
+    }
+    private ResultActions applyVisitedOrder(UUID trip, JsonNode base, List<UUID> order, List<UUID> visited) throws Exception {
+        var byPlace = new HashMap<String, JsonNode>();
+        for (var entry : base.at("/days/0/stops")) byPlace.put(entry.path("placeId").asText(), entry);
+        var body = json.createObjectNode().put("expectedTripVersion", 0).put("expectedUpdatedAt", base.path("updatedAt").asText());
+        body.set("expectedVisitedPlaceIds", json.valueToTree(visited));
+        var stops = body.putArray("stops");
+        for (int index = 0; index < order.size(); index++) {
+            var old = byPlace.get(order.get(index).toString());
+            var next = stops.addObject().put("placeId", order.get(index).toString()).put("sequence", index)
+                    .put("durationMinutes", old.path("durationMinutes").asInt());
+            next.set("arrivalTime", old.path("arrivalTime")); next.set("note", old.path("note"));
+        }
+        return mvc.perform(put("/api/v1/trips/{id}/itinerary/days/{day}", trip, TODAY)
+                .header("Authorization", "Bearer " + token).contentType(MediaType.APPLICATION_JSON).content(body.toString()));
+    }
+
+    @Test void optimizationGroupsVisitedACAndOptimizesOnlyBDThenPersistsACDBAndTheirNewTimes() throws Exception {
+        UUID trip = trip(owner, TODAY, TODAY.plusDays(1), "ACTIVE", 1), province = province(), itinerary = itinerary(trip);
+        UUID a = place(province), b = place(province), c = place(province), d = place(province), tomorrow = place(province);
+        var visits = List.of(a,b,c,d);
+        for (int index=0; index<visits.size(); index++) { link(trip,visits.get(index),index==0 || index==2); stop(itinerary,visits.get(index),TODAY,index); }
+        link(trip,tomorrow,false); stop(itinerary,tomorrow,TODAY.plusDays(1),0);
+        jdbc.update("UPDATE places SET latitude=89 WHERE id=?", a);
+        jdbc.update("UPDATE places SET latitude=16.02 WHERE id=?", c);
+        var before = readItinerary(trip);
+        remainingMatrix(false); tenMinuteLegs();
+        var proposal = data(mvc.perform(post("/api/v1/trips/{id}/itinerary/days/{day}/route/optimize", trip, TODAY)
+                .header("Authorization", "Bearer " + token)).andExpect(status().isOk()));
+        assertThat(proposal.path("order")).extracting(node -> node.asText()).containsExactly(a.toString(),c.toString(),d.toString(),b.toString());
+        assertThat(proposal.path("originalOrder")).extracting(node -> node.asText()).containsExactly(a.toString(),b.toString(),c.toString(),d.toString());
+        assertThat(proposal.path("visitedOrder")).extracting(node -> node.asText()).containsExactly(a.toString(),c.toString());
+        assertThat(proposal.path("originalDistanceMeters").asDouble()).isEqualTo(18000);
+        assertThat(proposal.path("distanceMeters").asDouble()).isEqualTo(2000);
+        assertThat(proposal.path("originalDurationSeconds").asDouble()).isEqualTo(7200);
+        assertThat(proposal.path("durationSeconds").asDouble()).isEqualTo(1200);
+        assertThat(readItinerary(trip)).isEqualTo(before); // Preview has no side effects.
+        var applied = data(applyVisitedOrder(trip,before,List.of(a,c,d,b),List.of(a,c)).andExpect(status().isOk()));
+        assertThat(applied.at("/days/0/stops/0/id")).isEqualTo(before.at("/days/0/stops/0/id"));
+        assertThat(applied.at("/days/0/stops/1/id")).isEqualTo(before.at("/days/0/stops/2/id"));
+        assertThat(applied.at("/days/0/stops/0/arrivalTime")).isEqualTo(before.at("/days/0/stops/0/arrivalTime"));
+        assertThat(applied.at("/days/0/stops/1/arrivalTime")).isEqualTo(before.at("/days/0/stops/2/arrivalTime"));
+        assertThat(applied.at("/days/0/stops/1/durationMinutes").asInt()).isEqualTo(45);
+        assertThat(applied.at("/days/0/stops/2/placeId").asText()).isEqualTo(d.toString());
+        assertThat(applied.at("/days/0/stops/2/arrivalTime").asText()).isEqualTo(TODAY+"T11:55:00");
+        assertThat(applied.at("/days/0/stops/3/arrivalTime").asText()).isEqualTo(TODAY+"T12:50:00");
+        assertThat(applied.at("/days/1")).isEqualTo(before.at("/days/1"));
+        assertThat(readItinerary(trip)).isEqualTo(applied);
+        assertThat(home().at("/nextStop/placeId").asText()).isEqualTo(d.toString());
+        appendToDay(trip, TODAY, tomorrow).andExpect(status().isOk());
+        var appended = readItinerary(trip);
+        assertThat(appended.at("/days/0/stops/4/arrivalTime").asText()).isEqualTo(TODAY+"T13:45:00");
+        assertThat(appended.at("/days/0/stops/1/arrivalTime")).isEqualTo(before.at("/days/0/stops/2/arrivalTime"));
+        assertThat(appended.at("/days/1")).isEqualTo(before.at("/days/1"));
+    }
+
+    @Test void remainingOptimizationIncludesReturnToSavedOriginRatherThanReturningToVisitedAnchor() throws Exception {
+        UUID trip=trip(owner,TODAY,TODAY,"ACTIVE",1), province=province(), itinerary=itinerary(trip);
+        UUID a=place(province), b=place(province), c=place(province), d=place(province);
+        var visits=List.of(a,b,c,d);
+        for(int i=0;i<4;i++){link(trip,visits.get(i),i==0||i==2);stop(itinerary,visits.get(i),TODAY,i);}
+        jdbc.update("INSERT INTO itinerary_day_settings(id,itinerary_id,day_date,origin_name,origin_latitude,origin_longitude,departure_time,return_to_start,travel_mode) VALUES (?,?,?,'Origin',16.01,108.01,'08:00',true,'DRIVE')",UUID.randomUUID(),itinerary,TODAY);
+        jdbc.update("UPDATE places SET latitude=16.02 WHERE id=?",c);
+        remainingMatrix(true);
+        var proposal=data(mvc.perform(post("/api/v1/trips/{id}/itinerary/days/{day}/route/optimize",trip,TODAY)
+                .header("Authorization","Bearer "+token)).andExpect(status().isOk()));
+        assertThat(proposal.path("order")).extracting(node->node.asText()).containsExactly(a.toString(),c.toString(),d.toString(),b.toString());
+        assertThat(proposal.path("distanceMeters").asDouble()).isEqualTo(3000);
+        assertThat(proposal.path("durationSeconds").asDouble()).isEqualTo(1800);
+    }
+
+    @Test void staleVisitedSnapshotOrTamperedVisitedPrefixCannotOverwriteCurrentSchedule() throws Exception {
+        UUID trip=trip(owner,TODAY,TODAY,"ACTIVE",1), province=province(), itinerary=itinerary(trip);
+        UUID a=place(province), b=place(province), c=place(province), d=place(province);
+        var visits=List.of(a,b,c,d);
+        for(int i=0;i<4;i++){link(trip,visits.get(i),i==0||i==2);stop(itinerary,visits.get(i),TODAY,i);}
+        tenMinuteLegs(); var before=readItinerary(trip);
+        applyVisitedOrder(trip,before,List.of(c,a,b,d),List.of(a,c)).andExpect(status().isBadRequest());
+        applyVisitedOrder(trip,before,List.of(a,c,b),List.of(a,c)).andExpect(status().isBadRequest());
+        jdbc.update("UPDATE trip_places SET visited=true WHERE trip_id=? AND place_id=?",trip,b);
+        applyVisitedOrder(trip,before,List.of(a,c,d,b),List.of(a,c)).andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("TRIP_008"));
+        assertThat(readItinerary(trip)).isEqualTo(before);
+        jdbc.update("UPDATE trip_places SET visited=false WHERE trip_id=? AND place_id=?",trip,b);
+        jdbc.update("UPDATE trip_places SET visited=false WHERE trip_id=? AND place_id=?",trip,c);
+        applyVisitedOrder(trip,before,List.of(a,c,d,b),List.of(a,c)).andExpect(status().isConflict());
+        assertThat(readItinerary(trip)).isEqualTo(before);
+    }
+
+    @Test void groupingStillRejectsEditsToVisitedArrivalTimes() throws Exception {
+        UUID trip=trip(owner,TODAY,TODAY,"ACTIVE",1), province=province(), itinerary=itinerary(trip);
+        UUID a=place(province), b=place(province), c=place(province);
+        link(trip,a,true);link(trip,b,false);link(trip,c,true);
+        stop(itinerary,a,TODAY,0);stop(itinerary,b,TODAY,1);stop(itinerary,c,TODAY,2);
+        tenMinuteLegs(); var before=readItinerary(trip);
+        var tampered=before.deepCopy();
+        ((com.fasterxml.jackson.databind.node.ObjectNode)tampered.at("/days/0/stops/2")).put("arrivalTime",TODAY+"T10:30:00");
+        applyVisitedOrder(trip,tampered,List.of(a,c,b),List.of(a,c)).andExpect(status().isConflict());
+        assertThat(readItinerary(trip)).isEqualTo(before);
+    }
+
 }

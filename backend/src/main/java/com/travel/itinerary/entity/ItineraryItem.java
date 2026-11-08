@@ -43,7 +43,7 @@ public class ItineraryItem {
     private LocalDateTime arrivalAt;
 
     @Column(name = "duration_minutes", nullable = false)
-    private int durationMinutes = 60;
+    private int durationMinutes = 45;
 
     @Column(name = "start_time")
     private LocalTime startTime;

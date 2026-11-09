@@ -1,6 +1,7 @@
 param(
     [ValidateRange(1, 65535)][int]$Port = 18081,
     [switch]$WithoutAi,
+    [switch]$UsePackagedJar,
     [uri]$WebUrl
 )
 $ErrorActionPreference = 'Stop'
@@ -50,6 +51,12 @@ $env:SERVER_PORT = $Port.ToString()
 Write-Host "Starting dev backend at http://localhost:$Port (database from the dev environment)."
 Push-Location (Join-Path $taskRoot 'backend')
 try {
-    & .\mvnw.cmd spring-boot:run '-Dspring-boot.run.profiles=dev'
+    if ($UsePackagedJar) {
+        $taskJar = Get-ChildItem -LiteralPath 'target' -Filter 'travel-backend-*.jar' | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+        if (-not $taskJar) { throw 'Build the backend first: .\mvnw.cmd -DskipTests package' }
+        & java -Xmx768m -jar $taskJar.FullName '--spring.profiles.active=dev'
+    } else {
+        & .\mvnw.cmd spring-boot:run '-Dspring-boot.run.profiles=dev'
+    }
     if ($LASTEXITCODE -ne 0) { throw 'Dev backend failed.' }
 } finally { Pop-Location }

@@ -62,11 +62,19 @@ public class TripDayRoutingService {
             return optimizeRemaining(points, settings, selectedMode(settings, mode));
         boolean origin = settings != null && settings.origin() != null;
         boolean roundtrip = origin && settings.returnToStart();
-        var proposal = directions.optimize(locations(points, settings, false), selectedMode(settings, mode), roundtrip);
-        return new TripDayRoute.Proposal(proposal.order().stream().filter(index -> !origin || index > 0)
+        var locations = locations(points, settings, roundtrip);
+        var matrix = directions.matrix(locations, selectedMode(settings, mode));
+        var original = java.util.stream.IntStream.range(0, locations.size()).boxed().toList();
+        // Preserve the existing fixed first/last endpoints; include the return leg in both totals.
+        var optimized = nonWorseningOrder(matrix, original,
+                solver.solveFixedStart(matrix.durations(), locations.size() - 1));
+        var before = sum(matrix, original);
+        var after = sum(matrix, optimized);
+        int limit = locations.size() - (roundtrip ? 1 : 0);
+        return new TripDayRoute.Proposal(optimized.stream().filter(index -> index >= (origin ? 1 : 0) && index < limit)
                 .map(index -> points.get(index - (origin ? 1 : 0)).placeId()).toList(),
                 points.stream().map(TripRouteRepository.Waypoint::placeId).toList(),
-                proposal.distanceMeters(), proposal.durationSeconds());
+                after.distanceMeters(), after.durationSeconds(), List.of(), before.distanceMeters(), before.durationSeconds());
     }
 
     private TripDayRoute.Proposal optimizeRemaining(List<TripRouteRepository.Waypoint> points, DaySettings settings, Mode mode) {
@@ -82,8 +90,9 @@ public class TripDayRoutingService {
         if (locations.size() > 12) throw new AppException(ErrorCode.INVALID_ITINERARY);
         var matrix = directions.matrix(locations, mode);
         Integer terminal = returns ? locations.size() - 1 : null;
-        var optimized = solver.solveFixedStart(matrix.durations(), terminal);
+        var candidate = solver.solveFixedStart(matrix.durations(), terminal);
         var original = java.util.stream.IntStream.range(0, locations.size()).boxed().toList();
+        var optimized = nonWorseningOrder(matrix, original, candidate);
         var order = new ArrayList<UUID>(visited.stream().map(TripRouteRepository.Waypoint::placeId).toList());
         optimized.stream().filter(index -> index > 0 && (!returns || index != terminal))
                 .forEach(index -> order.add(pending.get(index - 1).placeId()));
@@ -92,6 +101,15 @@ public class TripDayRoutingService {
         return new TripDayRoute.Proposal(order, points.stream().map(TripRouteRepository.Waypoint::placeId).toList(),
                 after.distanceMeters(), after.durationSeconds(),
                 visited.stream().map(TripRouteRepository.Waypoint::placeId).toList(), before.distanceMeters(), before.durationSeconds());
+    }
+
+    private List<Integer> nonWorseningOrder(MapboxDirectionsService.RoadMatrix matrix,
+            List<Integer> original, List<Integer> candidate) {
+        var before = sum(matrix, original);
+        var after = sum(matrix, candidate);
+        // A faster route can be longer. Do not present either regression as an improvement.
+        return after.distanceMeters() <= before.distanceMeters() && after.durationSeconds() <= before.durationSeconds()
+                ? candidate : original;
     }
 
     private TripDayRoute.Leg sum(MapboxDirectionsService.RoadMatrix matrix, List<Integer> order) {

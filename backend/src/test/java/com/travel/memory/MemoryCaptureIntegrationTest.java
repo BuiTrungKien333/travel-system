@@ -137,6 +137,24 @@ class MemoryCaptureIntegrationTest {
                 .header("Authorization", bearer())).andExpect(status().isOk()).andExpect(jsonPath("$.data.totalElements").value(0));
     }
 
+    @Test void deviceClockSkewPreservesTimeAndRetriesReuseTheSameMemoryAndUpload() throws Exception {
+        var body = request();
+        Instant clientTime = Instant.now().plusSeconds(3600).truncatedTo(java.time.temporal.ChronoUnit.SECONDS);
+        body.put("experiencedAt", clientTime.toString());
+        var created = data(create(body).andExpect(status().isCreated()));
+        UUID id = UUID.fromString(created.path("id").asText());
+        Instant stored = Instant.parse(created.path("experiencedAt").asText());
+        assertThat(stored).isEqualTo(clientTime);
+        var replayed = data(create(body).andExpect(status().isCreated()));
+        assertThat(replayed.path("id").asText()).isEqualTo(id.toString());
+        assertThat(replayed.path("experiencedAt").asText()).isEqualTo(created.path("experiencedAt").asText());
+        assertThat(count("memories", id)).isEqualTo(1);
+        upload(id).andExpect(status().isCreated());
+        upload(id).andExpect(status().isCreated());
+        assertThat(count("media", id)).isEqualTo(1);
+        verify(uploader, times(1)).upload(any(byte[].class), anyMap());
+    }
+
     @Test void lostProviderResponseCanRetryWithoutCreatingAnotherAsset() throws Exception {
         UUID id = create();
         var publicIds = new ArrayList<Object>();
@@ -196,13 +214,11 @@ class MemoryCaptureIntegrationTest {
         verifyNoInteractions(uploader);
     }
 
-    @Test void rejectForeignTripUnknownPlaceFutureTimestampAndClientSuppliedMedia() throws Exception {
+    @Test void rejectForeignTripUnknownPlaceAndClientSuppliedMedia() throws Exception {
         var body = request(); body.put("tripId", UUID.randomUUID());
         create(body).andExpect(status().isNotFound());
         body = request(); body.put("placeId", UUID.randomUUID());
         create(body).andExpect(status().isNotFound());
-        body = request(); body.put("experiencedAt", Instant.now().plusSeconds(3600).toString());
-        create(body).andExpect(status().isBadRequest());
         body = request(); body.put("media", List.of(Map.of("url", "https://attacker.example/image.jpg")));
         create(body).andExpect(status().isBadRequest());
         verifyNoInteractions(uploader);

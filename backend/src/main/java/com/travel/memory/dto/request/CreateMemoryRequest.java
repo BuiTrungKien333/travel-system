@@ -2,7 +2,6 @@ package com.travel.memory.dto.request;
 
 import com.travel.media.dto.CreateMediaRequest;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.PastOrPresent;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -31,7 +30,7 @@ public class CreateMemoryRequest {
     @Size(max = 2000, message = "note must not exceed 2000 characters")
     private String note;
 
-    @PastOrPresent(message = "experiencedAt cannot be in the future")
+    // Capture time comes from the device; clock skew must not block photo synchronization.
     private Instant experiencedAt;
 
     @Valid

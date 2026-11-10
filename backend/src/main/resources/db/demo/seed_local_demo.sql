@@ -136,10 +136,10 @@ ON CONFLICT (id) DO NOTHING;
 CREATE TEMP TABLE demo_seed_trips ON COMMIT DROP AS
 WITH featured(n, name, destination, start_offset, end_offset, status, budget, preferences, description, places) AS (
     VALUES
-        (1, 'Đà Nẵng — Kỷ niệm mùa biển', 'Đà Nẵng', -30, -28, 'COMPLETED', 3500000, '["Nature","Food","Culture"]', 'Chuyến đi đã hoàn thành, có ảnh và kỷ niệm.', ARRAY[1,2,3]),
-        (2, 'Đà Lạt — Cuối tuần xanh', 'Đà Lạt', -2, 1, 'ACTIVE', 2800000, '["Nature","Photography"]', 'Đang khám phá Đà Lạt, đã ghé hai địa điểm.', ARRAY[4,5,6]),
-        (3, 'Hà Giang — Hẹn ngày lên đường', 'Hà Giang', 10, 12, 'READY', 4200000, '["Nature","Culture"]', 'Đã sẵn sàng với lịch trình, chưa có Memory.', ARRAY[7,8,9]),
-        (4, 'Đà Nẵng — Kế hoạch trở lại', 'Đà Nẵng', 30, 32, 'PLANNING', 3000000, '["Food","Museum"]', 'Bản nháp có địa điểm, chưa có lịch trình và Memory.', ARRAY[1,2,3])
+        (1, 'Đà Nẵng — Kỷ niệm mùa biển', 'Đà Nẵng', -30, -28, 'COMPLETED', 3500000, '["nature","food","culture"]', 'Chuyến đi đã hoàn thành, có ảnh và kỷ niệm.', ARRAY[1,2,3]),
+        (2, 'Đà Lạt — Cuối tuần xanh', 'Đà Lạt', -2, 1, 'ACTIVE', 2800000, '["nature","photography"]', 'Đang khám phá Đà Lạt, đã ghé hai địa điểm.', ARRAY[4,5,6]),
+        (3, 'Hà Giang — Hẹn ngày lên đường', 'Hà Giang', 10, 12, 'READY', 4200000, '["nature","culture"]', 'Đã sẵn sàng với lịch trình, chưa có Memory.', ARRAY[7,8,9]),
+        (4, 'Đà Nẵng — Kế hoạch trở lại', 'Đà Nẵng', 30, 32, 'PLANNING', 3000000, '["food","culture"]', 'Bản nháp có địa điểm, chưa có lịch trình và Memory.', ARRAY[1,2,3])
 ), regions(region_no, destination, places, budget) AS (
     VALUES
         (0, 'Đà Nẵng', ARRAY[1,2,3,10,11,12,13,14], 3500000),
@@ -169,7 +169,7 @@ UNION ALL
 SELECT
     n, n - 3, name, destination, starts, starts + CASE WHEN status = 'ACTIVE' THEN 3 ELSE 2 END,
     status, CASE WHEN destination IN ('Hà Giang','Sa Pa') THEN 'Motorbike' ELSE 'Car' END,
-    budget, '["Nature","Food","Culture"]', 'Ưu tiên nghỉ ngơi giữa các điểm tham quan.',
+    budget, '["nature","food","culture"]', 'Ưu tiên nghỉ ngơi giữa các điểm tham quan.',
     'Chuyến đi mẫu với ba ngày tham quan; lịch trình có thể chỉnh trước khi áp dụng.', places,
     CASE WHEN status = 'COMPLETED' THEN (starts - 7)::timestamptz ELSE (CURRENT_DATE - 14)::timestamptz END,
     LEAST(CURRENT_TIMESTAMP, (starts + 2)::timestamptz)

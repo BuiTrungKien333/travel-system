@@ -88,6 +88,15 @@ class MemoryServiceTest {
     }
 
     @Test
+    void createMemory_preservesDeviceTimestampEvenWhenAheadOfServerTime() {
+        when(memoryRepository.save(any(Memory.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        Instant deviceTime = Instant.now().plusSeconds(3600);
+        var request = CreateMemoryRequest.builder().note("Capture").experiencedAt(deviceTime).build();
+        assertThat(memoryService.createMemory(userId, request).getExperiencedAt()).isEqualTo(deviceTime);
+        assertThat(request.getExperiencedAt()).isEqualTo(deviceTime);
+    }
+
+    @Test
     @DisplayName("Get memory by ID succeeds when owned by user")
     void getMemoryById_Success() {
         Memory memory = Memory.create(userId, tripId, placeId, "Sunset at beach", Instant.now());

@@ -22,13 +22,8 @@ public interface PlaceRepository extends JpaRepository<Place, UUID> {
     @Query("select p from Place p where p.id in :ids and (p.source='INTERNAL' or p.ownerId=:owner)")
     List<Place> findVisibleByIds(@Param("ids") Collection<UUID> ids, @Param("owner") UUID owner);
 
-    Optional<Place> findByIdAndSource(UUID id, String source);
+    List<Place> findByIdInAndSource(Collection<UUID> ids, String source);
 
     List<Place> findAllByIdIn(Collection<UUID> ids);
 
-    List<Place> findByProvinceId(UUID provinceId);
-
-    List<Place> findByNameContainingIgnoreCase(String name);
-
-    Optional<Place> findByProviderPlaceId(String providerPlaceId);
 }

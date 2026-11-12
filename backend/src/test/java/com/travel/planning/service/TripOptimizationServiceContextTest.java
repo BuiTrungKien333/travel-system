@@ -1,6 +1,5 @@
 package com.travel.planning.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.travel.place.repository.PlaceRepository;
 import com.travel.planning.ai.provider.AiProviderFactory;
 import com.travel.planning.algorithm.HeldKarpSolver;
@@ -18,7 +17,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class TripOptimizationServiceContextTest {
 
     @Test
-    @DisplayName("Spring ApplicationContext should successfully instantiate TripOptimizationServiceImpl via @Autowired constructor")
+    @DisplayName("Spring ApplicationContext instantiates TripOptimizationServiceImpl through constructor injection")
     void springContext_instantiatesTripOptimizationServiceImplSuccessfully() {
         try (AnnotationConfigApplicationContext ctx = new AnnotationConfigApplicationContext()) {
             ctx.registerBean(HeldKarpSolver.class, () -> Mockito.mock(HeldKarpSolver.class));
@@ -28,7 +27,6 @@ class TripOptimizationServiceContextTest {
             ctx.registerBean(PlaceRepository.class, () -> Mockito.mock(PlaceRepository.class));
             ctx.register(TimelineEngine.class);
             ctx.register(TimelineCollisionRuleChecker.class);
-            ctx.registerBean(ObjectMapper.class, () -> new ObjectMapper());
             ctx.register(TripOptimizationServiceImpl.class);
             ctx.refresh();
 

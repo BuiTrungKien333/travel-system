@@ -68,8 +68,51 @@ class TripOptimizationServiceTest {
     @BeforeEach
     void setUp() {
         service = new TripOptimizationServiceImpl(
-                heldKarpSolver, weatherService, ruleEvaluatorService, aiProviderFactory, placeRepository
+                heldKarpSolver, weatherService, ruleEvaluatorService, aiProviderFactory, placeRepository,
+                new com.travel.planning.timeline.TimelineEngine(), new com.travel.planning.rule.checker.TimelineCollisionRuleChecker()
         );
+    }
+
+    @Test
+    void optimizeAndAudit_batchEnrichment_preservesClientOverridesAndMissingPlaceFallback() {
+        UUID known = UUID.randomUUID();
+        UUID unknown = UUID.randomUUID();
+        var dbPlace = Place.builder().id(known).name("Database name").latitude(0.0).longitude(0.0)
+                .placeType(PlaceType.INDOOR).openingTime(LocalTime.of(9, 0)).closingTime(LocalTime.of(18, 0)).build();
+        when(placeRepository.findByIdInAndSource(List.of(known, unknown), "INTERNAL")).thenReturn(List.of(dbPlace));
+        when(heldKarpSolver.solve(any())).thenAnswer(call -> {
+            TspRequest input = call.getArgument(0);
+            return TspResult.builder().orderedPlaces(input.getPlaces()).build();
+        });
+        when(ruleEvaluatorService.evaluateItinerary(anyList())).thenReturn(ItineraryEvaluationResult.of(List.of()));
+        var request = new OptimizeAndAuditRequest("Đà Nẵng", LocalDate.of(2026, 10, 1), LocalTime.of(10, 0), null, false,
+                List.of(new TspLocationRequest(known, "Client name", 16.0, 108.0, PlaceType.OUTDOOR,
+                                LocalTime.of(8, 0), null, 30, null, null),
+                        new TspLocationRequest(unknown, "Unknown place", 16.1, 108.1),
+                        new TspLocationRequest(null, "New place", 16.2, 108.2)), null);
+
+        var response = service.optimizeAndAuditItinerary(request);
+
+        assertThat(response.schedule()).hasSize(3);
+        var enriched = response.schedule().getFirst();
+        assertThat(enriched.placeName()).isEqualTo("Client name");
+        assertThat(enriched.latitude()).isEqualTo(16.0);
+        assertThat(enriched.placeType()).isEqualTo(PlaceType.OUTDOOR);
+        assertThat(enriched.openingTime()).isEqualTo(LocalTime.of(8, 0));
+        assertThat(enriched.closingTime()).isEqualTo(LocalTime.of(18, 0));
+        assertThat(response.schedule().get(1).placeType()).isEqualTo(PlaceType.UNSPECIFIED);
+        assertThat(response.schedule().get(2).placeId()).isNotNull();
+        verify(placeRepository).findByIdInAndSource(List.of(known, unknown), "INTERNAL");
+        verifyNoMoreInteractions(placeRepository);
+    }
+
+    @Test
+    void optimizeAndAudit_locationsWithoutIds_skipsDatabase() {
+        when(heldKarpSolver.solve(any())).thenReturn(TspResult.builder().build());
+        when(ruleEvaluatorService.evaluateItinerary(anyList())).thenReturn(ItineraryEvaluationResult.of(List.of()));
+        service.optimizeAndAuditItinerary(new OptimizeAndAuditRequest("Đà Nẵng", LocalDate.of(2026, 10, 1),
+                LocalTime.of(8, 0), null, false, List.of(new TspLocationRequest(null, "New", 16.0, 108.0)), null));
+        verifyNoInteractions(placeRepository);
     }
 
     @Test

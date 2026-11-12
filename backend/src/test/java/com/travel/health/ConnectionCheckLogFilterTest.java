@@ -1,11 +1,16 @@
 package com.travel.health;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -14,6 +19,19 @@ import static org.assertj.core.api.Assertions.assertThat;
 @ExtendWith(OutputCaptureExtension.class)
 class ConnectionCheckLogFilterTest {
     private final ConnectionCheckLogFilter filter = new ConnectionCheckLogFilter();
+    private final Logger logger = (Logger) LoggerFactory.getLogger(ConnectionCheckLogFilter.class);
+    private Level previousLevel;
+
+    @BeforeEach
+    void enableFilterLogs() {
+        previousLevel = logger.getLevel();
+        logger.setLevel(Level.INFO);
+    }
+
+    @AfterEach
+    void restoreLogging() {
+        logger.setLevel(previousLevel);
+    }
 
     @Test
     void reportsHealthOutcomeWithoutCredentialsQueryOrBody(CapturedOutput output) throws Exception {

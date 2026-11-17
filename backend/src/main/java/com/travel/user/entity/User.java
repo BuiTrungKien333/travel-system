@@ -47,6 +47,9 @@ public class User extends BaseEntity {
     @Column(name = "session_version", nullable = false)
     private long sessionVersion;
 
+    @Column(name = "locked_at")
+    private Instant lockedAt;
+
     @Column(name = "google_subject", unique = true, length = 255)
     private String googleSubject;
 

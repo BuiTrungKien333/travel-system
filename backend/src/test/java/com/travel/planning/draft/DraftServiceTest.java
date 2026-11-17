@@ -3,6 +3,7 @@ package com.travel.planning.draft;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.travel.common.exception.*;
 import com.travel.place.repository.PlaceRepository;
+import com.travel.maps.service.MapboxDirectionsService;
 import com.travel.planning.ai.intent.dto.response.IntentAnalysisResponse;
 import com.travel.planning.ai.intent.dto.response.IntentSearchResponse;
 import com.travel.planning.ai.intent.model.TravelIntent;
@@ -48,7 +49,9 @@ class DraftServiceTest {
         var advisor = new DraftAllocationService(new GeminiDraftClient(ai, mapper));
         var planner = new DraftTimelinePlanner(new HeldKarpSolver(new HaversineDistanceMatrixService()), new TimelineEngine(), mapper);
         var properties = new RagProperties();
-        service = new DraftService(intents, retrieval, repository, advisor, new DraftSchedulingService(planner), new DraftThemeService(),
+        var maps = mock(MapboxDirectionsService.class);
+        when(maps.matrix(anyList(), any())).thenThrow(new AppException(ErrorCode.PLACE_PROVIDER_UNAVAILABLE));
+        service = new DraftService(intents, retrieval, repository, advisor, new DraftSchedulingService(planner, maps), new DraftThemeService(),
                 new DraftWeatherService(weather, weatherExecutor, properties), properties, new AiRequestContext(properties));
         when(ai.generate(any(com.travel.planning.ai.resilience.AiRequestContext.Stage.class), anyString(), anyString(), anyMap())).thenThrow(new AppException(ErrorCode.AI_SERVICE_UNAVAILABLE));
         when(retrieval.catalog()).thenReturn(points);

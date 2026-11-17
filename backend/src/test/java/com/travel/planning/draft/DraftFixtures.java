@@ -3,6 +3,7 @@ package com.travel.planning.draft;
 import com.travel.place.entity.Place;
 import com.travel.place.enums.PlaceType;
 import com.travel.planning.draft.dto.request.GenerateDraftRequest;
+import com.travel.planning.draft.model.DraftTravelMatrix;
 import com.travel.planning.retrieval.model.PlaceCandidate;
 
 import java.time.*;
@@ -22,5 +23,8 @@ final class DraftFixtures {
     }
     static Map<UUID, Place> entities(List<PlaceCandidate> candidates) {
         var map = new HashMap<UUID, Place>(); candidates.forEach(p -> map.put(p.placeId(), entity(p))); return map;
+    }
+    static DraftTravelMatrix travel(List<PlaceCandidate> candidates) {
+        return DraftTravelMatrix.estimated(ORIGIN, candidates, "TEST_ESTIMATE");
     }
 }

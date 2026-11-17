@@ -37,6 +37,8 @@ public interface UserRepository extends JpaRepository<User, UUID> {
         String getEmail();
         Instant getEmailVerifiedAt();
         Instant getDeletedAt();
+        Instant getLockedAt();
+        com.travel.user.enums.Role getRole();
         long getSessionVersion();
     }
 }

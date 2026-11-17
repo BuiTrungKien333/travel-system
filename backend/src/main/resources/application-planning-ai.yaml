@@ -1,0 +1,7 @@
+# Opt-in for authenticated trip planning outside dev. Public demo controllers stay disabled.
+spring:
+  config:
+    import: classpath:application-rag.yaml
+  flyway:
+    enabled: true
+    locations: classpath:db/migration,classpath:db/rag

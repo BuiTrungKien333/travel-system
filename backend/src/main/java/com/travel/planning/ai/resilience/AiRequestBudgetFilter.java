@@ -9,7 +9,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 
 @Component
-@Profile({"dev", "rag-demo"})
+@Profile({"dev", "rag-demo", "planning-ai"})
 public class AiRequestBudgetFilter extends OncePerRequestFilter {
     private final AiRequestContext context;
 

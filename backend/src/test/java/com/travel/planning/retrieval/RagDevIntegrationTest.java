@@ -63,15 +63,15 @@ class RagDevIntegrationTest {
         assertThat(jdbc.queryForObject("SELECT current_database()", String.class)).isEqualTo(POSTGRES.getDatabaseName());
         assertThat(jdbc.queryForObject("SELECT count(*) FROM pg_extension WHERE extname IN ('vector','unaccent')", Integer.class)).isEqualTo(2);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM place_retrieval_profiles WHERE approved", Integer.class)).isEqualTo(8);
-        mvc.perform(get("/api/v1/public/planning/retrieval/catalog"))
+        mvc.perform(get("/api/v1/public/planning/retrieval/catalog").with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("member").roles("USER").authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_USER"), new org.springframework.security.core.authority.SimpleGrantedAuthority("planning:generate"))))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.length()").value(8));
     }
 
-    @Test void devCanGenerateGroundedFallbackDraftWithoutLoginOrWritingItinerary() throws Exception {
+    @Test void devCanGenerateGroundedFallbackDraftForAuthorizedMemberWithoutWritingItinerary() throws Exception {
         when(embeddings.embed(anyString(), anyBoolean())).thenThrow(new AiCallFailure("MISSING_API_KEY", null));
         when(structured.generate(any(), anyString(), anyString(), anyMap())).thenThrow(new AiCallFailure("MISSING_API_KEY", null));
         int before = jdbc.queryForObject("SELECT count(*) FROM itineraries", Integer.class);
-        var response = mvc.perform(post("/api/v1/public/planning/generate-draft").contentType(MediaType.APPLICATION_JSON).content("""
+        var response = mvc.perform(post("/api/v1/public/planning/generate-draft").with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("member").authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_USER"),new org.springframework.security.core.authority.SimpleGrantedAuthority("planning:generate"))).contentType(MediaType.APPLICATION_JSON).content("""
                 {"preferences":{"destination":"Đà Nẵng","numberOfDays":2,"interests":["MUSEUM","HISTORY","ART","LOCAL"],
                 "excludedTags":["BEACH"],"dailyStartTime":"08:00","dailyEndTime":"17:00","travelPace":"RELAXED",
                 "mustVisitNames":["Bảo tàng Điêu khắc Chăm"]},"startDate":"2026-11-06",
@@ -96,10 +96,23 @@ class RagDevIntegrationTest {
         float[] vector = new float[768]; vector[0] = 1;
         when(embeddings.embed(anyString(), anyBoolean())).thenReturn(vector);
         assertThat(retrieval.index().failed()).isZero();
-        mvc.perform(post("/api/v1/public/planning/retrieval/search").contentType(MediaType.APPLICATION_JSON)
+        mvc.perform(post("/api/v1/public/planning/retrieval/search").with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("member").authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_USER"),new org.springframework.security.core.authority.SimpleGrantedAuthority("planning:generate"))).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"positiveQuery\":\"bảo tàng\",\"excludedTags\":[\"BEACH\"],\"limit\":4}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.retrievalMode").value("HYBRID"))
                 .andExpect(jsonPath("$.data.matches.length()").value(4));
+    }
+
+    @Test void knowledgeTracksCurrentAndStaleEmbeddingsUsingTheSameContentHashAsRetrieval() throws Exception {
+        float[] vector=new float[768];vector[0]=1;
+        when(embeddings.embed(anyString(),anyBoolean())).thenReturn(vector);
+        retrieval.index();
+        var admin=org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("index-admin")
+            .authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ADMIN"),new org.springframework.security.core.authority.SimpleGrantedAuthority("admin:catalog"));
+        mvc.perform(get("/api/v1/admin/knowledge").with(admin)).andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.content[?(@.indexStatus == 'CURRENT')]").value(org.hamcrest.Matchers.hasSize(8)));
+        jdbc.update("UPDATE place_embeddings SET content_hash='stale' WHERE place_id=(SELECT place_id FROM place_embeddings LIMIT 1)");
+        mvc.perform(get("/api/v1/admin/knowledge").with(admin)).andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.content[?(@.indexStatus == 'STALE')]").value(org.hamcrest.Matchers.hasSize(1)));
     }
 
     @Test void devKeepsUnrelatedAuthenticatedApisProtected() throws Exception {

@@ -12,6 +12,7 @@ import com.travel.planning.ai.resilience.AiCallFailure;
 import com.travel.planning.ai.resilience.AiRequestContext;
 import com.travel.planning.draft.dto.request.GenerateDraftRequest;
 import com.travel.planning.draft.dto.response.DraftResponse;
+import com.travel.planning.draft.model.DraftTravelMatrix;
 import com.travel.planning.retrieval.config.RagProperties;
 import com.travel.planning.retrieval.dto.response.PlaceSearchResponse;
 import com.travel.planning.retrieval.model.PlaceCandidate;
@@ -28,7 +29,7 @@ import static com.travel.planning.ai.resilience.AiRequestContext.Stage.*;
 import static com.travel.planning.draft.dto.response.DraftResponse.*;
 
 @Service
-@Profile({"dev", "rag-demo"})
+@Profile({"dev", "rag-demo", "planning-ai"})
 public class DraftService {
 
     private final TravelIntentService intents;
@@ -77,7 +78,7 @@ public class DraftService {
             context.failure(INTENT, reason, ex instanceof AiCallFailure failure ? failure.providerStatus() : null);
             metadata.put("nextAction", "RESUBMIT_WITH_PREFERENCES");
             issues.add(new Problem("INTENT_UNAVAILABLE", true, null,
-                    "Chưa đọc được yêu cầu bằng AI (" + reason + "). Hãy gửi preferences có cấu trúc thay cho text; hệ thống không tự đoán yêu cầu."));
+                    "AI tạm thời chưa đọc được yêu cầu. Bạn có thể chọn nhu cầu bằng biểu mẫu để tiếp tục; hệ thống không tự đoán sở thích."));
             return response("NEEDS_STRUCTURED_INPUT", request, null, List.of(), List.of(), issues, DraftWeatherService.unknown(), metadata);
         }
         var initial = new IntentSearchResponse(analysis.status(), analysis, null);
@@ -141,12 +142,29 @@ public class DraftService {
                 issues.add(new Problem("ALLOCATION_FALLBACK", false, null, "Không sử dụng được đề xuất phân bổ AI; backend phân bổ cơ bản từ dữ liệu thật."));
 
             var schedule = context.measure(OPTIMIZATION, () -> scheduling.schedule(request, intent, allocation, candidates, entities, required));
-            context.record(OPTIMIZATION, "DETERMINISTIC", "HELD_KARP_AND_TIMELINE_WITH_BOUNDED_REPAIR", null, null);
+            boolean road = DraftTravelMatrix.ROAD.equals(schedule.routeSource());
+            context.record(OPTIMIZATION, "DETERMINISTIC", road ? "HELD_KARP_ROAD_DURATION_AND_TIMELINE_WITH_BOUNDED_REPAIR"
+                    : "HELD_KARP_AND_TIMELINE_WITH_BOUNDED_REPAIR", schedule.fallbackReason(), null);
+            metadata.put("routeSource", schedule.routeSource());
+            metadata.put("optimizationScope", road ? "HELD_KARP_PER_DAY_ROAD_DURATION" : "HELD_KARP_PER_DAY_DISTANCE_ONLY");
+            metadata.put("routeStatus", schedule.days().stream().flatMap(d -> d.issues().stream())
+                    .anyMatch(p -> "ROUTE_UNAVAILABLE".equals(p.code())) ? "UNREACHABLE" : road ? "AVAILABLE" : "ESTIMATED");
+            if (schedule.fallbackReason() != null) metadata.put("routeFallbackReason", schedule.fallbackReason());
             metadata.put("repairPasses", Integer.toString(schedule.repairPasses()));
+            if (!road)
+                issues.add(new Problem("ESTIMATED_ROUTE", false, null,
+                        "Chưa có dữ liệu Mapbox khả dụng; quãng đường dùng Haversine và thời gian theo 35 km/h, không phải tuyến đường bộ."));
+            else
+                issues.add(new Problem("ROAD_ROUTE_ADVISORY", false, null,
+                        "Thời gian và khoảng cách từ Mapbox theo đường ô tô; đây là dự kiến, không phải dự báo giao thông trực tiếp cho ngày đi."));
             if (schedule.days().stream().allMatch(d -> d.stops().isEmpty())) {
-                issues.add(new Problem("NO_SCHEDULED_PLACES", true, null, "Chưa xếp được điểm phù hợp với yêu cầu trong kho demo; hãy điều chỉnh sở thích hoặc điều kiện loại trừ."));
+                boolean routeBlocked = schedule.days().stream().anyMatch(Day::blocked);
+                schedule.days().forEach(d -> issues.addAll(d.issues()));
+                if (!routeBlocked)
+                    issues.add(new Problem("NO_SCHEDULED_PLACES", true, null, "Chưa xếp được điểm phù hợp với yêu cầu trong kho demo; hãy điều chỉnh sở thích hoặc điều kiện loại trừ."));
                 context.record(WEATHER, "UNAVAILABLE", "CANCELLED", "NO_SCHEDULED_PLACES", null);
-                return response("NO_CANDIDATES", request, search, List.of(), schedule.unassigned(), issues, DraftWeatherService.unknown(), metadata);
+                return response(routeBlocked ? "CONFLICTS_DETECTED" : "NO_CANDIDATES", request, search,
+                        routeBlocked ? schedule.days() : List.of(), schedule.unassigned(), issues, DraftWeatherService.unknown(), metadata);
             }
             var narration = context.measure(THEMES, () -> themes.narrate(schedule.days(), allocation));
             context.record(THEMES, narration.source(), "ALLOCATION_HINTS_AND_GROUNDED_TEMPLATE", narration.fallbackReason(), null);
@@ -154,7 +172,6 @@ public class DraftService {
             if (!"AI".equals(narration.source()))
                 issues.add(new Problem("THEME_FALLBACK", false, null, "Một hoặc nhiều chủ đề/tóm tắt dùng mẫu từ lịch cuối vì gợi ý AI không khả dụng hoặc không còn hợp lệ."));
             narration.days().forEach(d -> issues.addAll(d.issues()));
-            issues.add(new Problem("ESTIMATED_ROUTE", false, null, "Quãng đường là Haversine và thời gian theo 35 km/h; chưa phải định tuyến đường bộ hay giao thông thực tế."));
 
             var weatherResult = forecast.await();
             boolean available = "AVAILABLE_ORIGIN_ONLY".equals(weatherResult.advice().status());
@@ -180,8 +197,8 @@ public class DraftService {
     private Map<String, String> metadata(GenerateDraftRequest request) {
         Map<String, String> metadata = new LinkedHashMap<>();
         metadata.put("model", properties.getIntentModel());
-        metadata.put("routeSource", "ESTIMATED_HAVERSINE_35_KMH");
-        metadata.put("optimizationScope", "HELD_KARP_PER_DAY_DISTANCE_ONLY");
+        metadata.put("routeSource", "NOT_CALCULATED");
+        metadata.put("optimizationScope", "NOT_CALCULATED");
         metadata.put("persistence", "PREVIEW_ONLY");
         metadata.put("originSource", "USER_PROVIDED_ANCHOR_NOT_DB_PLACE");
         metadata.put("restPolicy", request.restMinutes() + " phút nghỉ sau hai điểm nếu còn điểm tiếp theo; đệm theo nhịp độ.");

@@ -47,7 +47,7 @@ public class EmailActionService {
         ensureConfigured(); // Same failure when email delivery is disabled, regardless of account existence.
         // User-row lock serializes requests, redemption, login and reset across all server instances.
         users.lockByEmail(email.trim().toLowerCase(Locale.ROOT))
-                .filter(user -> !user.isDeleted())
+                .filter(user -> !user.isDeleted() && user.getLockedAt() == null)
                 .filter(user -> purpose == ActionPurpose.PASSWORD_RESET || !user.isEmailVerified())
                 .ifPresent(user -> issue(user, purpose, locale));
 
@@ -97,7 +97,7 @@ public class EmailActionService {
 
         User user = users.lockById(token.getUserId()).orElseThrow(this::invalidToken);
 
-        if (user.isDeleted() || tokens.consume(hash, purpose, clock.instant()) != 1)
+        if (user.isDeleted() || user.getLockedAt() != null || tokens.consume(hash, purpose, clock.instant()) != 1)
             throw invalidToken();
 
         return user;

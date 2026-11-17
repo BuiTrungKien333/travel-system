@@ -7,9 +7,7 @@ import { cn } from '@/lib/utils';
 import { useItineraryUIStore } from '@/features/itinerary/store/useItineraryUIStore';
 import type { MapMarker } from '../types';
 
-const MAPBOX_TOKEN =
-  process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ||
-  'pk.eyJ1IjoiZGFpc3VraTA5NTEiLCJhIjoiY210d3BrcHB3MDEwbDJ4cXp1anI0b3d0cSJ9.EgIkKbRMop9DYAUJ5SF4_A';
+const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || '';
 
 mapboxgl.accessToken = MAPBOX_TOKEN;
 

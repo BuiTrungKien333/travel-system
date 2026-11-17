@@ -7,7 +7,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 
 @Configuration
-@Profile({"dev", "rag-demo"})
+@Profile({"dev", "rag-demo", "planning-ai"})
 @ConfigurationProperties("application.rag")
 @Getter
 @Setter
@@ -15,6 +15,7 @@ public class RagProperties {
     private String apiKey = "";
     private String embeddingModel = "gemini-embedding-001";
     private String intentModel = "gemini-3.5-flash";
+    private String thinkingLevel = "LOW";
     private String baseUrl = "https://generativelanguage.googleapis.com/v1beta";
     private long requestDeadlineMillis = 60_000;
     private long callTimeoutMillis = 30_000;

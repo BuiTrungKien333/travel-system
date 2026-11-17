@@ -17,7 +17,7 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @Service
-@Profile({"dev", "rag-demo"})
+@Profile({"dev", "rag-demo", "planning-ai"})
 public class PlaceRetrievalService {
     private final PlaceRetrievalRepository repository;
     private final GeminiEmbeddingClient embeddings;

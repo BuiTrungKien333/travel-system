@@ -16,7 +16,7 @@ import static com.travel.planning.draft.dto.response.DraftResponse.*;
  * Independent advisory I/O. Worker threads never touch the AI request context or database.
  */
 @Service
-@Profile({"dev", "rag-demo"})
+@Profile({"dev", "rag-demo", "planning-ai"})
 public class DraftWeatherService {
     private final WeatherService weather;
     private final ExecutorService executor;

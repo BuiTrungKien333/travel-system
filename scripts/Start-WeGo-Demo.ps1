@@ -3,7 +3,8 @@ param(
     [ValidateRange(1024, 65535)][int]$WebPort = 8082,
     [string]$LanIp,
     [string]$MobileRoot = 'E:\travel-mobile-ui',
-    [switch]$WithoutWeb
+    [switch]$WithoutWeb,
+    [switch]$WithoutAi
 )
 $ErrorActionPreference = 'Stop'
 $taskRoot = Split-Path -Parent $PSScriptRoot
@@ -48,4 +49,4 @@ if (-not $WithoutWeb) {
 }
 
 # Start-Dev loads the existing local secrets privately and adds the new Wi-Fi origin to CORS/email links.
-& (Join-Path $PSScriptRoot 'Start-Dev.ps1') -Port $Port -WithoutAi -UsePackagedJar -WebUrl $taskWebUrl
+& (Join-Path $PSScriptRoot 'Start-Dev.ps1') -Port $Port -WithoutAi:$WithoutAi -UsePackagedJar -WebUrl $taskWebUrl

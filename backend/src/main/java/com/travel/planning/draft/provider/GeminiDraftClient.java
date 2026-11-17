@@ -22,7 +22,7 @@ import java.util.*;
  * One provider call for allocation and theme hints; never constructs a place identifier.
  */
 @Component
-@Profile({"dev", "rag-demo"})
+@Profile({"dev", "rag-demo", "planning-ai"})
 public class GeminiDraftClient {
 
     private final GeminiStructuredClient ai;

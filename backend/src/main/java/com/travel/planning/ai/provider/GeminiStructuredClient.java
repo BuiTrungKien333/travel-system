@@ -13,13 +13,14 @@ import org.springframework.web.client.RestClient;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
  * Shared transport for the demo's intent, allocation and day-theme tasks.
  */
 @Component
-@Profile({"dev", "rag-demo"})
+@Profile({"dev", "rag-demo", "planning-ai"})
 public class GeminiStructuredClient {
     private final RagProperties properties;
     private final ObjectMapper mapper;
@@ -64,12 +65,16 @@ public class GeminiStructuredClient {
                 throw new AiCallFailure("MISSING_API_KEY", null);
             }
             return retries.execute(stage, properties.getIntentModel(), () -> {
+                Map<String, Object> generation = new HashMap<>(Map.of("temperature", 0, "maxOutputTokens", 4096,
+                        "responseMimeType", "application/json", "responseJsonSchema", schema));
+                String level = properties.getThinkingLevel();
+                if (properties.getIntentModel().startsWith("gemini-3") && level != null && !level.isBlank())
+                    generation.put("thinkingConfig", Map.of("thinkingLevel", level));
                 String raw = client.post().uri(properties.getBaseUrl() + "/models/{model}:generateContent", properties.getIntentModel())
                         .header("x-goog-api-key", properties.getApiKey())
                         .body(Map.of("systemInstruction", Map.of("parts", List.of(Map.of("text", instruction))),
                                 "contents", List.of(Map.of("role", "user", "parts", List.of(Map.of("text", input)))),
-                                "generationConfig", Map.of("temperature", 0, "maxOutputTokens", 4096,
-                                        "responseMimeType", "application/json", "responseJsonSchema", schema)))
+                                "generationConfig", generation))
                         .retrieve().body(String.class);
                 return parse(raw);
             });

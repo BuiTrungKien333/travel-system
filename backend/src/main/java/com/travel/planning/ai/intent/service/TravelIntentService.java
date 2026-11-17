@@ -24,7 +24,7 @@ import java.util.TreeSet;
 import java.util.UUID;
 
 @Service
-@Profile({"dev", "rag-demo"})
+@Profile({"dev", "rag-demo", "planning-ai"})
 public class TravelIntentService {
 
     private final GeminiIntentClient client;

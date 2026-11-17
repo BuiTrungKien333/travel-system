@@ -16,7 +16,7 @@ import java.io.IOException;
 import java.util.Map;
 
 @Component
-@Profile({"dev", "rag-demo"})
+@Profile({"dev", "rag-demo", "planning-ai"})
 public class GeminiIntentClient {
 
     private final GeminiStructuredClient client;

@@ -30,7 +30,8 @@ public class PlaceDiscoveryRepository {
     public Filter filter(UUID province, UUID trip, String query) {
         String sql = """
              WHERE p.source='INTERNAL' AND p.province_id=?
-               AND EXISTS (SELECT 1 FROM place_retrieval_profiles r WHERE r.place_id=p.id AND r.approved)
+               AND EXISTS (SELECT 1 FROM place_retrieval_profiles r WHERE r.place_id=p.id AND r.approved
+                   AND r.verification_scope <> 'DEV_DEMO_ONLY_NOT_FACT_VERIFIED')
             """;
         List<Object> args = new ArrayList<>();
         args.add(province);
@@ -54,6 +55,10 @@ public class PlaceDiscoveryRepository {
                 Long.class,
                 filter.args().toArray()
         ));
+    }
+
+    public boolean isPublished(UUID id) {
+        return jdbc.queryForObject("SELECT count(*) FROM places p JOIN place_retrieval_profiles r ON r.place_id=p.id WHERE p.id=? AND p.source='INTERNAL' AND r.approved AND r.verification_scope <> 'DEV_DEMO_ONLY_NOT_FACT_VERIFIED'", Long.class, id) == 1;
     }
 
     public List<Summary> page(Filter filter, int size, long offset) {

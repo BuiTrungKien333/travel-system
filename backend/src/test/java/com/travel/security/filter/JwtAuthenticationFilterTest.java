@@ -36,6 +36,7 @@ class JwtAuthenticationFilterTest {
     @Mock
     private JwtUtils jwtUtils;
     @Mock private UserRepository users;
+    @Mock private com.travel.user.repository.RolePermissionRepository permissions;
 
     @Mock
     private HttpServletRequest request;
@@ -107,7 +108,8 @@ class JwtAuthenticationFilterTest {
         when(user.getEmail()).thenReturn(username);
         when(user.getEmailVerifiedAt()).thenReturn(java.time.Instant.now());
         when(users.findAuthStateById(userId)).thenReturn(java.util.Optional.of(user));
-        when(claims.get("authorities", List.class)).thenReturn(List.of("ROLE_USER", "trip:read", "trip:create"));
+        when(user.getRole()).thenReturn(Role.USER);
+        when(permissions.findPermissionNamesByRole(Role.USER)).thenReturn(java.util.Set.of("trip:read", "trip:create"));
 
         jwtAuthenticationFilter.doFilterInternal(request, response, filterChain);
 

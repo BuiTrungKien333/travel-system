@@ -21,7 +21,7 @@ class DraftThemeServiceTest {
 
     @Test void validAllocationHintRendersGroundedThemeWithoutAnotherProviderCall() {
         var point = candidate(1);
-        var day = planner.build(1, DATE, LocalTime.of(8, 0), LocalTime.of(17, 0), ORIGIN, true, 0, 0, List.of(point), entities(List.of(point)));
+        var day = planner.build(1, DATE, LocalTime.of(8, 0), LocalTime.of(17, 0), ORIGIN, true, 0, 0, List.of(point), entities(List.of(point)), travel(List.of(point)));
         var allocation = new DraftAllocation(List.of(List.of(point.placeId())), Map.of(1, new ThemeHint("CULTURE_ART", List.of(point.placeId()))), "AI", null);
         var result = service.narrate(List.of(day), allocation);
         assertThat(result.source()).isEqualTo("AI");
@@ -32,7 +32,7 @@ class DraftThemeServiceTest {
 
     @Test void repairedScheduleDoesNotReuseThemeReferencesFromRemovedPlaces() {
         var kept = candidate(1); var removed = candidate(2);
-        var day = planner.build(1, DATE, LocalTime.of(8, 0), LocalTime.of(17, 0), ORIGIN, true, 0, 0, List.of(kept), entities(List.of(kept)));
+        var day = planner.build(1, DATE, LocalTime.of(8, 0), LocalTime.of(17, 0), ORIGIN, true, 0, 0, List.of(kept), entities(List.of(kept)), travel(List.of(kept)));
         var allocation = new DraftAllocation(List.of(List.of(kept.placeId(), removed.placeId())), Map.of(1, new ThemeHint("CULTURE_ART", List.of(removed.placeId()))), "AI", null);
         var result = service.narrate(List.of(day), allocation);
         assertThat(result.source()).isEqualTo("FALLBACK");
@@ -42,8 +42,8 @@ class DraftThemeServiceTest {
 
     @Test void themeMustBeSupportedByFinalPlaceTagsAndMixedSourcesAreExplicit() {
         var points = List.of(candidate(1), candidate(2));
-        var first = planner.build(1, DATE, LocalTime.of(8, 0), LocalTime.of(17, 0), ORIGIN, true, 0, 0, points.subList(0, 1), entities(points));
-        var second = planner.build(2, DATE.plusDays(1), LocalTime.of(8, 0), LocalTime.of(17, 0), ORIGIN, true, 0, 0, points.subList(1, 2), entities(points));
+        var first = planner.build(1, DATE, LocalTime.of(8, 0), LocalTime.of(17, 0), ORIGIN, true, 0, 0, points.subList(0, 1), entities(points), travel(points));
+        var second = planner.build(2, DATE.plusDays(1), LocalTime.of(8, 0), LocalTime.of(17, 0), ORIGIN, true, 0, 0, points.subList(1, 2), entities(points), travel(points));
         var allocation = new DraftAllocation(List.of(), Map.of(1, new ThemeHint("CULTURE_ART", List.of(points.get(0).placeId())),
                 2, new ThemeHint("SEA_SCENERY", List.of(points.get(1).placeId()))), "AI", null);
         var result = service.narrate(List.of(first, second), allocation);

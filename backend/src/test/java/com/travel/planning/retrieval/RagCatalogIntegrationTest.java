@@ -92,6 +92,28 @@ class RagCatalogIntegrationTest {
     }
 
     @Test
+    void unverifiedDemoProfilesCannotEnterAiEvenWhenPreviouslyApproved() {
+        var place = repository.catalog().getFirst();
+        var vector = vector(1, 0);
+        assertThat(repository.saveEmbedding(place, "fixture", vector)).isTrue();
+        var originalScope = jdbc.queryForObject(
+                "SELECT verification_scope FROM place_retrieval_profiles WHERE place_id=?", String.class, place.placeId());
+        try {
+            jdbc.update("UPDATE place_retrieval_profiles SET verification_scope='DEV_DEMO_ONLY_NOT_FACT_VERIFIED' WHERE place_id=?",
+                    place.placeId());
+
+            assertThat(repository.catalog()).extracting(candidate -> candidate.placeId()).doesNotContain(place.placeId());
+            assertThat(repository.candidates(List.of(place.placeId()))).isEmpty();
+            assertThat(repository.lexical(place.name())).doesNotContain(place.placeId());
+            assertThat(repository.semantic(vector, "fixture")).isEmpty();
+            assertThat(repository.saveEmbedding(place, "fixture", vector)).isFalse();
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM places WHERE id=?", Integer.class, place.placeId())).isEqualTo(1);
+        } finally {
+            jdbc.update("UPDATE place_retrieval_profiles SET verification_scope=? WHERE place_id=?", originalScope, place.placeId());
+        }
+    }
+
+    @Test
     void exactVectorSearch_ordersFixturesAndOmitsUnapprovedAndStaleContent() {
         var places = repository.catalog();
         var first = places.get(0); var second = places.get(1);

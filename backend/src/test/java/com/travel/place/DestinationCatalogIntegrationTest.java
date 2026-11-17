@@ -59,8 +59,8 @@ class DestinationCatalogIntegrationTest {
     private ResultActions list(String query,int page,int size) throws Exception {
         return mvc.perform(get("/api/v1/destinations").header("Authorization","Bearer "+token).param("q",query).param("page",""+page).param("size",""+size));
     }
-    @Test void catalogRequiresAuthentication() throws Exception {
-        mvc.perform(get("/api/v1/destinations")).andExpect(status().isUnauthorized());
+    @Test void catalogAllowsGuestDiscovery() throws Exception {
+        mvc.perform(get("/api/v1/destinations")).andExpect(status().isOk());
     }
     @Test void paginationHasStableOrderBoundedContentAndContext() throws Exception {
         var first=data(list(prefix,0,2).andExpect(status().isOk()));

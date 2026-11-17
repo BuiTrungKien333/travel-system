@@ -130,6 +130,7 @@
         {
           "name": "2.1 POST Optimize Route - Round Trip (Đà Nẵng)",
           "request": {
+            "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{accessToken}}", "type": "string"}]},
             "method": "POST",
             "header": [
               { "key": "Content-Type", "value": "application/json" }
@@ -170,6 +171,7 @@
         {
           "name": "2.2 POST Optimize Route - One Way (Điểm bắt đầu chỉ định)",
           "request": {
+            "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{accessToken}}", "type": "string"}]},
             "method": "POST",
             "header": [
               { "key": "Content-Type", "value": "application/json" }
@@ -208,6 +210,7 @@
         {
           "name": "2.3 POST Optimize Route - Validation Error (< 2 locations)",
           "request": {
+            "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{accessToken}}", "type": "string"}]},
             "method": "POST",
             "header": [
               { "key": "Content-Type", "value": "application/json" }
@@ -249,6 +252,7 @@
         {
           "name": "3.1 POST Evaluate Schedule - Clean (AI Trigger = False)",
           "request": {
+            "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{accessToken}}", "type": "string"}]},
             "method": "POST",
             "header": [
               { "key": "Content-Type", "value": "application/json" }
@@ -287,6 +291,7 @@
         {
           "name": "3.2 POST Evaluate Schedule - Opening Hours Conflict",
           "request": {
+            "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{accessToken}}", "type": "string"}]},
             "method": "POST",
             "header": [
               { "key": "Content-Type", "value": "application/json" }
@@ -327,6 +332,7 @@
         {
           "name": "3.3 POST Evaluate Schedule - Impossible Transit Time",
           "request": {
+            "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{accessToken}}", "type": "string"}]},
             "method": "POST",
             "header": [
               { "key": "Content-Type", "value": "application/json" }
@@ -371,6 +377,7 @@
         {
           "name": "4.1 POST Optimize & Audit - Clean Route (AI Silent - 0 Token)",
           "request": {
+            "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{accessToken}}", "type": "string"}]},
             "method": "POST",
             "header": [
               { "key": "Content-Type", "value": "application/json" }
@@ -409,6 +416,7 @@
         {
           "name": "4.2 POST Optimize & Audit - Conflicted Route (Gemini 3.8 Triggered)",
           "request": {
+            "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{accessToken}}", "type": "string"}]},
             "method": "POST",
             "header": [
               { "key": "Content-Type", "value": "application/json" }
@@ -451,6 +459,7 @@
         {
           "name": "4.3 POST HITL 1-Click Action - SWAP_PLACES",
           "request": {
+            "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{accessToken}}", "type": "string"}]},
             "method": "POST",
             "header": [
               { "key": "Content-Type", "value": "application/json" }
@@ -489,6 +498,7 @@
         {
           "name": "4.4 POST HITL 1-Click Action - CHANGE_TIME",
           "request": {
+            "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{accessToken}}", "type": "string"}]},
             "method": "POST",
             "header": [
               { "key": "Content-Type", "value": "application/json" }
@@ -525,6 +535,7 @@
         {
           "name": "4.5 POST HITL 1-Click Action - DISMISS",
           "request": {
+            "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{accessToken}}", "type": "string"}]},
             "method": "POST",
             "header": [
               { "key": "Content-Type", "value": "application/json" }

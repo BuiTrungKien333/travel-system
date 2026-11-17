@@ -25,6 +25,11 @@ public enum ErrorCode {
     // --- AUTH & PERMISSION CODES ---
     UNAUTHORIZED("AUTH_001", "error.auth.unauthorized", HttpStatus.UNAUTHORIZED),
     FORBIDDEN("AUTH_002", "error.auth.forbidden", HttpStatus.FORBIDDEN),
+    REQUEST_RATE_LIMITED("AUTH_015", "error.auth.rate-limit", HttpStatus.TOO_MANY_REQUESTS),
+    ADMIN_ACCOUNT_CONFLICT("ADMIN_001", "error.admin.account-conflict", HttpStatus.CONFLICT),
+    ADMIN_SELF_CHANGE("ADMIN_002", "error.admin.self-change", HttpStatus.CONFLICT),
+    ADMIN_LAST_ACCOUNT("ADMIN_003", "error.admin.last-account", HttpStatus.CONFLICT),
+    ADMIN_UNVERIFIED("ADMIN_004", "error.admin.unverified", HttpStatus.CONFLICT),
     USER_ALREADY_EXISTS("AUTH_003", "error.auth.email-exists", HttpStatus.CONFLICT),
     INVALID_CREDENTIALS("AUTH_004", "error.auth.invalid-credentials", HttpStatus.UNAUTHORIZED),
     INVALID_REFRESH_TOKEN("AUTH_005", "error.auth.invalid-refresh-token", HttpStatus.UNAUTHORIZED),
@@ -52,6 +57,11 @@ public enum ErrorCode {
     AI_RATE_LIMIT_EXCEEDED("AI_003", "error.ai.rate-limit-exceeded", HttpStatus.TOO_MANY_REQUESTS),
     AI_API_KEY_INVALID("AI_004", "error.ai.api-key-invalid", HttpStatus.UNAUTHORIZED),
     AI_VALIDATION_FAILED("AI_005", "error.ai.validation-failed", HttpStatus.UNPROCESSABLE_ENTITY),
+    PLANNING_DRAFT_NOT_FOUND("DRAFT_001", "error.planning.draft-not-found", HttpStatus.NOT_FOUND),
+    PLANNING_DRAFT_EXPIRED("DRAFT_002", "error.planning.draft-expired", HttpStatus.CONFLICT),
+    PLANNING_DRAFT_PENDING("DRAFT_003", "error.planning.draft-pending", HttpStatus.CONFLICT),
+    PLANNING_DRAFT_FAILED("DRAFT_005", "error.planning.draft-failed", HttpStatus.CONFLICT),
+    PLANNING_UNSUPPORTED_TRIP("DRAFT_004", "error.planning.unsupported-trip", HttpStatus.UNPROCESSABLE_ENTITY),
 
     TRIP_NOT_FOUND("TRIP_001", "error.trip.not-found", HttpStatus.NOT_FOUND),
     TRIP_PLACE_NOT_FOUND("TRIP_002", "error.trip.place-not-found", HttpStatus.NOT_FOUND),

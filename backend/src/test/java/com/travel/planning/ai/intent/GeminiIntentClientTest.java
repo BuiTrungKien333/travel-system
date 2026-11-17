@@ -33,6 +33,7 @@ class GeminiIntentClientTest {
         server.expect(requestTo("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent"))
                 .andExpect(header("x-goog-api-key", "test-only"))
                 .andExpect(jsonPath("$.generationConfig.responseMimeType").value("application/json"))
+                .andExpect(jsonPath("$.generationConfig.thinkingConfig.thinkingLevel").value("LOW"))
                 .andExpect(jsonPath("$.generationConfig.responseJsonSchema.additionalProperties").value(false))
                 .andExpect(jsonPath("$.contents[0].parts[0].text").value(IntentFixtures.TEXT))
                 .andRespond(withSuccess(response("STOP", IntentFixtures.json().toString()), MediaType.APPLICATION_JSON));

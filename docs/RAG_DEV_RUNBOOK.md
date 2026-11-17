@@ -1,5 +1,7 @@
 # Core AI RAG trong môi trường dev
 
+> Cập nhật phân quyền 17/11/2026: các URL `/public/planning/**` là đường dẫn tương thích cũ và **vẫn yêu cầu Bearer token USER/ADMIN**. Index yêu cầu ADMIN có `admin:ai:index`; ưu tiên `/api/v1/admin/planning/retrieval/index`. Xem [ma trận phân quyền](./AUTHORIZATION.md).
+
 ## Chạy backend dev
 
 Từ thư mục E:/travel-system:
@@ -31,7 +33,7 @@ Demo riêng vẫn chạy bằng Start-RagDemo.ps1, dùng travel_rag_demo trên *
 
 ## API dev
 
-Các URL public được giữ theo luồng đã dùng để kiểm tra thủ công, không cần token:
+Các URL tương thích cũ được giữ để kiểm tra thủ công, cần token USER/ADMIN; riêng index cần ADMIN:
 
 ```text
 GET  http://localhost:18081/api/v1/public/planning/retrieval/catalog
@@ -88,7 +90,7 @@ Không cần đổi model hiện có. Thuật toán, retry dùng chung, nhãn AI
 
 ## Kiểm chứng
 
-RagDevIntegrationTest chạy profile test + dev với PostgreSQL/pgvector thật, migration/schema/catalog thật, HTTP/security/solver/timeline thật; chỉ mock ranh giới AI/embedding/weather. Kiểm tra dev có catalog và hybrid search, tạo draft fallback không cần đăng nhập và không ghi itinerary. RagDemoProfileTest kiểm tra controller bật ở dev/demo và tắt ở test/prod.
+RagDevIntegrationTest chạy profile test + dev với PostgreSQL/pgvector thật, migration/schema/catalog thật, HTTP/security/solver/timeline thật; chỉ mock ranh giới AI/embedding/weather. Kiểm tra dev có catalog và hybrid search, tạo draft fallback bằng tài khoản được cấp quyền và không ghi itinerary. RagDemoProfileTest kiểm tra controller bật ở dev/demo và tắt ở test/prod.
 
 Trước khi thay container local, đã lưu backup database tại C:/Users/DELL/.codex/backups/travel-system/travel_db-before-rag-20261105-203344.dump. Volume dev được giữ nguyên.
 

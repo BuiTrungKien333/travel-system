@@ -14,7 +14,7 @@ import java.time.LocalDate;
 import java.util.*;
 
 @Service
-@Profile({"dev", "rag-demo"})
+@Profile({"dev", "rag-demo", "planning-ai"})
 public class DraftAllocationService {
     private final GeminiDraftClient client;
 

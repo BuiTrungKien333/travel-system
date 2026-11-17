@@ -1,6 +1,10 @@
 # Demo tạo lịch trình nháp từ câu yêu cầu
 
+> Cập nhật phân quyền 17/11/2026: các URL `/public/planning/**` là đường dẫn tương thích cũ và **vẫn yêu cầu Bearer token USER/ADMIN**. Index yêu cầu ADMIN có `admin:ai:index`; ưu tiên `/api/v1/admin/planning/retrieval/index`. Xem [ma trận phân quyền](./AUTHORIZATION.md).
+
 Ngày bổ sung: 01/11/2026. Đây là bản xem trước, không tạo Trip hoặc ghi itinerary vào database.
+
+Cập nhật 17/11/2026: bản nháp ưu tiên ma trận đường ô tô Mapbox, dùng lại cho mọi ngày/vòng sửa; cấu hình `MAPBOX_ACCESS_TOKEN` ở backend. Chi tiết nguồn dữ liệu và phép kiểm chứng provider thật nằm trong [tài liệu tích hợp](./TRIP_AI_PLANNING_INTEGRATION.md#cập-nhật-đường-bộ--17112026).
 
 ## Chạy và gọi API
 
@@ -11,7 +15,7 @@ cd E:/travel-system
 ./scripts/Start-RagDemo.ps1
 ```
 
-API public, Postman chọn No Auth, Body raw JSON:
+API public, Postman chọn Bearer Token (`{{accessToken}}`), Body raw JSON:
 
 ```text
 POST http://localhost:18080/api/v1/public/planning/generate-draft
@@ -47,7 +51,7 @@ Ví dụ hai ngày:
 1. Gemini trích xuất nhu cầu; backend kiểm tra và resolve tên điểm từ DB.
 2. Hybrid retrieval lấy tối đa 8 ứng viên đã duyệt, áp dụng loại trừ và giữ điểm bắt buộc.
 3. Một lần gọi AI đề xuất chọn điểm/chia ngày và gợi ý chủ đề/điểm nhấn bằng mã tham chiếu P1... trong tập ứng viên. Backend kiểm tra ngày, mã, trùng và điểm bắt buộc. Không dùng số liệu thời gian AI tự tạo.
-4. Mỗi ngày: Held–Karp tối ưu thứ tự theo ma trận Haversine hiện có, từ origin cố định. TimelineEngine được tái sử dụng qua adapter tính thời gian chờ, nghỉ, đệm và chặng quay về.
+4. Lấy một ma trận thời gian/khoảng cách đường ô tô từ Mapbox cho origin và các ứng viên. Mỗi ngày: Held–Karp tối ưu thứ tự theo thời gian đường bộ có hướng, từ origin cố định và tính cả chặng về nếu chọn. TimelineEngine được tái sử dụng qua adapter tính thời gian chờ, nghỉ, đệm. Chỉ lỗi provider mới dùng Haversine có nhãn; không thay cặp không có đường bằng số liệu giả.
 5. Kiểm tra giờ đóng cửa, giờ kết thúc và dữ liệu chưa xác minh. Tối đa hai lượt sửa xác định: thử chuyển điểm sang ngày khác, hoặc bỏ điểm tùy chọn; không tự bỏ điểm bắt buộc.
 6. Sau lịch cuối, backend kiểm tra lại gợi ý chủ đề/điểm nhấn đã nhận ở bước 3. Chỉ sử dụng nếu refs vẫn thuộc đúng ngày và chủ đề có căn cứ trong tags; nếu không, dùng template fallback từ lịch cuối. Không gọi LLM lần nữa. Không nhận đoạn văn tự do có thể thêm giá vé/thời tiết/sự kiện không có nguồn.
 7. Dự báo tại origin được gọi song song với bước phân bổ trên executor có giới hạn; ngân sách mặc định 2 giây từ lúc khởi chạy. Kết quả mock/thiếu ngày/quá hạn trả UNKNOWN. Không gọi thời tiết lặp trong từng lượt solver.
@@ -97,7 +101,7 @@ Payload thiếu origin/startDate, tọa độ sai hoặc restMinutes ngoài 0–
 
 ## Giới hạn cần trình bày đúng
 
-- Haversine là đường chim bay; thời gian theo 35 km/h, chưa tính giao thông, loại đường hoặc phương tiện. Tọa độ demo và thời lượng chưa được xác minh thực địa. Không khẳng định tối ưu đường bộ thực tế.
+- Đọc `metadata.routeSource` và `routeStatus`: `MAPBOX_DRIVING` là số liệu đường ô tô, chưa phải giao thông trực tiếp của ngày đi; `ESTIMATED_HAVERSINE_35_KMH` là fallback đường chim bay theo 35 km/h. Tọa độ demo và thời lượng chưa được xác minh thực địa. Tối ưu trong tập điểm của từng ngày, không cam kết tối ưu toàn bộ việc chọn/chia ngày.
 - Held–Karp tối ưu thứ tự theo khoảng cách với tập điểm đã chọn trong từng ngày. Chọn điểm/chia ngày có AI và sửa có giới hạn, không phải nghiệm tối ưu toàn cục có time windows.
 - INFEASIBLE chỉ dùng khi chứng minh được tổng thời lượng điểm bắt buộc vượt quỹ giờ. CONFLICTS_DETECTED nghĩa là thuật toán sửa giới hạn chưa tìm được lịch hợp lệ, không chứng minh mọi phương án đều bất khả thi.
 - Dữ liệu seed có giờ hoạt động UNKNOWN; lịch demo thường READY_WITH_WARNINGS, không được gọi là đã xác minh đầy đủ. Lịch tuần được đọc từ DB nếu có; lỗi đọc giờ tuần có cảnh báo.

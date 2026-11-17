@@ -154,7 +154,7 @@ public class GoogleAuthService {
         String hash = ActionTokenCodec.hash(rawToken);
         var ticket = links.findByTokenHash(hash).orElseThrow(this::invalidLink);
         var user = users.lockById(ticket.getUserId()).orElseThrow(this::invalidLink);
-        if (user.isDeleted() || user.getSessionVersion() != ticket.getSessionVersion() || !user.getEmail().equals(ticket.getEmail())
+        if (user.isDeleted() || user.getLockedAt() != null || user.getSessionVersion() != ticket.getSessionVersion() || !user.getEmail().equals(ticket.getEmail())
                 || (user.getGoogleSubject() != null && !user.getGoogleSubject().equals(ticket.getGoogleSubject()))
                 || links.consume(hash, clock.instant()) != 1) throw invalidLink();
 
@@ -184,7 +184,7 @@ public class GoogleAuthService {
     }
 
     private void active(User user) {
-        if (user.isDeleted())
+        if (user.isDeleted() || user.getLockedAt() != null)
             throw new AppException(ErrorCode.ACCOUNT_LOCKED_OR_DELETED);
     }
 

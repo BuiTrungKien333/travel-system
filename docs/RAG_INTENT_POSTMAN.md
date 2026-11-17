@@ -1,8 +1,10 @@
 # Demo hiểu yêu cầu tự nhiên và truy xuất địa điểm
 
+> Cập nhật phân quyền 17/11/2026: các URL `/public/planning/**` là đường dẫn tương thích cũ và **vẫn yêu cầu Bearer token USER/ADMIN**. Index yêu cầu ADMIN có `admin:ai:index`; ưu tiên `/api/v1/admin/planning/retrieval/index`. Xem [ma trận phân quyền](./AUTHORIZATION.md).
+
 ## Trạng thái và phạm vi
 
-Mốc này bổ sung intent extraction bằng Gemini và nối với hybrid retrieval đã có. API public chỉ bật khi profile `rag-demo`; không cần token hoặc account.
+Mốc này bổ sung intent extraction bằng Gemini và nối với hybrid retrieval đã có. API public chỉ bật khi profile `rag-demo`; cần token USER/ADMIN.
 
 Đã có: trích xuất điểm đến, số ngày, sở thích, nhóm/điểm bị loại, khung giờ, nhịp độ và tên điểm bắt buộc; kiểm tra JSON và dữ liệu nghiệp vụ; truy xuất ứng viên có ID từ catalog DB; trả câu hỏi khi thiếu thông tin cốt lõi/mâu thuẫn/không tìm được điểm.
 
@@ -27,7 +29,7 @@ Generation và embedding là hai model khác nhau. Intent dùng `RAG_INTENT_MODE
 
 POST `http://localhost:18080/api/v1/public/planning/retrieval/intent`
 
-Postman: Authorization = No Auth, Body = raw JSON.
+Postman: Authorization = Bearer Token (`{{accessToken}}`), Body = raw JSON.
 
 ```json
 {

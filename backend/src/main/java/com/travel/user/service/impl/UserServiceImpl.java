@@ -60,7 +60,7 @@ public class UserServiceImpl implements UserService {
                     return new AppException(ErrorCode.USER_NOT_FOUND);
                 });
 
-        if (user.isDeleted()) {
+        if (user.isDeleted() || user.getLockedAt() != null) {
             log.warn("[USER] {} failed: Account deactivated/deleted - userId={}", action, userId);
             throw new AppException(ErrorCode.ACCOUNT_LOCKED_OR_DELETED);
         }

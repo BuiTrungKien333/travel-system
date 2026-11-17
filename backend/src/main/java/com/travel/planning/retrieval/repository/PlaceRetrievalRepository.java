@@ -20,13 +20,14 @@ import java.util.List;
 import java.util.UUID;
 
 @Repository
-@Profile({"dev", "rag-demo"})
+@Profile({"dev", "rag-demo", "planning-ai"})
 public class PlaceRetrievalRepository {
 
     private final JdbcTemplate jdbc;
 
     private static final String JOINS = """
              FROM places p JOIN place_retrieval_profiles r ON r.place_id = p.id
+                AND r.verification_scope <> 'DEV_DEMO_ONLY_NOT_FACT_VERIFIED'
              JOIN provinces province ON province.id = p.province_id
             """;
     private static final String DOCUMENT = "(p.name || E'\\n' || r.description || E'\\n' || array_to_string(r.tags, ', '))";

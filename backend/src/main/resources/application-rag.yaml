@@ -4,6 +4,7 @@ application:
     api-key: ${GEMINI_API_KEY:}
     embedding-model: ${RAG_EMBEDDING_MODEL:gemini-embedding-001}
     intent-model: ${RAG_INTENT_MODEL:gemini-3.5-flash}
+    thinking-level: ${RAG_THINKING_LEVEL:LOW}
     base-url: ${GEMINI_BASE_URL:https://generativelanguage.googleapis.com/v1beta}
     request-deadline-millis: ${RAG_AI_DEADLINE_MILLIS:60000}
     call-timeout-millis: ${RAG_AI_CALL_TIMEOUT_MILLIS:30000}

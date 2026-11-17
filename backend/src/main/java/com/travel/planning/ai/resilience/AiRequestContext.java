@@ -10,7 +10,7 @@ import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 
 @Component
-@Profile({"dev", "rag-demo"})
+@Profile({"dev", "rag-demo", "planning-ai"})
 public class AiRequestContext {
     public enum Stage {INTENT, RETRIEVAL, ALLOCATION, OPTIMIZATION, THEMES, WEATHER}
 

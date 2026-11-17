@@ -8,13 +8,13 @@ UPDATE trips SET preferences = replace(lower(preferences), '"museum"', '"culture
 WHERE id::text LIKE 'd3300000-%' AND user_id::text LIKE 'd3100000-%'
     AND preferences IS DISTINCT FROM replace(lower(preferences), '"museum"', '"culture"');
 
--- Sample suggestions are explicitly curated for DEV, with approximate/unknown quality metadata.
+-- Unverified demo places stay available manually but are excluded from AI suggestions.
 INSERT INTO place_retrieval_profiles (place_id, description, tags, estimated_duration_minutes,
     source_url, reviewed_on, verification_scope, coordinates_quality, hours_quality, approved)
 SELECT p.id, 'Địa điểm mẫu phục vụ báo cáo WeGo V1; cần xác minh trước khi dùng thực tế.',
     ARRAY[coalesce(p.category, 'Sightseeing'), 'WEGO_DEV_DEMO'], 45,
     'https://example.invalid/wego-dev-demo', CURRENT_DATE, 'DEV_DEMO_ONLY_NOT_FACT_VERIFIED',
-    'APPROXIMATE_DEMO', 'UNKNOWN', true
+    'APPROXIMATE_DEMO', 'UNKNOWN', false
 FROM places p WHERE p.id::text LIKE 'd3200000-%' AND p.provider_place_id LIKE 'demo:%'
 ON CONFLICT (place_id) DO NOTHING;
 

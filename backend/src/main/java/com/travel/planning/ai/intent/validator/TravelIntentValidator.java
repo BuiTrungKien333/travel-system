@@ -16,7 +16,7 @@ import java.util.List;
 import java.util.Set;
 
 @Component
-@Profile({"dev", "rag-demo"})
+@Profile({"dev", "rag-demo", "planning-ai"})
 public class TravelIntentValidator {
 
     public static final Set<String> TAGS = Set.of(

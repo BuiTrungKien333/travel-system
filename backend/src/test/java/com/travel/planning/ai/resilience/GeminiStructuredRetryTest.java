@@ -18,6 +18,15 @@ import static org.springframework.test.web.client.match.MockRestRequestMatchers.
 import static org.springframework.test.web.client.response.MockRestResponseCreators.*;
 
 class GeminiStructuredRetryTest {
+    @Test void nonGemini3ModelsDoNotReceiveAnUnsupportedThinkingLevel() {
+        var properties = new RagProperties(); properties.setApiKey("fixture-key"); properties.setIntentModel("custom-model");
+        var builder = RestClient.builder(); var server = MockRestServiceServer.bindTo(builder).build();
+        var client = new GeminiStructuredClient(properties, new ObjectMapper(), builder.build());
+        server.expect(anything()).andExpect(jsonPath("$.generationConfig.thinkingConfig").doesNotExist())
+                .andRespond(withSuccess(envelope(), MediaType.APPLICATION_JSON));
+        assertThat(client.generate("instruction", "input", Map.of()).path("ok").asBoolean()).isTrue();
+        server.verify();
+    }
     @Test void transportRetriesSameKeyAndSubsequentStageCannotRetryAgain() {
         var properties = new RagProperties(); properties.setApiKey("fixture-key");
         var millis = new AtomicLong();

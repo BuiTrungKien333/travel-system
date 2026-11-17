@@ -18,7 +18,7 @@ import java.util.function.*;
 import static com.travel.planning.ai.resilience.AiRequestContext.Stage;
 
 @Component
-@Profile({"dev", "rag-demo"})
+@Profile({"dev", "rag-demo", "planning-ai"})
 public class AiRetryExecutor {
 
     @FunctionalInterface

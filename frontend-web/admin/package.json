@@ -1,0 +1,39 @@
+{
+  "name": "wego-admin",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --port 3001",
+    "build": "next build",
+    "start": "next start --port 3001",
+    "type-check": "tsc --noEmit",
+    "lint": "eslint src tests --max-warnings 0",
+    "test": "tsx --test tests/*.test.ts",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "@hookform/resolvers": "3.10.0",
+    "@tanstack/react-query": "5.101.4",
+    "lucide-react": "0.511.0",
+    "next": "15.5.23",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "react-hook-form": "7.85.0",
+    "recharts": "^3.10.1",
+    "tailwindcss": "3.4.19",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.1",
+    "@types/node": "22.20.1",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.4",
+    "autoprefixer": "10.5.4",
+    "eslint": "9.39.5",
+    "eslint-config-next": "15.5.23",
+    "postcss": "8.5.26",
+    "prettier": "3.9.6",
+    "tsx": "^4.20.0",
+    "typescript": "5.9.3"
+  }
+}

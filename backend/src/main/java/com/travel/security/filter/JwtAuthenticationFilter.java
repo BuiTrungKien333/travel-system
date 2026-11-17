@@ -33,6 +33,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtUtils jwtUtils;
     private final UserRepository userRepository;
+    private final com.travel.user.repository.RolePermissionRepository permissions;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
@@ -72,36 +73,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             UUID userId = userIdStr != null ? UUID.fromString(userIdStr) : null;
 
             Long version = claims.get("sessionVersion", Long.class);
-            if (userId == null || userRepository.findAuthStateById(userId)
-                    .filter(user -> user.getDeletedAt() == null && user.getEmailVerifiedAt() != null)
+            var activeUser = userId == null ? java.util.Optional.<UserRepository.AuthState>empty() : userRepository.findAuthStateById(userId)
+                    .filter(user -> user.getDeletedAt() == null && user.getLockedAt() == null && user.getEmailVerifiedAt() != null)
                     .filter(user -> user.getEmail().equals(username))
                     .filter(user -> user.getSessionVersion() == (version == null ? 0 : version))
-                    .isEmpty()) {
+                    .filter(user -> user.getRole() != null);
+            if (activeUser.isEmpty()) {
                 filterChain.doFilter(request, response);
                 return;
             }
 
-            @SuppressWarnings("unchecked")
-            List<String> authorityStrings = claims.get("authorities", List.class);
-
-            Set<GrantedAuthority> authorities;
-            Role role = null;
-
-            if (authorityStrings != null) {
-                authorities = new HashSet<>(authorityStrings.size());
-                for (String auth : authorityStrings) {
-                    if (auth == null || auth.isBlank())
-                        continue;
-                    authorities.add(new SimpleGrantedAuthority(auth));
-                    if (role == null && auth.startsWith("ROLE_")) {
-                        try {
-                            role = Role.valueOf(auth.substring(5));
-                        } catch (IllegalArgumentException ignored) {
-                        }
-                    }
-                }
-            } else {
-                authorities = Set.of();
+            Role role = activeUser.get().getRole();
+            Set<GrantedAuthority> authorities = new HashSet<>();
+            authorities.add(new SimpleGrantedAuthority(role.getAuthority()));
+            for (String permission : permissions.findPermissionNamesByRole(role)) {
+                authorities.add(new SimpleGrantedAuthority(permission));
             }
 
             CustomUserDetails userDetails = new CustomUserDetails(userId, username, role, authorities);

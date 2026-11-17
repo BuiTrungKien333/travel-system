@@ -136,7 +136,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     private static void requireActiveUser(User user) {
-        if (user.isDeleted()) {
+        if (user.isDeleted() || user.getLockedAt() != null) {
             throw new AppException(ErrorCode.ACCOUNT_LOCKED_OR_DELETED);
         }
 

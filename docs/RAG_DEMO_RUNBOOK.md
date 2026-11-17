@@ -1,12 +1,14 @@
 # Chạy mốc dữ liệu và truy xuất demo Đà Nẵng
 
+> Cập nhật phân quyền 17/11/2026: các URL `/public/planning/**` là đường dẫn tương thích cũ và **vẫn yêu cầu Bearer token USER/ADMIN**. Index yêu cầu ADMIN có `admin:ai:index`; ưu tiên `/api/v1/admin/planning/retrieval/index`. Xem [ma trận phân quyền](./AUTHORIZATION.md).
+
 ## Phần đã triển khai
 
 - 8 địa điểm có nguồn, metadata truy xuất và UUID cố định trong database demo; seed opt-in chạy lại không tạo trùng/ghi đè.
 - Profile `rag-demo`, PostgreSQL 17 + pgvector riêng trên cổng 5435 (cấu hình qua `RAG_DEMO_DB_PORT`), volume riêng. Không đổi image hoặc volume PostgreSQL cũ.
 - Exact cosine search + PostgreSQL lexical search có bỏ dấu; hợp nhất thứ hạng RRF. Embedding 768 chiều dùng Gemini qua REST, API key chỉ lấy từ môi trường.
 - Chỉ trả các địa điểm đã duyệt còn tồn tại trong DB. Vector khác model hoặc stale content hash không được dùng.
-- Các API catalog/search/index là public, không cần tài khoản hoặc token; có trong dev và rag-demo. Tài liệu này hướng dẫn database demo riêng; chạy cùng database dev xem [RAG dev](./RAG_DEV_RUNBOOK.md).
+- Các API catalog/search cần token USER/ADMIN, index cần token ADMIN; có trong dev và rag-demo. Tài liệu này hướng dẫn database demo riêng; chạy cùng database dev xem [RAG dev](./RAG_DEV_RUNBOOK.md).
 
 Đã bổ sung LLM tách ý định/phủ định và API search-from-text, xem [hướng dẫn nhập câu tự nhiên](./RAG_INTENT_POSTMAN.md). API [generate-draft](./RAG_DRAFT_POSTMAN.md) nối tiếp chọn/chia ngày, Held–Karp, timeline và chủ đề; chưa lưu itinerary hoặc tích hợp mobile. API search cũ vẫn nhận sở thích tích cực và exclusions có cấu trúc.
 
@@ -43,7 +45,7 @@ $env:GEMINI_API_KEY = '<your-key>'
 
 Script tạo `.env.rag-demo` bị Git ignore với mật khẩu DB và khóa JWT demo riêng; không in nội dung đó, không thay `.env` hiện có. Backend mặc định `http://localhost:18080`, Swagger `/swagger-ui.html`. Dừng backend bằng Ctrl+C; giữ DB demo để lần sau dùng tiếp. Không chạy docker down với `-v` nếu muốn giữ dữ liệu.
 
-Trong Postman chọn Authorization → No Auth cho cả ba API demo; không cần tạo account. Các API nghiệp vụ khác vẫn giữ xác thực. Nếu backend đang chạy bản cũ, dừng bằng Ctrl+C và chạy lại script để nạp các đường dẫn public mới.
+Trong Postman chọn Authorization → Bearer Token; catalog/search dùng `{{accessToken}}`, index dùng `{{adminAccessToken}}`. Các API nghiệp vụ khác vẫn giữ xác thực. Nếu backend đang chạy bản cũ, dừng bằng Ctrl+C và chạy lại script để nạp các đường dẫn public mới.
 
 ## API và ví dụ
 

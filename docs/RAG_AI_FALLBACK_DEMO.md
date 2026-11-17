@@ -1,5 +1,7 @@
 # Demo retry và phân biệt AI/fallback
 
+> Cập nhật phân quyền 17/11/2026: các URL `/public/planning/**` là đường dẫn tương thích cũ và **vẫn yêu cầu Bearer token USER/ADMIN**. Index yêu cầu ADMIN có `admin:ai:index`; ưu tiên `/api/v1/admin/planning/retrieval/index`. Xem [ma trận phân quyền](./AUTHORIZATION.md).
+
 Core áp dụng cho cả `dev` và `rag-demo`. Tài liệu này dùng môi trường demo riêng; xem [hướng dẫn dev](./RAG_DEV_RUNBOOK.md) để dùng database chính. Không lưu Trip/itinerary, không nối mobile. Giữ model đang cấu hình; không xoay key/project để né quota.
 
 ## 1. Chạy bình thường: nhập câu tự nhiên
@@ -9,7 +11,7 @@ cd E:/travel-system
 ./scripts/Start-RagDemo.ps1
 ```
 
-Postman: **No Auth**, **POST**, Body → raw → JSON:
+Postman: **Bearer Token (`{{accessToken}}`)**, **POST**, Body → raw → JSON:
 
 ```text
 http://localhost:18080/api/v1/public/planning/generate-draft
@@ -130,7 +132,7 @@ Hướng dẫn chính thức: [Gemini troubleshooting](https://ai.google.dev/gem
 5. Chạy lại có AI và index trước khi gửi text: kiểm tra nguồn từng bước theo kết quả thực tế; provider có thể lỗi và fallback là kết quả hợp lệ. Không báo rằng đã dùng toàn bộ AI chỉ vì request thành công.
 6. Các nhánh retry 429/503, thời gian chờ, deadline và chia sẻ retry được kiểm tra bằng provider mô phỏng trong unit test; không cần cố tạo tải để làm cạn quota thật.
 
-Chất lượng tuyến và dữ liệu giữ các giới hạn trong [hướng dẫn draft](./RAG_DRAFT_POSTMAN.md): Haversine/35 km/h là ước tính; tối ưu trong từng ngày; giờ hoạt động UNKNOWN có cảnh báo. Chưa lưu, Apply hoặc tích hợp mobile.
+Chất lượng tuyến và dữ liệu theo [hướng dẫn draft](./RAG_DRAFT_POSTMAN.md): từ 17/11/2026 ưu tiên Mapbox đường ô tô, Haversine/35 km/h chỉ là fallback có nhãn; tối ưu trong từng ngày; giờ hoạt động UNKNOWN có cảnh báo. API public demo này không lưu itinerary. Luồng lưu/Apply trên mobile dùng API Trip có xác thực riêng, xem [tích hợp AI](./TRIP_AI_PLANNING_INTEGRATION.md).
 
 ## Kết quả xác minh ngày 01/11/2026
 

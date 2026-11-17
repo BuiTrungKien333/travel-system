@@ -55,15 +55,20 @@ class RagApiIntegrationTest {
     @Autowired PlaceRetrievalService retrieval;
     MockMvc mvc;
 
-    @BeforeEach void setup() { mvc = MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build(); }
+    @BeforeEach void setup() { mvc = MockMvcBuilders.webAppContextSetup(context).defaultRequest(get("/").with(
+            org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user("authorized-tooling")
+                .authorities(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ADMIN"),
+                    new org.springframework.security.core.authority.SimpleGrantedAuthority("planning:generate"),
+                    new org.springframework.security.core.authority.SimpleGrantedAuthority("admin:ai:index"))))
+            .apply(springSecurity()).build(); }
 
-    @Test void anonymousSeesEightSourcedPlaces() throws Exception {
+    @Test void authorizedMemberSeesEightSourcedPlaces() throws Exception {
         mvc.perform(get("/api/v1/public/planning/retrieval/catalog"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.length()").value(8))
                 .andExpect(jsonPath("$.data[0].sourceUrl").isNotEmpty());
     }
 
-    @Test void anonymousCanIndexWithoutCallingRealProvider() throws Exception {
+    @Test void authorizedAdminCanIndexWithoutCallingRealProvider() throws Exception {
         float[] fixture = new float[768];
         fixture[0] = 1;
         when(embeddings.embed(anyString(), eq(true))).thenReturn(fixture);
@@ -71,7 +76,7 @@ class RagApiIntegrationTest {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.failed").value(0));
     }
 
-    @Test void anonymousCanSearchWithoutToken() throws Exception {
+    @Test void authorizedMemberCanSearch() throws Exception {
         float[] fixture = new float[768];
         fixture[0] = 1;
         when(embeddings.embed(anyString(), eq(false))).thenReturn(fixture);
@@ -82,8 +87,8 @@ class RagApiIntegrationTest {
     }
 
     @Test void unrelatedApisStillRequireAuthentication() throws Exception {
-        mvc.perform(get("/api/v1/users/me")).andExpect(status().isUnauthorized());
-        mvc.perform(post("/api/v1/admin/planning/retrieval/index")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/v1/users/me").with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous())).andExpect(status().isUnauthorized());
+        mvc.perform(post("/api/v1/admin/planning/retrieval/index").with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.anonymous())).andExpect(status().isUnauthorized());
     }
 
     @Test void searchRejectsEmptyQueryAndExcessiveLimit() throws Exception {

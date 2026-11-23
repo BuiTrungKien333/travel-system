@@ -16,7 +16,7 @@ import java.util.*;
 public class HeldKarpSolver {
 
     public static final int MAX_LOCATIONS = 16;
-    private final DistanceMatrixService distanceMatrixService;
+    private final HaversineDistanceMatrixService distanceMatrixService;
 
     /**
      * Giải bài toán Người du lịch (TSP) bằng thuật toán Quy hoạch động Held-Karp
@@ -59,8 +59,7 @@ public class HeldKarpSolver {
         }
 
         // Xây dựng ma trận khoảng cách N x N
-        DistanceMatrix distanceMatrix = distanceMatrixService.calculateMatrix(places);
-        double[][] dist = distanceMatrix.getMatrix();
+        double[][] dist = distanceMatrixService.calculateMatrix(places);
 
         log.debug("[HELD_KARP] Starting Held-Karp solver for N={}, roundTrip={}", n, request.isRoundTrip());
 

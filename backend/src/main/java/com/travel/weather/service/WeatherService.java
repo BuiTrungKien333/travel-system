@@ -28,9 +28,4 @@ public interface WeatherService {
      * @return Dữ liệu thời tiết hiện tại (nhiệt độ, cảm nhận, độ ẩm, mưa, gió, điều kiện và rủi ro)
      */
     CurrentWeather getCurrentWeather(double latitude, double longitude);
-
-    /**
-     * Kiểm tra xem tại thời điểm và tọa độ đó có nguy cơ thời tiết xấu đối với hoạt động ngoài trời không
-     */
-    boolean isOutdoorHazardous(double latitude, double longitude, LocalDateTime dateTime);
 }

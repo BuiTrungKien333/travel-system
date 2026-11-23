@@ -1,7 +1,6 @@
 package com.travel.planning.algorithm;
 
 import com.travel.place.entity.Place;
-import com.travel.planning.algorithm.model.DistanceMatrix;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -9,12 +8,11 @@ import java.util.List;
 
 @Service
 @Slf4j(topic = "DISTANCE_MATRIX_SERVICE")
-public class HaversineDistanceMatrixService implements DistanceMatrixService {
+public class HaversineDistanceMatrixService {
 
-    @Override
-    public DistanceMatrix calculateMatrix(List<Place> places) {
+    public double[][] calculateMatrix(List<Place> places) {
         if (places == null || places.isEmpty()) {
-            return new DistanceMatrix(List.of(), new double[0][0]);
+            return new double[0][0];
         }
 
         int n = places.size();
@@ -24,7 +22,6 @@ public class HaversineDistanceMatrixService implements DistanceMatrixService {
 
         for (int i = 0; i < n; i++) {
             Place p1 = places.get(i);
-            matrix[i][i] = 0.0;
             for (int j = i + 1; j < n; j++) {
                 Place p2 = places.get(j);
                 double distance = DistanceCalculator.calculateDistanceMeters(
@@ -36,6 +33,6 @@ public class HaversineDistanceMatrixService implements DistanceMatrixService {
             }
         }
 
-        return new DistanceMatrix(places, matrix);
+        return matrix;
     }
 }

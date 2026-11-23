@@ -47,7 +47,7 @@ public class TripDraftRepository {
                 Integer.class, userId, Timestamp.from(since));
     }
     public void complete(UUID id, String response) {
-        jdbc.update("UPDATE trip_planning_drafts SET response_json=? WHERE id=?", response, id);
+        jdbc.update("UPDATE trip_planning_drafts SET response_json=? WHERE id=? AND failure_code IS NULL", response, id);
     }
     public void failed(UUID id, String code) {
         jdbc.update("UPDATE trip_planning_drafts SET failure_code=? WHERE id=? AND response_json IS NULL", code, id);

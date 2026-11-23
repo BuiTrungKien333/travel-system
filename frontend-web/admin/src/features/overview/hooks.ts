@@ -4,7 +4,7 @@ import { z } from "zod";
 import { apiRequest } from "@/lib/client";
 import { envelope } from "@/lib/contracts";
 import { ApiError } from "@/lib/errors";
-import { overviewSchema, knowledgeSchema } from "./data";
+import { overviewSchema, knowledgeSchema, ragSearchSchema } from "./data";
 export function useOverview(
   owner: string | undefined,
   days: number,
@@ -69,6 +69,26 @@ export function useCatalogAction() {
         cache.invalidateQueries({ queryKey: ["knowledge"] }),
         cache.invalidateQueries({ queryKey: ["overview"] }),
       ]);
+    },
+  });
+}
+
+export function useRagSearch() {
+  return useMutation({
+    retry: false,
+    mutationFn: async (request: {
+      positiveQuery: string;
+      excludedTags: string[];
+      limit: number;
+    }) => {
+      const result = envelope(ragSearchSchema).safeParse(
+        await apiRequest("/knowledge/search", {
+          method: "POST",
+          body: request,
+        }),
+      );
+      if (!result.success) throw new ApiError("INVALID_RESPONSE", 502);
+      return result.data.data;
     },
   });
 }

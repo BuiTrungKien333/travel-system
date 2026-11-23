@@ -31,11 +31,11 @@ class RuleEvaluatorServiceTest {
     @Mock
     private ScheduleRuleChecker checker2;
 
-    private RuleEvaluatorServiceImpl service;
+    private RuleEvaluatorService service;
 
     @BeforeEach
     void setUp() {
-        service = new RuleEvaluatorServiceImpl(List.of(checker1, checker2));
+        service = new RuleEvaluatorService(List.of(checker1, checker2));
     }
 
     @Test

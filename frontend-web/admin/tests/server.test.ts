@@ -9,6 +9,7 @@ import {
   listAccounts,
   changeAccount,
 } from "../src/server/handlers";
+import { GET as telemetry } from "../src/app/api/telemetry/route";
 import { backendRequest } from "../src/server/backend";
 const original = globalThis.fetch;
 const user = {
@@ -267,4 +268,30 @@ test("oversized request bodies and open proxy targets are rejected", async () =>
   await assert.rejects(backendRequest("https://evil.example/path"), {
     code: "AUTH_002",
   });
+});
+
+test("telemetry proxy validates pagination, requires cookies and preserves unavailable state", async () => {
+  mock(() =>
+    ok({ status: "UNAVAILABLE", days: 30, page: 0, sync: { pending: 1 } }),
+  );
+  assert.equal(
+    (await telemetry(request("/telemetry?days=999", undefined, {}, "GET")))
+      .status,
+    400,
+  );
+  assert.equal(
+    (await telemetry(request("/telemetry", undefined, {}, "GET"))).status,
+    401,
+  );
+  const response = await telemetry(
+    request(
+      "/telemetry?days=7&page=2",
+      undefined,
+      { cookie: "wego_admin_access=token" },
+      "GET",
+    ),
+  );
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).data.status, "UNAVAILABLE");
+  assert.equal(calls[0].path, "/api/v1/admin/ai/executions?days=7&page=2");
 });

@@ -190,8 +190,6 @@ public class DraftService {
             issues.add(new Problem("NUMBER_OF_DAYS", true, null, "Hãy nêu rõ chuyến đi một hoặc hai ngày trong yêu cầu."));
         if (intent.dailyStartTime() == null || intent.dailyEndTime() == null)
             issues.add(new Problem("DAILY_WINDOW", true, null, "Hãy nêu giờ bắt đầu và kết thúc mỗi ngày; hệ thống không tự đoán."));
-        if (request.origin().latitude() < 15.8 || request.origin().latitude() > 16.3 || request.origin().longitude() < 107.9 || request.origin().longitude() > 108.4)
-            issues.add(new Problem("ORIGIN_OUTSIDE_DEMO", true, null, "Điểm xuất phát cần nằm trong khu vực demo Đà Nẵng."));
     }
 
     private Map<String, String> metadata(GenerateDraftRequest request) {

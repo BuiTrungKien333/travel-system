@@ -14,7 +14,9 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
-/** Dev-only diagnostics for the APK server check; never logs headers, query strings or bodies. */
+/**
+ * Dev-only diagnostics for the APK server check; never logs headers, query strings or bodies.
+ */
 @Component
 @Profile("dev")
 @Order(Ordered.HIGHEST_PRECEDENCE + 10)

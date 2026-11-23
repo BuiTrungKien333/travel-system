@@ -1,1 +1,0 @@
-{"excludes": ["src/test/", "src/main/resources/", "docs/", "*.md", "*.sql", "*.yaml", "*.yml", "*.json", "*.xml", "mvnw", "mvnw.cmd", "*.properties", "*.example"], "code_only": true}

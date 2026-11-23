@@ -41,6 +41,36 @@ export const knowledgeSchema = z.object({
   model: z.string(),
   indexAvailable: z.boolean(),
 });
+export const ragSearchSchema = z.object({
+  retrievalMode: z.string(),
+  embeddingModel: z.string(),
+  fallbackReason: z.string().nullable(),
+  matches: z.array(
+    z.object({
+      place: z.object({
+        placeId: z.string(),
+        name: z.string(),
+        description: z.string(),
+        tags: z.array(z.string()),
+        latitude: z.number(),
+        longitude: z.number(),
+        placeType: z.string(),
+        openingTime: z.string().nullable(),
+        closingTime: z.string().nullable(),
+        estimatedDurationMinutes: z.number(),
+        sourceUrl: z.string(),
+        reviewedOn: z.string().nullable(),
+        verificationScope: z.string(),
+        coordinatesQuality: z.string(),
+        hoursQuality: z.string(),
+        contentVersion: z.number(),
+      }),
+      rankScore: z.number(),
+      lexicalMatch: z.boolean(),
+      semanticMatch: z.boolean(),
+    }),
+  ),
+});
 export type Entry = z.infer<typeof knowledgeSchema>["content"][number];
 export const samples = {
   topPlaces: [
@@ -82,6 +112,11 @@ export const samples = {
   ],
 };
 export const labels: Record<string, string> = {
+  READY_WITH_WARNINGS: "Hợp lệ, có cảnh báo",
+  NEEDS_STRUCTURED_INPUT: "Cần nhập biểu mẫu",
+  NEEDS_MORE_INPUT: "Cần thêm thông tin",
+  CONFLICTS_DETECTED: "Xung đột lịch",
+  FAILED: "Lỗi xử lý",
   PLANNING: "Đang lên kế hoạch",
   READY: "Sẵn sàng",
   ACTIVE: "Đang diễn ra",

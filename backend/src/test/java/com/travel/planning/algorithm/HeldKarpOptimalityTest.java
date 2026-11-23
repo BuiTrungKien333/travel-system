@@ -1,7 +1,6 @@
 package com.travel.planning.algorithm;
 
 import com.travel.place.entity.Place;
-import com.travel.planning.algorithm.model.DistanceMatrix;
 import com.travel.planning.algorithm.model.TspRequest;
 import org.junit.jupiter.api.Test;
 
@@ -11,6 +10,8 @@ import java.util.Random;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class HeldKarpOptimalityTest {
     @Test
@@ -23,7 +24,9 @@ class HeldKarpOptimalityTest {
                 places.add(Place.builder().id(new UUID(0, i + 1)).build());
                 for (int j = 0; j < n; j++) costs[i][j] = i == j ? 0 : 1 + random.nextInt(100);
             }
-            var solver = new HeldKarpSolver(ordered -> new DistanceMatrix(ordered, costs));
+            var matrixService = mock(HaversineDistanceMatrixService.class);
+            when(matrixService.calculateMatrix(places)).thenReturn(costs);
+            var solver = new HeldKarpSolver(matrixService);
             for (boolean fixedStart : List.of(false, true)) {
                 for (boolean roundTrip : List.of(false, true)) {
                     for (boolean fixedEnd : List.of(false, true)) {

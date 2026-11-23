@@ -23,7 +23,7 @@ class HeldKarpSolverTest {
 
     @BeforeEach
     void setUp() {
-        DistanceMatrixService distanceMatrixService = new HaversineDistanceMatrixService();
+        HaversineDistanceMatrixService distanceMatrixService = new HaversineDistanceMatrixService();
         solver = new HeldKarpSolver(distanceMatrixService);
     }
 

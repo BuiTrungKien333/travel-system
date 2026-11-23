@@ -51,3 +51,6 @@ app:
     verify-email-url: ${AUTH_VERIFY_EMAIL_URL:http://localhost:8082/verify-email}
     reset-password-url: ${AUTH_RESET_PASSWORD_URL:http://localhost:8082/reset-password}
     allow-insecure-links: true
+
+telemetry:
+  enabled: ${MONGODB_ENABLED:false}

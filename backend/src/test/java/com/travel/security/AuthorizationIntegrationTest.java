@@ -88,6 +88,12 @@ class AuthorizationIntegrationTest {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.data.content[0].passwordHash").doesNotExist());
         mvc.perform(get("/api/v1/unknown-future-endpoint").header("Authorization","Bearer "+adminToken)).andExpect(status().isForbidden());
     }
+    @Test void telemetryIsAdminOnlyAndExplicitlyDisabledWithoutMongo() throws Exception {
+        mvc.perform(get("/api/v1/admin/ai/executions")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/v1/admin/ai/executions").header("Authorization","Bearer "+memberToken)).andExpect(status().isForbidden());
+        mvc.perform(get("/api/v1/admin/ai/executions").header("Authorization","Bearer "+adminToken))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.data.status").value("DISABLED")).andExpect(jsonPath("$.data.data").doesNotExist());
+    }
     @Test void adminSessionExposesCurrentCapabilitiesWithoutTokensOrPrivateCredentials() throws Exception {
         mvc.perform(get("/api/v1/admin/session")).andExpect(status().isUnauthorized());
         for (String token : List.of(memberToken, guestToken))

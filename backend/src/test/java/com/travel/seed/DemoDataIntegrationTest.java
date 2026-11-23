@@ -41,7 +41,7 @@ class DemoDataIntegrationTest {
         flyway = Flyway.configure().dataSource(dataSource).schemas(schema).defaultSchema(schema)
                 .locations("classpath:db/migration").cleanDisabled(false).load();
         flyway.migrate();
-        assertThat(flyway.info().current().getVersion().toString()).isEqualTo("22");
+        assertThat(flyway.info().current().getVersion().toString()).isEqualTo("23");
         assertThat(count("SELECT count(*) FROM users WHERE id::text LIKE 'd3100000-%'")).isZero();
     }
 

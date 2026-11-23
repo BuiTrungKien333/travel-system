@@ -87,3 +87,7 @@ API mới: GET `/api/v1/admin/overview?days=30` yêu cầu `admin:system:read`; 
 Dữ liệu mẫu: chỉ các biểu đồ rỗng dùng mẫu có badge rõ ràng. Các thẻ số lượng và chuỗi thời gian giữ dữ liệu thật, kể cả 0. Kết quả AI dùng mẫu do chưa có telemetry tổng hợp chuẩn hóa. Provider thật hiển thị Chưa đo; checkbox riêng cho phép xem trạng thái minh họa có chữ MẪU. Database được xác nhận từ chính truy vấn thống kê, không có health probe có phí chạy nền.
 
 Catalog và RAG đọc dữ liệu thật, duyệt/gỡ công khai có xác nhận và version; index phải xác nhận vì có thể phát sinh phí. Không tạo hồ sơ mẫu có thể bị ghi nhầm vào database. Trang này chưa bổ sung trình tạo/sửa toàn bộ trường địa điểm; thao tác hiện tại tập trung kiểm duyệt và index.
+
+## MongoDB telemetry
+
+Biểu đồ kết quả AI đã dùng API `/admin/api/telemetry` thay mẫu. Trang kho tri thức có nhật ký run và các bước, tổng/p50/p95 xấp xỉ, pending/retried và trạng thái Mongo thật. Khi disabled/unavailable, báo rõ và không giả số 0; dữ liệu cũ có thể chậm do outbox. API chỉ theo dõi lượt tạo draft chuyến đi từ V23, không tổng hợp tất cả công cụ AI. Hướng dẫn database, retention và khôi phục: [MongoDB telemetry](../../docs/MONGODB_AI_TELEMETRY.md).

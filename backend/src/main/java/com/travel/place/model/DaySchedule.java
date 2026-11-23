@@ -39,10 +39,6 @@ public record DaySchedule(
         return new DaySchedule(dow, PlaceOpeningStatus.OPEN, open, close);
     }
 
-    public static DaySchedule closed(DayOfWeek dow) {
-        return new DaySchedule(dow, PlaceOpeningStatus.CLOSED, null, null);
-    }
-
     public static DaySchedule unverified(DayOfWeek dow) {
         return new DaySchedule(dow, PlaceOpeningStatus.UNVERIFIED, null, null);
     }

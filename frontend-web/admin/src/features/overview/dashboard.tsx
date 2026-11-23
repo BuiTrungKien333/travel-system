@@ -7,6 +7,7 @@ import { useSession } from "@/features/auth/api";
 import { errorMessage } from "@/lib/errors";
 import { useOverview } from "./hooks";
 import { samples, type Point } from "./data";
+import { TelemetryPanel, useTelemetry } from "./telemetry";
 import { ChartCard, Bars, Donut, Trend } from "./charts";
 export function Dashboard() {
   const session = useSession();
@@ -14,6 +15,7 @@ export function Dashboard() {
   const [demo, setDemo] = useState(false);
   const allowed = !!session.data?.permissions.includes("admin:system:read");
   const q = useOverview(session.data?.id, days, allowed);
+  const telemetry = useTelemetry(days);
   if (!allowed)
     return <Banner error>Chưa có quyền xem thống kê hệ thống.</Banner>;
   const pick = (real: Point[], fallback: Point[]) => ({
@@ -175,13 +177,7 @@ export function Dashboard() {
         </ChartCard>
       </div>
       <div className="grid gap-5 xl:grid-cols-2">
-        <ChartCard
-          title="Kết quả tạo nháp AI"
-          note="Minh họa bố cục: chưa có bộ dữ liệu telemetry tổng hợp chuẩn hóa; không dùng để đánh giá provider."
-          sample
-        >
-          <Bars data={samples.ai} />
-        </ChartCard>
+        <TelemetryPanel days={days} />
         <section className="rounded-2xl border border-line bg-white p-6">
           <h2 className="font-semibold">Trạng thái tích hợp</h2>
           <p className="my-3 text-xs leading-5 text-muted">
@@ -198,6 +194,7 @@ export function Dashboard() {
           </label>
           {[
             "PostgreSQL",
+            "MongoDB",
             "Gemini",
             "Embedding",
             "Mapbox",
@@ -212,9 +209,19 @@ export function Dashboard() {
               <span className={i === 0 ? "text-teal-700" : "text-muted"}>
                 {i === 0
                   ? "Kết nối tại thời điểm chốt"
-                  : demo
-                    ? `${i === 3 ? "Suy giảm" : "Hoạt động"} · MẪU`
-                    : "Chưa đo"}
+                  : i === 1
+                    ? telemetry.isPending
+                      ? "Đang đọc telemetry"
+                      : telemetry.isError
+                        ? "Chưa đọc được"
+                        : telemetry.data?.status === "AVAILABLE"
+                          ? "Telemetry kết nối"
+                          : telemetry.data?.status === "DISABLED"
+                            ? "Chưa bật"
+                            : "Không khả dụng"
+                    : demo
+                      ? `${i === 3 ? "Suy giảm" : "Hoạt động"} · MẪU`
+                      : "Chưa đo"}
               </span>
             </div>
           ))}

@@ -272,3 +272,45 @@ test("dashboard distinguishes real zeroes from sample charts and links to catalo
   ).toBeVisible();
   await page.getByRole("button", { name: "Hủy", exact: true }).click();
 });
+
+test("Mongo telemetry replaces sample AI charts and exposes an outage without fake numbers", async ({
+  page,
+  request,
+}) => {
+  await login(page);
+  await page.getByRole("link", { name: "Dashboard", exact: true }).click();
+  const panel = page
+    .locator("section")
+    .filter({
+      has: page.getByRole("heading", {
+        name: "Kết quả tạo nháp AI",
+        exact: true,
+      }),
+    });
+  await expect(
+    panel.getByText("MongoDB kết nối", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    panel.getByText("Dữ liệu mẫu", { exact: true }),
+  ).not.toBeVisible();
+  await page
+    .getByRole("link", { name: "Quản lý kho tri thức AI", exact: true })
+    .click();
+  await page.getByText("READY_WITH_WARNINGS", { exact: true }).click();
+  await expect(page.getByText("gemini-test", { exact: true })).toBeVisible();
+  await request.post("http://127.0.0.1:19091/__test/mongo-down");
+  await page
+    .getByRole("button", { name: "Tải telemetry", exact: true })
+    .click();
+  await expect(page.getByText(/Chưa đọc được MongoDB/)).toBeVisible();
+  await expect(
+    page.getByText("fixture-run-01", { exact: false }),
+  ).not.toBeVisible();
+  await request.post("http://127.0.0.1:19091/__test/mongo-up");
+  await page
+    .getByRole("button", { name: "Tải telemetry", exact: true })
+    .click();
+  await expect(
+    page.getByText("READY_WITH_WARNINGS", { exact: true }),
+  ).toBeVisible();
+});

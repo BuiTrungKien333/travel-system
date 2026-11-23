@@ -112,3 +112,12 @@ springdoc:
     path: /swagger-ui.html
     operationsSorter: method
     tagsSorter: alpha
+
+# Optional secondary database; PostgreSQL draft/outbox writes never call MongoDB.
+telemetry:
+  enabled: ${MONGODB_ENABLED:false}
+  uri: ${MONGODB_URI:mongodb://localhost:27017}
+  database: ${MONGODB_DATABASE:wego_telemetry}
+  retention-days: ${AI_TELEMETRY_RETENTION_DAYS:90}
+  publish-enabled: ${AI_TELEMETRY_PUBLISH_ENABLED:true}
+  publish-delay-ms: 5000

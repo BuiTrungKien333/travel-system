@@ -2,7 +2,7 @@ package com.travel.maps.service;
 
 import com.travel.maps.dto.RoutePoint;
 import com.travel.maps.repository.TripRouteRepository;
-import com.travel.planning.algorithm.DistanceMatrixService;
+import com.travel.planning.algorithm.HaversineDistanceMatrixService;
 import com.travel.planning.algorithm.HeldKarpSolver;
 import org.junit.jupiter.api.Test;
 import java.time.*;
@@ -17,7 +17,7 @@ class TripDayRoutingServiceTest {
     private final MapboxDirectionsService directions = mock(MapboxDirectionsService.class);
     private final TripDayRoutingService service = new TripDayRoutingService(repository, directions,
             Clock.fixed(Instant.parse("2026-11-10T05:00:00Z"), ZoneOffset.UTC),
-            new HeldKarpSolver(mock(DistanceMatrixService.class)));
+            new HeldKarpSolver(new HaversineDistanceMatrixService()));
     private final UUID owner = UUID.randomUUID(), trip = UUID.randomUUID();
     private final LocalDate date = LocalDate.of(2026, 11, 10);
 

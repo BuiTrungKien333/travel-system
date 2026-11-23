@@ -80,12 +80,14 @@ public class SecurityConfig {
                             .access(new WebExpressionAuthorizationManager(environment.acceptsProfiles(Profiles.of("dev", "test", "rag-demo"))
                                 ? "permitAll" : "hasRole('ADMIN') and hasAuthority('admin:system:read')"))
                         .requestMatchers("/actuator/**").access(admin("admin:system:read"))
+                        .requestMatchers(HttpMethod.GET, "/api/v1/admin/ai/executions").access(admin("admin:system:read"))
                         .requestMatchers(HttpMethod.GET, "/api/v1/admin/overview").access(admin("admin:system:read"))
                         .requestMatchers(HttpMethod.GET, "/api/v1/admin/knowledge").access(admin("admin:catalog"))
                         .requestMatchers(HttpMethod.GET, "/api/v1/admin/session").hasRole("ADMIN")
                         .requestMatchers("/api/v1/admin/users/**").access(admin("admin:users"))
                         .requestMatchers("/api/v1/admin/catalog/**").access(admin("admin:catalog"))
                         .requestMatchers(HttpMethod.POST, "/api/v1/admin/planning/retrieval/index",
+                                "/api/v1/admin/planning/retrieval/search",
                                 "/api/v1/public/planning/retrieval/index").access(admin("admin:ai:index"))
                         .requestMatchers("/api/v1/admin/**").denyAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/users/me").authenticated()

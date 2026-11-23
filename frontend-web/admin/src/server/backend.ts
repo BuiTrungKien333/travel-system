@@ -39,7 +39,7 @@ export async function backendRequest(
   } = {},
 ) {
   if (
-    !/^\/api\/v1\/(auth\/(login|refresh|logout)|admin\/(session|overview|knowledge|catalog(?:\/[a-f0-9-]{36})?|planning\/retrieval\/index|users(?:\/[a-f0-9-]{36})?))(?:\?.*)?$/i.test(
+    !/^\/api\/v1\/(auth\/(login|refresh|logout)|admin\/(session|overview|ai\/executions|knowledge|catalog(?:\/[a-f0-9-]{36})?|planning\/retrieval\/(index|search)|users(?:\/[a-f0-9-]{36})?))(?:\?.*)?$/i.test(
       path,
     )
   )

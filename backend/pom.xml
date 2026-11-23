@@ -43,6 +43,7 @@
         </dependencies>
     </dependencyManagement>
     <dependencies>
+        <dependency><groupId>org.mongodb</groupId><artifactId>mongodb-driver-sync</artifactId></dependency>
 
         <!-- Verify Google ID tokens with Nimbus/Spring Security and cached Google JWKS. -->
         <dependency>

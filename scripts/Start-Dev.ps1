@@ -46,6 +46,11 @@ if ($WebUrl) {
 }
 & docker compose --env-file $taskRootEnv -f (Join-Path $taskRoot 'docker-compose.yml') up -d --build --wait postgres
 if ($LASTEXITCODE -ne 0) { throw 'Dev PostgreSQL with pgvector could not start.' }
+if ($env:MONGODB_ENABLED -eq 'true') {
+    & docker compose --env-file $taskRootEnv -f (Join-Path $taskRoot 'docker-compose.yml') up -d --wait mongodb
+    if ($LASTEXITCODE -ne 0) { Write-Warning 'MongoDB is unavailable; starting core backend with PostgreSQL outbox buffering.' }
+}
+
 if ($WithoutAi) { $env:GEMINI_API_KEY = '' }
 $env:SERVER_PORT = $Port.ToString()
 Write-Host "Starting dev backend at http://localhost:$Port (database from the dev environment)."

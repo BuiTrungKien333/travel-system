@@ -2,10 +2,12 @@
 import { createServer } from "node:http";
 import type { Account } from "../src/lib/contracts";
 let sequence = 0;
+let mongoAvailable = true;
 const accounts: Account[] = [];
 const access = new Map<string, string>();
 const refresh = new Map<string, string>();
 function reset() {
+  mongoAvailable = true;
   accounts.length = 0;
   access.clear();
   refresh.clear();
@@ -63,6 +65,14 @@ createServer(async (req, res) => {
   for await (const chunk of req) chunks.push(Buffer.from(chunk));
   const text = Buffer.concat(chunks).toString();
   const body = text ? (JSON.parse(text) as Record<string, unknown>) : {};
+  if (url.pathname === "/__test/mongo-down") {
+    mongoAvailable = false;
+    return ok({});
+  }
+  if (url.pathname === "/__test/mongo-up") {
+    mongoAvailable = true;
+    return ok({});
+  }
   if (url.pathname === "/health") return ok({});
   if (url.pathname === "/__test/reset") {
     reset();
@@ -121,6 +131,47 @@ createServer(async (req, res) => {
         "admin:ai:index",
         "admin:system:read",
       ],
+    });
+  if (url.pathname === "/api/v1/admin/ai/executions")
+    return ok({
+      status: mongoAvailable ? "AVAILABLE" : "UNAVAILABLE",
+      asOf: "2026-11-17T08:00:00Z",
+      days: Number(url.searchParams.get("days") ?? 30),
+      page: 0,
+      size: 20,
+      retentionDays: 90,
+      sync: {
+        pending: mongoAvailable ? 0 : 1,
+        retried: mongoAvailable ? 0 : 1,
+      },
+      data: mongoAvailable
+        ? {
+            total: 1,
+            p50Ms: 1200,
+            p95Ms: 1200,
+            statuses: [{ name: "READY_WITH_WARNINGS", value: 1 }],
+            runs: [
+              {
+                id: "fixture-run-01",
+                status: "READY_WITH_WARNINGS",
+                mode: "AI_ASSISTED",
+                startedAt: "2026-11-17T08:00:00Z",
+                durationMs: 1200,
+                stages: [
+                  {
+                    stage: "INTENT",
+                    source: "AI",
+                    model: "gemini-test",
+                    method: "GEMINI_STRUCTURED_EXTRACTION",
+                    attempts: 1,
+                    retries: 0,
+                    elapsedMillis: 300,
+                  },
+                ],
+              },
+            ],
+          }
+        : null,
     });
   if (url.pathname === "/api/v1/admin/overview") {
     const days = Number(url.searchParams.get("days") ?? 30);

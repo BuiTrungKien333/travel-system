@@ -41,8 +41,8 @@ class WeatherServiceTest {
     }
 
     @Test
-    @DisplayName("isOutdoorHazardous should return true when risk level is HAZARDOUS")
-    void isOutdoorHazardous_hazardousWeather_returnsTrue() {
+    @DisplayName("getForecastAt should return the forecast for the requested hour")
+    void getForecastAt_matchingHour_returnsHourlyForecast() {
         when(providerFactory.getProvider()).thenReturn(weatherProvider);
 
         LocalDate date = LocalDate.of(2026, 10, 1);
@@ -63,37 +63,7 @@ class WeatherServiceTest {
         when(weatherProvider.fetchForecast(anyDouble(), anyDouble(), any(LocalDate.class), any(LocalDate.class)))
                 .thenReturn(forecastResult);
 
-        boolean hazardous = weatherService.isOutdoorHazardous(16.05, 108.24, time);
-
-        assertThat(hazardous).isTrue();
-    }
-
-    @Test
-    @DisplayName("isOutdoorHazardous should return false when weather is SAFE")
-    void isOutdoorHazardous_safeWeather_returnsFalse() {
-        when(providerFactory.getProvider()).thenReturn(weatherProvider);
-
-        LocalDate date = LocalDate.of(2026, 10, 1);
-        LocalDateTime time = date.atTime(8, 0);
-
-        HourlyWeather hourly = new HourlyWeather(
-                time, 27.0, 10, 0.0, 0, WeatherCondition.CLEAR_SKY, WeatherRiskLevel.SAFE
-        );
-
-        DailyWeatherSummary daily = new DailyWeatherSummary(
-                date, 24.0, 32.0, 10, 0.0, WeatherCondition.CLEAR_SKY, WeatherRiskLevel.SAFE, List.of(hourly)
-        );
-
-        WeatherForecastResult forecastResult = new WeatherForecastResult(
-                16.05, 108.24, "Asia/Ho_Chi_Minh", List.of(daily), "mock"
-        );
-
-        when(weatherProvider.fetchForecast(anyDouble(), anyDouble(), any(LocalDate.class), any(LocalDate.class)))
-                .thenReturn(forecastResult);
-
-        boolean hazardous = weatherService.isOutdoorHazardous(16.05, 108.24, time);
-
-        assertThat(hazardous).isFalse();
+        assertThat(weatherService.getForecastAt(16.05, 108.24, time)).contains(hourly);
     }
 
     @Test

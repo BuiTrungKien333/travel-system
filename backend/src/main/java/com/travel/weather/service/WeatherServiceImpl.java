@@ -1,6 +1,5 @@
 package com.travel.weather.service;
 
-import com.travel.weather.enums.WeatherRiskLevel;
 import com.travel.common.exception.AppException;
 import com.travel.common.exception.ErrorCode;
 import com.travel.weather.model.CurrentWeather;
@@ -9,7 +8,6 @@ import com.travel.weather.model.WeatherForecastResult;
 import com.travel.weather.provider.WeatherProvider;
 import com.travel.weather.provider.WeatherProviderFactory;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -18,7 +16,6 @@ import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class WeatherServiceImpl implements WeatherService {
 
     private final WeatherProviderFactory providerFactory;
@@ -41,16 +38,6 @@ public class WeatherServiceImpl implements WeatherService {
         LocalDate date = dateTime.toLocalDate();
         WeatherForecastResult result = getForecast(latitude, longitude, date, date);
         return result.getForecastAt(dateTime);
-    }
-
-    @Override
-    public boolean isOutdoorHazardous(double latitude, double longitude, LocalDateTime dateTime) {
-        Optional<HourlyWeather> hourlyOpt = getForecastAt(latitude, longitude, dateTime);
-        if (hourlyOpt.isEmpty()) {
-            return false;
-        }
-        HourlyWeather hourly = hourlyOpt.get();
-        return hourly.riskLevel() == WeatherRiskLevel.HAZARDOUS;
     }
 
     @Override

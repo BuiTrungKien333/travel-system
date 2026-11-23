@@ -76,12 +76,12 @@ public class PlaceRetrievalService {
         addRanks(scores, lexical);
         addRanks(scores, semantic);
         Set<String> excluded = new HashSet<>(excludedTags);
-        List<UUID> semanticIds = semantic;
+        Set<UUID> lexicalIds = new HashSet<>(lexical);
+        Set<UUID> semanticIds = new HashSet<>(semantic);
         // Hydrate only approved, existing DB rows. Rankings never create places.
-        List<Match> matches = repository.catalog().stream()
-                .filter(p -> scores.containsKey(p.placeId()))
+        List<Match> matches = repository.candidates(scores.keySet()).stream()
                 .filter(p -> p.tags().stream().noneMatch(excluded::contains))
-                .map(p -> new Match(p, scores.get(p.placeId()), lexical.contains(p.placeId()), semanticIds.contains(p.placeId())))
+                .map(p -> new Match(p, scores.get(p.placeId()), lexicalIds.contains(p.placeId()), semanticIds.contains(p.placeId())))
                 .sorted(Comparator.comparingDouble(Match::rankScore).reversed().thenComparing(m -> m.place().placeId()))
                 .limit(limit).toList();
         return new PlaceSearchResponse(mode, properties.getEmbeddingModel(), matches, fallbackReason);

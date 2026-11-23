@@ -426,8 +426,19 @@ class HomeDashboardIntegrationTest {
         for (int i = 0; i < visits.size(); i++) { link(trip, visits.get(i), false); stop(itinerary, visits.get(i), TODAY, i); }
         jdbc.update("INSERT INTO itinerary_day_settings(id,itinerary_id,day_date,origin_name,origin_latitude,origin_longitude,departure_time,return_to_start,travel_mode) VALUES (?,?,?,'Origin',16.01,108.01,'08:30',true,'DRIVE')",
                 UUID.randomUUID(), itinerary, TODAY);
-        org.mockito.Mockito.doReturn(new com.travel.maps.service.MapboxDirectionsService.OptimizedOrder(List.of(0, 3, 1, 4, 2), 4000, 1800))
-                .when(directions).optimize(org.mockito.ArgumentMatchers.anyList(), org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(true));
+        double[][] costs = new double[6][6];
+        for (double[] row : costs) java.util.Arrays.fill(row, 10_000);
+        int[] optimal = {0, 3, 1, 4, 2, 5};
+        for (int i = 1; i < optimal.length; i++) costs[optimal[i - 1]][optimal[i]] = 1;
+        org.mockito.Mockito.doAnswer(call -> {
+            List<com.travel.maps.dto.RoutePoint> points = call.getArgument(0);
+            assertThat(points).hasSize(6);
+            assertThat(points.getFirst()).isEqualTo(points.getLast());
+            assertThat(points.getFirst().latitude()).isEqualTo(16.01);
+            assertThat(points.getFirst().longitude()).isEqualTo(108.01);
+            return new com.travel.maps.service.MapboxDirectionsService.RoadMatrix(costs, costs);
+        }).when(directions).matrix(org.mockito.ArgumentMatchers.anyList(),
+                org.mockito.ArgumentMatchers.eq(com.travel.maps.service.MapboxDirectionsService.Mode.DRIVE));
         var result = data(mvc.perform(post("/api/v1/trips/{id}/itinerary/days/{day}/route/optimize", trip, TODAY)
                 .header("Authorization", "Bearer " + token)).andExpect(status().isOk()));
         assertThat(result.path("order").size()).isEqualTo(4);

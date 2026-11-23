@@ -59,6 +59,20 @@ class RagCatalogIntegrationTest {
     }
 
     @Test
+    void candidates_loadsOnlyRequestedApprovedPublicPlaces() {
+        var catalog = repository.catalog();
+        var first = catalog.get(0);
+        var second = catalog.get(1);
+        var third = catalog.get(2);
+        var ids = List.of(first.placeId(), second.placeId(), third.placeId(), UUID.randomUUID());
+        jdbc.update("UPDATE places SET source='USER',owner_id='b0000000-0000-0000-0000-000000000002' WHERE id=?", second.placeId());
+        jdbc.update("UPDATE place_retrieval_profiles SET approved=false WHERE place_id=?", third.placeId());
+
+        assertThat(repository.candidates(ids)).containsExactly(first);
+        assertThat(repository.candidates(List.of())).isEmpty();
+    }
+
+    @Test
     void lexical_matchesVietnameseWithAndWithoutAccents() {
         assertThat(repository.lexical("bảo tàng")).hasSize(3);
         assertThat(repository.lexical("bao tang")).hasSize(3);

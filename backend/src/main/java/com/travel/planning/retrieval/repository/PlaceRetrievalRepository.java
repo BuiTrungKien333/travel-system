@@ -13,6 +13,8 @@ import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.UUID;
@@ -29,14 +31,21 @@ public class PlaceRetrievalRepository {
             """;
     private static final String DOCUMENT = "(p.name || E'\\n' || r.description || E'\\n' || array_to_string(r.tags, ', '))";
     private static final String HASH = "encode(sha256(convert_to(" + DOCUMENT + ", 'UTF8')), 'hex')";
+    private static final String CATALOG = "SELECT p.*, r.* " + JOINS
+            + " WHERE r.approved AND p.source='INTERNAL' AND province.code = '48'";
 
     public PlaceRetrievalRepository(JdbcTemplate jdbc) {
         this.jdbc = jdbc;
     }
 
     public List<PlaceCandidate> catalog() {
-        return jdbc.query("SELECT p.*, r.* " + JOINS
-                + " WHERE r.approved AND p.source='INTERNAL' AND province.code = '48' ORDER BY p.name", this::map);
+        return jdbc.query(CATALOG + " ORDER BY p.name", this::map);
+    }
+
+    public List<PlaceCandidate> candidates(Collection<UUID> ids) {
+        if (ids.isEmpty()) return List.of();
+        String placeholders = String.join(",", Collections.nCopies(ids.size(), "?"));
+        return jdbc.query(CATALOG + " AND p.id IN (" + placeholders + ") ORDER BY p.name", this::map, ids.toArray());
     }
 
     public List<UUID> semantic(float[] vector, String model) {

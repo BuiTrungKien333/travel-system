@@ -1,9 +1,7 @@
 package com.travel.planning.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.travel.place.entity.Place;
 import com.travel.place.enums.PlaceType;
-import com.travel.place.model.WeeklyOpeningHours;
 import com.travel.place.repository.PlaceRepository;
 import com.travel.planning.ai.copilot.enums.CopilotActionType;
 import com.travel.planning.ai.copilot.model.AiCopilotAnalysisResult;
@@ -32,7 +30,7 @@ import com.travel.weather.model.DailyWeatherSummary;
 import com.travel.weather.model.WeatherForecastResult;
 import com.travel.weather.service.WeatherService;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -40,6 +38,7 @@ import java.time.LocalTime;
 import java.util.*;
 
 @Service
+@RequiredArgsConstructor
 @Slf4j(topic = "TRIP_OPTIMIZATION_SERVICE")
 public class TripOptimizationServiceImpl implements TripOptimizationService {
 
@@ -50,39 +49,6 @@ public class TripOptimizationServiceImpl implements TripOptimizationService {
     private final PlaceRepository placeRepository;
     private final TimelineEngine timelineEngine;
     private final TimelineCollisionRuleChecker timelineCollisionRuleChecker;
-    private final ObjectMapper objectMapper;
-
-    @Autowired
-    public TripOptimizationServiceImpl(
-            HeldKarpSolver heldKarpSolver,
-            WeatherService weatherService,
-            RuleEvaluatorService ruleEvaluatorService,
-            AiProviderFactory aiProviderFactory,
-            PlaceRepository placeRepository,
-            TimelineEngine timelineEngine,
-            TimelineCollisionRuleChecker timelineCollisionRuleChecker,
-            ObjectMapper objectMapper
-    ) {
-        this.heldKarpSolver = heldKarpSolver;
-        this.weatherService = weatherService;
-        this.ruleEvaluatorService = ruleEvaluatorService;
-        this.aiProviderFactory = aiProviderFactory;
-        this.placeRepository = placeRepository;
-        this.timelineEngine = timelineEngine;
-        this.timelineCollisionRuleChecker = timelineCollisionRuleChecker;
-        this.objectMapper = objectMapper;
-    }
-
-    public TripOptimizationServiceImpl(
-            HeldKarpSolver heldKarpSolver,
-            WeatherService weatherService,
-            RuleEvaluatorService ruleEvaluatorService,
-            AiProviderFactory aiProviderFactory,
-            PlaceRepository placeRepository
-    ) {
-        this(heldKarpSolver, weatherService, ruleEvaluatorService, aiProviderFactory, placeRepository,
-                new TimelineEngine(), new TimelineCollisionRuleChecker(), new ObjectMapper());
-    }
 
     @Override
     public TripOptimizationResponse optimizeAndAuditItinerary(OptimizeAndAuditRequest request) {
@@ -91,6 +57,13 @@ public class TripOptimizationServiceImpl implements TripOptimizationService {
 
         Map<UUID, TspLocationRequest> requestMap = new HashMap<>();
         List<Place> visitPlaces = new ArrayList<>();
+        var placeIds = request.locations().stream().map(TspLocationRequest::id)
+                .filter(Objects::nonNull).distinct().toList();
+        Map<UUID, Place> internalPlaces = new HashMap<>();
+        if (!placeIds.isEmpty()) {
+            placeRepository.findByIdInAndSource(placeIds, "INTERNAL")
+                    .forEach(place -> internalPlaces.put(place.getId(), place));
+        }
 
         // 1. Chuyển đổi DTO sang List<Place> và tra cứu CSDL (Place) nếu có
         for (TspLocationRequest loc : request.locations()) {
@@ -100,12 +73,10 @@ public class TripOptimizationServiceImpl implements TripOptimizationService {
             PlaceType placeType = loc.placeType() != null ? loc.placeType() : PlaceType.UNSPECIFIED;
             LocalTime open = loc.openingTime();
             LocalTime close = loc.closingTime();
-            WeeklyOpeningHours weeklyHours = loc.weeklyOpeningHours();
 
             if (loc.id() != null) {
-                Optional<Place> dbPlaceOpt = placeRepository.findByIdAndSource(loc.id(), "INTERNAL");
-                if (dbPlaceOpt.isPresent()) {
-                    Place dbPlace = dbPlaceOpt.get();
+                Place dbPlace = internalPlaces.get(loc.id());
+                if (dbPlace != null) {
                     if (placeType == PlaceType.UNSPECIFIED && dbPlace.getPlaceType() != null) {
                         placeType = dbPlace.getPlaceType();
                     }
@@ -114,13 +85,6 @@ public class TripOptimizationServiceImpl implements TripOptimizationService {
                     }
                     if (close == null && dbPlace.getClosingTime() != null) {
                         close = dbPlace.getClosingTime();
-                    }
-                    if (weeklyHours == null && dbPlace.getWeeklyOpeningHours() != null) {
-                        try {
-                            weeklyHours = objectMapper.readValue(dbPlace.getWeeklyOpeningHours(), WeeklyOpeningHours.class);
-                        } catch (Exception ex) {
-                            log.warn("[TRIP_OPTIMIZER] Failed to parse weeklyOpeningHours JSON for place {}: {}", loc.id(), ex.getMessage());
-                        }
                     }
                 }
             }

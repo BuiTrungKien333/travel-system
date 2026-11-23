@@ -62,6 +62,7 @@ class TripIntegrationTest {
     @Autowired ProvinceRepository provinces;
     @Autowired TripPlaceRepository tripPlaces;
     @Autowired MemoryRepository memories;
+    @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
     @MockitoBean AuthEmailSender emailSender;
 
     private final ObjectMapper json = new ObjectMapper();
@@ -82,6 +83,32 @@ class TripIntegrationTest {
     @AfterEach
     void clearSecurityContext() {
         SecurityContextHolder.clearContext();
+    }
+
+    @Test
+    void internalPlaceBatchDoesNotReturnPrivateLocations() {
+        var internal = places.saveAndFlush(Place.builder().name("Public fixture").latitude(16.0).longitude(108.0).build());
+        var privatePlace = places.saveAndFlush(Place.builder().name("Private fixture").latitude(16.1).longitude(108.1)
+                .source("USER").ownerId(owner.getId()).build());
+        assertThat(places.findByIdInAndSource(java.util.List.of(internal.getId(), privatePlace.getId()), "INTERNAL"))
+                .containsExactly(internal);
+    }
+
+    @Test
+    void legacyStorageSurvivesJpaUpdatesWithoutObsoleteMappings() {
+        var trip = trips.saveAndFlush(com.travel.trip.entity.Trip.builder().user(owner).name("Original").build());
+        jdbc.update("UPDATE trips SET budget=123.45, transportation='LEGACY', budget_amount=120000, budget_currency='VND' WHERE id=?",
+                trip.getId());
+
+        var loaded = trips.findById(trip.getId()).orElseThrow();
+        loaded.setName("Renamed");
+        trips.saveAndFlush(loaded);
+
+        var stored = jdbc.queryForMap("SELECT name, budget, transportation, budget_amount FROM trips WHERE id=?", trip.getId());
+        assertThat(stored.get("name")).isEqualTo("Renamed");
+        assertThat(stored.get("budget")).isEqualTo(new java.math.BigDecimal("123.45"));
+        assertThat(stored.get("transportation")).isEqualTo("LEGACY");
+        assertThat(stored.get("budget_amount")).isEqualTo(120000L);
     }
 
     @Test

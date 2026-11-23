@@ -14,7 +14,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
+import com.travel.planning.service.TspOptimizationService;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
@@ -42,12 +42,9 @@ class TspOptimizationControllerTest {
     @Mock
     private Translator translator;
 
-    @InjectMocks
-    private TspOptimizationController controller;
-
     @BeforeEach
     void setUp() {
-        mockMvc = MockMvcBuilders.standaloneSetup(controller)
+        mockMvc = MockMvcBuilders.standaloneSetup(new TspOptimizationController(new TspOptimizationService(heldKarpSolver)))
                 .setControllerAdvice(new GlobalExceptionHandler(translator))
                 .build();
     }

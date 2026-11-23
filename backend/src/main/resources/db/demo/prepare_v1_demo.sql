@@ -2,6 +2,12 @@
 -- Run explicitly before a presentation. Changes made to these demo dates are reset.
 SET LOCAL TIME ZONE 'Asia/Ho_Chi_Minh';
 
+-- Older seed versions used display labels instead of the public Preference codes.
+-- Restrict repair to reserved demo trips owned by reserved demo accounts.
+UPDATE trips SET preferences = replace(lower(preferences), '"museum"', '"culture"')
+WHERE id::text LIKE 'd3300000-%' AND user_id::text LIKE 'd3100000-%'
+    AND preferences IS DISTINCT FROM replace(lower(preferences), '"museum"', '"culture"');
+
 -- Sample suggestions are explicitly curated for DEV, with approximate/unknown quality metadata.
 INSERT INTO place_retrieval_profiles (place_id, description, tags, estimated_duration_minutes,
     source_url, reviewed_on, verification_scope, coordinates_quality, hours_quality, approved)

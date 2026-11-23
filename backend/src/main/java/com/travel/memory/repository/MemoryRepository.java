@@ -32,18 +32,6 @@ public interface MemoryRepository extends JpaRepository<Memory, UUID> {
     @EntityGraph(attributePaths = {"media"})
     Optional<Memory> findByIdAndDeletedAtIsNull(UUID id);
 
-    /** Retrieve paginated active memories of a specific user. */
-    @EntityGraph(attributePaths = {"media"})
-    Page<Memory> findByUserIdAndDeletedAtIsNull(UUID userId, Pageable pageable);
-
-    /** Retrieve paginated active memories of a specific trip. */
-    @EntityGraph(attributePaths = {"media"})
-    Page<Memory> findByTripIdAndDeletedAtIsNull(UUID tripId, Pageable pageable);
-
-    /** Retrieve paginated active memories of a specific user within a specific trip. */
-    @EntityGraph(attributePaths = {"media"})
-    Page<Memory> findByTripIdAndUserIdAndDeletedAtIsNull(UUID tripId, UUID userId, Pageable pageable);
-
     @Query("""
         select m.id from Memory m where m.tripId = :tripId and m.userId = :userId
         and m.deletedAt is null and m.experiencedAt >= :from and m.experiencedAt < :until

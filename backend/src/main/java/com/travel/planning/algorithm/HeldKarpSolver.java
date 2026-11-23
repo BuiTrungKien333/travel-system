@@ -24,63 +24,6 @@ public class HeldKarpSolver {
      * @param request {@link TspRequest} chứa danh sách địa điểm và tùy chọn ràng buộc
      * @return {@link TspResult} chứa thứ tự tối ưu và chi tiết các chặng
      */
-    /*
-    a & b => and
-    a | b => or
-    a ^ b => xor, ra 1 khi hai bit khác nhau, như cộng 2 số vậy (101 ^ 011 -> 110)
-    1 << k => dịch trái, dịch bit 1 sang trái k vị trí, 1 << 2 -> 100
-
-    1 << v, giá trị là 2 mũ v
-
-    1 << 0 = 0001 (số 1)  đại diện riêng cho thành phố 0.
-    1 << 1 = 0010 (số 2)  đại diện riêng cho thành phố 1.
-    1 << 2 = 0100 (số 4)  đại diện riêng cho thành phố 2.
-    1 << 3 = 1000 (số 8)  đại diện riêng cho thành phố 3.
-
-    mask & (1 << u) (Kiểm tra xem đã đi qua thành phố u chưa)
-    Giả sử bạn đã đi qua thành phố 0 và 2 -> mask = 5 (0101)
-    kiểm tra thành phố 2:
-    0101   (mask)
-  & 0100   (1 << 2)
-    ------
-    0100   (Khác 0 -> Bit 2 đang BẬT -> ĐÃ THĂM)
-
-    kiểm tra thành phố 1:
-    0101   (mask)
-  & 0010   (1 << 1)
-    ------
-    0000   (Bằng 0 -> Bit 1 đang TẮT -> CHƯA THĂM)
-
-    (mask & (1 << v)) == 0 nghĩa là chưa đi qua v, có thể chọn v làm điểm kế tiếp.
-
-    mask | (1 << v) (Đánh dấu đã ghé thăm thêm thành phố v)
-    Phép | dùng để bật bit ở vị trí v lên 1 mà không làm thay đổi các bit còn lại.
-
-    Ví dụ: Hiện tại đang có mask = 5 (0101, đã thăm 0 và 2). Giờ quyết định đi tiếp sang thành phố 1
-    0101   (mask: {0, 2})
-  | 0010   (1 << 1: chọn thêm 1)
-    ------
-    0111   (nextMask: {0, 1, 2}, số 7)
-
-    mask ^ (1 << curr) (Tắt bit của thành phố curr khi truy vết ngược)
-    Phép ^ (XOR) với 1 sẽ đảo trạng thái bit từ 1 về 0
-
-    Ví dụ: Khi truy vết ngược từ cuối về đầu, bạn đang ở tập {0, 1, 2} (mask = 7, tức 0111)
-    và đỉnh hiện tại là 2. Muốn biết trước đó tập là gì, bạn cần gỡ đỉnh 2 ra khỏi danh sách:
-
-    0111   (mask = 7)
-  ^ 0100   (1 << 2)
-    ------
-    0011   (mask mới = 3, chỉ còn lại {0, 1})
-
-    Tóm tắt:
-    1 << k          ---> Biểu diễn riêng thành phố k
-    mask & (1 << k) ---> Hỏi: "Thành phố k có trong mask không?" (== 0: Chưa | != 0: Rồi)
-    mask | (1 << k) ---> Thêm thành phố k vào hành trình
-    mask ^ (1 << k) ---> Bỏ thành phố k ra khỏi hành trình
-    (1 << n) - 1    ---> Tất cả n thành phố đều được bật (ví dụ n=3 -> 2^3 - 1 = 7 = 0111)
-
-     */
     public TspResult solve(TspRequest request) {
         if (request == null || request.getPlaces() == null || request.getPlaces().isEmpty()) {
             return TspResult.builder().build();
@@ -149,77 +92,43 @@ public class HeldKarpSolver {
     private List<Integer> solvePath(double[][] dist, boolean startFixed, boolean roundTrip, Integer fixedEndIndex) {
         int n = dist.length;
         int totalSubsets = 1 << n;
-        double[][] dp = new double[totalSubsets][n];
-        int[][] parent = new int[totalSubsets][n];
+        // dp[mask * n + u]: cheapest path visiting mask and ending at u.
+        // Flat arrays avoid two row objects per subset; node indices fit in a byte (MAX_LOCATIONS = 16).
+        double[] dp = new double[totalSubsets * n];
+        byte[] parent = new byte[dp.length];
+        Arrays.fill(dp, Double.POSITIVE_INFINITY);
+        Arrays.fill(parent, (byte) -1);
 
-        /*
-        Điền giá trị dương vô cùng vào tất cả các hàng của dp[mask]
-        Vì thuật toán là tìm chi phí nhỏ nhất, nên nếu giá trị hợp lệ thì đều nhỏ hơn dương vô cùng
-        kiểu nó bằng dương vô cùng thì nó chưa được đi qua
-
-        Còn bảng parent dùng để lưu truy vết, lưu đỉnh liền trước
-        -1 là một chỉ số không tồn tại trong ds đỉnh, kiểu: chưa có đỉnh nào dẫn tới đỉnh này
-         */
-        for (int mask = 0; mask < totalSubsets; mask++) {
-            Arrays.fill(dp[mask], Double.POSITIVE_INFINITY);
-            Arrays.fill(parent[mask], -1);
-        }
-
-        // Khởi tạo trạng thái cơ sở
         if (startFixed) {
-            // Cố định đỉnh xuất phát tại index 0 (với Round-trip, chu trình khép kín bất biến với điểm bắt đầu)
-            dp[1][0] = 0.0;
+            dp[n] = 0.0; // mask = 1, node = 0
         } else {
-            // Điểm xuất phát tự do trong bài toán một chiều
             for (int i = 0; i < n; i++) {
-                dp[1 << i][i] = 0.0;
+                dp[(1 << i) * n + i] = 0.0;
             }
         }
 
-        // Duyệt quy hoạch động qua các tập con
-        /*
-        Công thức chuyển trạng thái quy hoạch động
-        Nhiệm vụ: thử mở rộng lộ trình từ trạng thái hiện tại (đã đi qua một nhóm điểm) sang thêm một điểm mới chưa từng đi
-         */
-        for (int mask = 1; mask < totalSubsets; mask++) { // duyệt qua từng tập địa điểm đã đi (mask)
-            for (int u = 0; u < n; u++) { // giả sử điểm vừa đặt chân đến (điểm cuối) trong tập mask là u, xong mới đi tìm tiếp là từ u sẽ đến đâu
-                if ((mask & (1 << u)) == 0 || Double.isInfinite(dp[mask][u])) { // == 0 -> điểm u này chưa tồn tại trong tập mask luôn, nghĩa là nó chưa có đi qua u, mà chưa đi qua u thì làm sao tìm tiếp từ u qua đâu được, còn cái isInfinite: nó vẫn là dương vô cùng và chưa có đường nào đi tới
-                    continue;
-                }
+        for (int mask = 1; mask < totalSubsets; mask++) {
+            int row = mask * n;
+            for (int u = 0; u < n; u++) {
+                double cost = dp[row + u];
+                if ((mask & (1 << u)) == 0 || Double.isInfinite(cost)) continue;
 
-                for (int v = 0; v < n; v++) { // logic sang điểm mới (từ u sang v) và cập nhật kỷ lục
-                    if ((mask & (1 << v)) == 0) { // v chưa được đi qua, thì giờ có thể qua từ u
-                        int nextMask = mask | (1 << v); // bật bit v: đánh dấu là đã đi thêm v
-                        double newCost = dp[mask][u] + dist[u][v]; // Chi phí cũ + đường đi từ u sang v
-
-                        if (newCost < dp[nextMask][v]) { // Nếu lộ trình mới này rẻ hơn kỷ lục cũ
-                            dp[nextMask][v] = newCost;   // Cập nhật kỷ lục ngắn nhất mới
-                            parent[nextMask][v] = u;     // Ghi sổ: Muốn đến v tối ưu thì phải đi từ u sang
-                        }
+                for (int v = 0; v < n; v++) {
+                    if ((mask & (1 << v)) != 0) continue;
+                    int next = (mask | (1 << v)) * n + v;
+                    double newCost = cost + dist[u][v];
+                    if (newCost < dp[next]) {
+                        dp[next] = newCost;
+                        parent[next] = (byte) u;
                     }
                 }
             }
         }
 
-        /*
-        Giả sử bạn đang có:Tập đã đi: {0, 1} (mask = 3), điểm cuối đang đứng là 1.
-        Chi phí đã tốn: dp[3][1] = 10.
-        Điểm chưa đi: 2 (dist[1][2] = 20).
-        Đoạn code sẽ tính: newCost = dp[3][1] + dist[1][2] = 10 + 20 = 30
-        Tập mới là {0, 1, 2} (nextMask = 7), điểm dừng chân mới là 2:
-         => dp[7][2] = 30, parent[7][2] = 1
-         */
-
         int fullMask = totalSubsets - 1;
-        List<Integer> optimalPathIndices;
-
-        if (roundTrip) {
-            optimalPathIndices = reconstructRoundTripPath(n, fullMask, dp, parent, dist);
-        } else {
-            optimalPathIndices = reconstructOneWayPath(n, fullMask, dp, parent, fixedEndIndex);
-        }
-
-        return optimalPathIndices;
+        return roundTrip
+                ? reconstructRoundTripPath(n, fullMask, dp, parent, dist)
+                : reconstructOneWayPath(n, fullMask, dp, parent, fixedEndIndex);
     }
 
     private List<Place> arrangePlacesWithStartNode(List<Place> originalPlaces, UUID startPlaceId) {
@@ -256,24 +165,24 @@ public class HeldKarpSolver {
         return null;
     }
 
-    private List<Integer> reconstructRoundTripPath(int n, int fullMask, double[][] dp, int[][] parent, double[][] dist) {
+    private List<Integer> reconstructRoundTripPath(int n, int fullMask, double[] dp, byte[] parent, double[][] dist) {
         double minTotalCost = Double.POSITIVE_INFINITY;
         int bestEndNode = -1;
 
         for (int u = 1; u < n; u++) {
-            double totalCost = dp[fullMask][u] + dist[u][0]; // Chi phí đi hết tất cả các điểm và đang dừng lại ở điểm u + Chi phí đi chặng cuối cùng từ u trở về điểm xuất phát 0
+            double totalCost = dp[fullMask * n + u] + dist[u][0]; // Chi phí đi hết tất cả các điểm và đang dừng lại ở điểm u + Chi phí đi chặng cuối cùng từ u trở về điểm xuất phát 0
             if (totalCost < minTotalCost) {
                 minTotalCost = totalCost;
                 bestEndNode = u;
             }
         }
 
-        List<Integer> path = backtrackPath(bestEndNode, fullMask, parent);
+        List<Integer> path = backtrackPath(bestEndNode, fullMask, parent, n);
         path.add(0); // Khép vòng quay lại điểm xuất phát index 0
         return path;
     }
 
-    private List<Integer> reconstructOneWayPath(int n, int fullMask, double[][] dp, int[][] parent, Integer fixedEndIndex) {
+    private List<Integer> reconstructOneWayPath(int n, int fullMask, double[] dp, byte[] parent, Integer fixedEndIndex) {
         int bestEndNode;
 
         if (fixedEndIndex != null) {
@@ -282,24 +191,24 @@ public class HeldKarpSolver {
             double minTotalCost = Double.POSITIVE_INFINITY;
             bestEndNode = 0;
             for (int u = 0; u < n; u++) {
-                if (dp[fullMask][u] < minTotalCost) {
-                    minTotalCost = dp[fullMask][u];
+                if (dp[fullMask * n + u] < minTotalCost) {
+                    minTotalCost = dp[fullMask * n + u];
                     bestEndNode = u;
                 }
             }
         }
 
-        return backtrackPath(bestEndNode, fullMask, parent);
+        return backtrackPath(bestEndNode, fullMask, parent, n);
     }
 
-    private List<Integer> backtrackPath(int endNode, int fullMask, int[][] parent) {
+    private List<Integer> backtrackPath(int endNode, int fullMask, byte[] parent, int n) {
         List<Integer> path = new ArrayList<>();
         int curr = endNode;
         int mask = fullMask;
 
         while (curr != -1) {
             path.add(curr);
-            int prev = parent[mask][curr]; // Xem ai dẫn đến curr
+            int prev = parent[mask * n + curr]; // Xem ai dẫn đến curr
             mask = mask ^ (1 << curr);     // Tắt bit của curr: loại curr khỏi tập mask
             curr = prev;                   // Lùi bước về đỉnh trước đó
         }

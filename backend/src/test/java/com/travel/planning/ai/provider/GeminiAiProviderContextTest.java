@@ -1,11 +1,8 @@
 package com.travel.planning.ai.provider;
 
 import com.travel.planning.ai.config.AiConfigProperties;
-import com.travel.planning.ai.context.AiContextBuilder;
 import com.travel.planning.ai.copilot.context.AiCopilotContextBuilder;
 import com.travel.planning.ai.copilot.fallback.FallbackAiCopilotGenerator;
-import com.travel.planning.ai.fallback.FallbackItineraryGenerator;
-import com.travel.planning.ai.validator.AiResponseValidator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
@@ -19,9 +16,6 @@ class GeminiAiProviderContextTest {
     void springContext_instantiatesGeminiAiProviderSuccessfully() {
         try (AnnotationConfigApplicationContext ctx = new AnnotationConfigApplicationContext()) {
             ctx.registerBean(AiConfigProperties.class, AiConfigProperties::new);
-            ctx.registerBean(AiContextBuilder.class, AiContextBuilder::new);
-            ctx.registerBean(AiResponseValidator.class, AiResponseValidator::new);
-            ctx.registerBean(FallbackItineraryGenerator.class, FallbackItineraryGenerator::new);
             ctx.register(com.travel.config.AppConfig.class);
             ctx.registerBean(AiCopilotContextBuilder.class, AiCopilotContextBuilder::new);
             ctx.registerBean(FallbackAiCopilotGenerator.class, FallbackAiCopilotGenerator::new);

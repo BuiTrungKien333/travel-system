@@ -7,7 +7,6 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDate;
-import java.math.BigDecimal;
 
 @Entity
 @Table(name = "trips")
@@ -27,12 +26,6 @@ public class Trip extends BaseEntity {
 
     @Column(name = "destination")
     private String destination;
-
-    @Column(name = "transportation", length = 50)
-    private String transportation;
-
-    @Column(name = "budget", precision = 19, scale = 2)
-    private BigDecimal budget;
 
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;

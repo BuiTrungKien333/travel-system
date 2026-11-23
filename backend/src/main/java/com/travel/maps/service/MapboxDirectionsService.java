@@ -21,12 +21,10 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.net.URI;
-import java.util.Arrays;
 import java.util.stream.Collectors;
 
 @Service
 public class MapboxDirectionsService {
-    public record OptimizedOrder(List<Integer> order, double distanceMeters, double durationSeconds) { }
     public record RoadMatrix(double[][] distances, double[][] durations) { }
     public enum Mode {
         DRIVE("driving"), WALK("walking"), BICYCLE("cycling");
@@ -84,10 +82,6 @@ public class MapboxDirectionsService {
                 geometry.asText(), List.copyOf(legs)));
     }
 
-    public OptimizedOrder optimize(List<RoutePoint> points, Mode mode) {
-        return optimize(points, mode, false);
-    }
-
     public RoadMatrix matrix(List<RoutePoint> points, Mode mode) {
         if (points.size() < 2 || points.size() > 12 || points.stream().anyMatch(point -> !valid(point)))
             throw new AppException(ErrorCode.INVALID_ITINERARY);
@@ -117,34 +111,6 @@ public class MapboxDirectionsService {
             }
         }
         return result;
-    }
-
-    public OptimizedOrder optimize(List<RoutePoint> points, Mode mode, boolean roundtrip) {
-        // Open routes keep the original first and last stop. At least two interior stops can swap.
-        if (points.size() < 4 || points.size() > 12 || points.stream().anyMatch(point -> !valid(point)))
-            throw new AppException(ErrorCode.INVALID_ITINERARY);
-        if (token.isBlank()) throw new AppException(ErrorCode.PLACE_PROVIDER_UNAVAILABLE);
-        var response = request(uri("optimized-trips/v1", points, mode)
-                .queryParam("roundtrip", roundtrip).queryParam("source", "first").queryParam("destination", roundtrip ? "any" : "last")
-                .queryParam("overview", false).queryParam("steps", false).build().encode().toUri());
-        var code = response.path("code").asText();
-        if (List.of("NoRoute", "NoSegment", "NoTrips").contains(code))
-            throw new AppException(ErrorCode.RESOURCE_NOT_FOUND);
-        var waypoints = response.path("waypoints");
-        var trips = response.path("trips");
-        if (!"Ok".equals(code) || !waypoints.isArray() || waypoints.size() != points.size()
-                || !trips.isArray() || trips.size() != 1) throw invalid();
-        Integer[] order = new Integer[points.size()];
-        for (int input = 0; input < waypoints.size(); input++) {
-            var waypoint = waypoints.path(input);
-            var index = waypoint.path("waypoint_index");
-            int position = index.asInt(-1);
-            if (!index.isIntegralNumber() || waypoint.path("trips_index").asInt(-1) != 0
-                    || position < 0 || position >= order.length || order[position] != null) throw invalid();
-            order[position] = input;
-        }
-        if (order[0] != 0 || (!roundtrip && order[order.length - 1] != order.length - 1)) throw invalid();
-        return new OptimizedOrder(List.copyOf(Arrays.asList(order)), metric(trips.path(0), "distance"), metric(trips.path(0), "duration"));
     }
 
     private UriComponentsBuilder uri(String endpoint, List<RoutePoint> points, Mode mode) {

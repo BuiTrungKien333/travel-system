@@ -13,15 +13,11 @@ import java.util.UUID;
 @Repository
 public interface TripPlaceRepository extends JpaRepository<TripPlace, UUID> {
 
-    List<TripPlace> findByTripIdOrderByPlannedOrderAsc(UUID tripId);
-
     List<TripPlace> findByTripId(UUID tripId);
 
     Optional<TripPlace> findByTripIdAndPlaceId(UUID tripId, UUID placeId);
 
     boolean existsByTripIdAndPlaceId(UUID tripId, UUID placeId);
-
-    void deleteByTripIdAndPlaceId(UUID tripId, UUID placeId);
 
     @EntityGraph(attributePaths = {"place", "place.province"})
     List<TripPlace> findByTripIdOrderByPlannedOrderAscCreatedAtAscIdAsc(UUID tripId);

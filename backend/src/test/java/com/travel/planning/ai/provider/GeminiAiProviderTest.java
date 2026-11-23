@@ -4,14 +4,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.travel.common.exception.AppException;
 import com.travel.common.exception.ErrorCode;
 import com.travel.planning.ai.config.AiConfigProperties;
-import com.travel.planning.ai.context.AiContextBuilder;
-import com.travel.planning.ai.context.model.AiItineraryPromptContext;
-import com.travel.planning.ai.dto.response.AiItineraryResponse;
-import com.travel.planning.ai.fallback.FallbackItineraryGenerator;
-import com.travel.planning.ai.validator.AiResponseValidator;
+import com.travel.planning.ai.copilot.context.AiCopilotContextBuilder;
+import com.travel.planning.ai.copilot.fallback.FallbackAiCopilotGenerator;
+import com.travel.planning.ai.copilot.model.AiCopilotPromptContext;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
@@ -19,136 +18,87 @@ import org.springframework.web.client.RestClient;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.*;
-import static org.hamcrest.Matchers.containsString;
 
 class GeminiAiProviderTest {
-
+    private final ObjectMapper json = new ObjectMapper();
+    private final AiCopilotPromptContext context = new AiCopilotPromptContext(
+            "Đà Nẵng", LocalDate.of(2026, 10, 1), List.of(), List.of(), null, null);
     private AiConfigProperties properties;
-    private AiContextBuilder contextBuilder;
-    private AiResponseValidator validator;
-    private FallbackItineraryGenerator fallbackGenerator;
-    private ObjectMapper objectMapper;
-
-    private RestClient restClient;
-    private MockRestServiceServer mockServer;
+    private MockRestServiceServer server;
     private GeminiAiProvider provider;
 
     @BeforeEach
     void setUp() {
         properties = new AiConfigProperties();
         properties.getGemini().setApiKey("test-gemini-key");
-        contextBuilder = new AiContextBuilder();
-        validator = new AiResponseValidator();
-        fallbackGenerator = new FallbackItineraryGenerator();
-        objectMapper = new ObjectMapper();
-
         RestClient.Builder builder = RestClient.builder();
-        mockServer = MockRestServiceServer.bindTo(builder).build();
-        restClient = builder.build();
-
-        provider = new GeminiAiProvider(properties, contextBuilder, validator, fallbackGenerator, objectMapper, restClient);
+        server = MockRestServiceServer.bindTo(builder).build();
+        provider = new GeminiAiProvider(properties, json, new AiCopilotContextBuilder(),
+                new FallbackAiCopilotGenerator(), builder.build());
     }
 
     @Test
-    @DisplayName("When apiKey is missing, generateItinerary should gracefully use fallback without calling API")
-    void generateItinerary_missingApiKey_usesFallback() {
-        properties.getGemini().setApiKey(""); // Không có API key
-        GeminiAiProvider noKeyProvider = new GeminiAiProvider(properties, contextBuilder, validator, fallbackGenerator, objectMapper);
-
-        AiItineraryPromptContext context = new AiItineraryPromptContext(
-                "Đà Nẵng", LocalDate.now(), LocalDate.now(), 1, null,
-                List.of(), List.of(), 0.0, 0
-        );
-
-        AiItineraryResponse response = noKeyProvider.generateItinerary(context);
-
-        assertThat(response).isNotNull();
-        assertThat(response.dailyPlans()).hasSize(1);
+    void analyzeAndRecommend_missingKey_usesFallbackWithoutHttp() {
+        properties.getGemini().setApiKey("");
+        assertThat(provider.isAvailable()).isFalse();
+        assertThat(provider.analyzeAndRecommend(context).aiProvider()).isEqualTo("rule-based-fallback");
+        server.verify();
     }
 
     @Test
-    @DisplayName("When apiKey is present, isAvailable should return true")
-    void isAvailable_withApiKey_returnsTrue() {
+    void isAvailable_withKey_returnsTrue() {
         assertThat(provider.isAvailable()).isTrue();
         assertThat(provider.getProviderName()).isEqualTo("gemini");
     }
 
-    @Test
-    @DisplayName("When Gemini API returns 401 Unauthorized, should throw AI_API_KEY_INVALID")
-    void generateItinerary_unauthorized_throwsAppException() {
-        mockServer.expect(requestTo(containsString("generateContent")))
-                .andRespond(withStatus(HttpStatus.UNAUTHORIZED));
+    @ParameterizedTest
+    @ValueSource(ints = {401, 403})
+    void analyzeAndRecommend_rejectedKey_preservesDomainError(int status) {
+        server.expect(requestTo(containsString("generateContent")))
+                .andRespond(withStatus(HttpStatus.valueOf(status)));
+        assertThatThrownBy(() -> provider.analyzeAndRecommend(context))
+                .isInstanceOf(AppException.class).extracting("errorCode").isEqualTo(ErrorCode.AI_API_KEY_INVALID);
+        server.verify();
+    }
 
-        AiItineraryPromptContext context = new AiItineraryPromptContext(
-                "Đà Nẵng", LocalDate.now(), LocalDate.now(), 1, null,
-                List.of(), List.of(), 0.0, 0
-        );
+    @ParameterizedTest
+    @ValueSource(ints = {400, 429, 500, 503})
+    void analyzeAndRecommend_providerFailure_usesFallback(int status) {
+        server.expect(requestTo(containsString("generateContent")))
+                .andRespond(withStatus(HttpStatus.valueOf(status)));
+        assertThat(provider.analyzeAndRecommend(context).aiProvider()).isEqualTo("rule-based-fallback");
+        server.verify();
+    }
 
-        assertThatThrownBy(() -> provider.generateItinerary(context))
-                .isInstanceOf(AppException.class)
-                .extracting("errorCode")
-                .isEqualTo(ErrorCode.AI_API_KEY_INVALID);
-
-        mockServer.verify();
+    @ParameterizedTest
+    @ValueSource(strings = {"{}", "{\"candidates\":[]}", "not JSON"})
+    void analyzeAndRecommend_unusableResponse_usesFallback(String body) {
+        server.expect(requestTo(containsString("generateContent")))
+                .andRespond(withSuccess(body, MediaType.APPLICATION_JSON));
+        assertThat(provider.analyzeAndRecommend(context).aiProvider()).isEqualTo("rule-based-fallback");
+        server.verify();
     }
 
     @Test
-    @DisplayName("When Gemini API hits 429 Too Many Requests, should gracefully activate fallback")
-    void generateItinerary_rateLimit_activatesFallback() {
-        mockServer.expect(requestTo(containsString("generateContent")))
-                .andRespond(withStatus(HttpStatus.TOO_MANY_REQUESTS));
-
-        AiItineraryPromptContext context = new AiItineraryPromptContext(
-                "Đà Nẵng", LocalDate.now(), LocalDate.now(), 1, null,
-                List.of(), List.of(), 0.0, 0
-        );
-
-        AiItineraryResponse response = provider.generateItinerary(context);
-
-        assertThat(response).isNotNull();
-        assertThat(response.dailyPlans()).isNotEmpty();
-        mockServer.verify();
-    }
-
-    @Test
-    @DisplayName("When Gemini API returns valid JSON response, should parse and validate successfully")
-    void generateItinerary_validResponse_returnsParsedItinerary() {
-        String mockGeminiJson = """
-                {
-                  "candidates": [
-                    {
-                      "content": {
-                        "parts": [
-                          {
-                            "text": "{\\"tripTitle\\":\\"Khám phá Đà Nẵng\\",\\"tripSummary\\":\\"Hành trình đáng nhớ\\",\\"dailyPlans\\":[{\\"dayNumber\\":1,\\"date\\":\\"2026-10-01\\",\\"dayTheme\\":\\"Ngày 1\\",\\"activities\\":[],\\"mealRecommendations\\":\\"Mì Quảng\\",\\"dayTips\\":\\"Đi sớm\\"}],\\"generalTips\\":[\\"Uống nhiều nước\\"],\\"estimatedBudgetNote\\":\\"Hợp lý\\"}"
-                          }
-                        ],
-                        "role": "model"
-                      },
-                      "finishReason": "STOP"
-                    }
-                  ]
-                }
-                """;
-
-        mockServer.expect(requestTo(containsString("generateContent")))
-                .andRespond(withSuccess(mockGeminiJson, MediaType.APPLICATION_JSON));
-
-        AiItineraryPromptContext context = new AiItineraryPromptContext(
-                "Đà Nẵng", LocalDate.now(), LocalDate.now(), 1, null,
-                List.of(), List.of(), 0.0, 0
-        );
-
-        AiItineraryResponse response = provider.generateItinerary(context);
-
-        assertThat(response).isNotNull();
-        assertThat(response.tripTitle()).isEqualTo("Khám phá Đà Nẵng");
-        assertThat(response.dailyPlans()).hasSize(1);
-        mockServer.verify();
+    void analyzeAndRecommend_validFencedJson_returnsCopilot() throws Exception {
+        String answer = "```json\n" + json.writeValueAsString(Map.of(
+                "greetingAndCaringReminder", "Chúc bạn có chuyến đi tốt đẹp",
+                "recommendationCards", List.of())) + "\n```";
+        String body = json.writeValueAsString(Map.of("candidates", List.of(Map.of(
+                "content", Map.of("parts", List.of(Map.of("text", answer)), "role", "model")))));
+        server.expect(requestTo(containsString("generateContent")))
+                .andRespond(withSuccess(body, MediaType.APPLICATION_JSON));
+        var response = provider.analyzeAndRecommend(context);
+        assertThat(response.greetingAndCaringReminder()).isEqualTo("Chúc bạn có chuyến đi tốt đẹp");
+        assertThat(response.recommendationCards()).isEmpty();
+        assertThat(response.aiProvider()).isEqualTo(properties.getGemini().getModel());
+        server.verify();
     }
 }

@@ -5,6 +5,7 @@ import com.travel.common.exception.ErrorCode;
 import com.travel.planning.ai.intent.model.TravelIntent;
 import com.travel.planning.ai.resilience.AiCallFailure;
 import com.travel.planning.draft.model.DraftAllocation;
+import com.travel.planning.draft.model.DraftLimits;
 import com.travel.planning.draft.provider.GeminiDraftClient;
 import com.travel.planning.retrieval.model.PlaceCandidate;
 import org.springframework.context.annotation.Profile;
@@ -44,7 +45,8 @@ public class DraftAllocationService {
             if (!mandatory && Collections.disjoint(place.tags(), intent.interests())) continue;
             int best = -1;
             for (int day = 0; day < load.length; day++) {
-                if ((mandatory || groups.get(day).size() < target) && (best < 0 || load[day] < load[best])) best = day;
+                if (groups.get(day).size() < DraftLimits.MAX_STOPS_PER_DAY
+                        && (mandatory || groups.get(day).size() < target) && (best < 0 || load[day] < load[best])) best = day;
             }
             if (best >= 0) {
                 groups.get(best).add(place.placeId());

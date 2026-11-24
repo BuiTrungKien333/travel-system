@@ -20,7 +20,7 @@ public class TripDraftController {
 
     @PostMapping
     @Operation(summary = "Generate and retain an AI/fallback proposal for an empty planning trip",
-            description = "Owner only; Da Nang, 1–2 days. No itinerary changes. Reuse clientRequestId for retries.")
+            description = "Owner only; Da Nang, 1–3 days. No itinerary changes. Reuse clientRequestId for retries.")
     public ApiResponse<TripDraftResponse> create(@PathVariable UUID tripId,
             @Valid @RequestBody CreateTripDraftRequest request) {
         return ApiResponse.success(service.create(SecurityUtils.getCurrentUserId(), tripId, request));

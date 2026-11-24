@@ -10,6 +10,7 @@ import com.travel.itinerary.repository.ItineraryRepository;
 import com.travel.itinerary.service.ItineraryService;
 import com.travel.place.repository.PlaceRepository;
 import com.travel.planning.draft.dto.request.GenerateDraftRequest;
+import com.travel.planning.draft.model.DraftLimits;
 import com.travel.planning.draft.dto.response.DraftResponse;
 import com.travel.planning.draft.service.DraftService;
 import com.travel.planning.retrieval.model.PlaceCandidate;
@@ -186,7 +187,7 @@ public class TripDraftService {
                 .replaceAll("\\p{M}", "").replace('đ', 'd').replace('Đ', 'D').toLowerCase(Locale.ROOT).trim();
         if (!Set.of("da nang", "danang", "tp da nang", "thanh pho da nang").contains(destination)
                 || trip.getStartDate() == null || trip.getEndDate() == null
-                || numberOfDays(trip) < 1 || numberOfDays(trip) > 2)
+                || numberOfDays(trip) < 1 || numberOfDays(trip) > DraftLimits.MAX_DAYS)
             throw new AppException(ErrorCode.PLANNING_UNSUPPORTED_TRIP);
         if (itineraries.findFirstByTripIdOrderByUpdatedAtDescIdAsc(trip.getId()).stream().anyMatch(i -> !i.getItems().isEmpty()))
             throw new AppException(ErrorCode.ITINERARY_CHANGED);

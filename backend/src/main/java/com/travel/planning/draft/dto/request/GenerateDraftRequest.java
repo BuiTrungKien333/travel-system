@@ -1,6 +1,7 @@
 package com.travel.planning.draft.dto.request;
 
 import com.travel.planning.ai.intent.model.TravelIntent;
+import com.travel.planning.draft.model.DraftLimits;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 
@@ -13,20 +14,27 @@ public record GenerateDraftRequest(
         @NotNull @Valid Origin origin,
         Boolean roundTrip,
         @Min(0) @Max(90) Integer restMinutes,
-        @Valid Preferences preferences) {
+        @Valid Preferences preferences,
+        @Size(max = 600) String additionalText) {
 
     public GenerateDraftRequest(String text, LocalDate startDate, Origin origin, Boolean roundTrip, Integer restMinutes) {
-        this(text, startDate, origin, roundTrip, restMinutes, null);
+        this(text, startDate, origin, roundTrip, restMinutes, null, null);
     }
 
     public GenerateDraftRequest {
         if (roundTrip == null) roundTrip = true;
         if (restMinutes == null) restMinutes = 45;
+        if (additionalText != null) {
+            additionalText = additionalText.trim();
+            if (additionalText.isEmpty()) additionalText = null;
+        }
     }
 
-    @AssertTrue(message = "Cung cấp đúng một trong text hoặc preferences")
-    public boolean isInputExclusive() {
-        return (text != null && !text.isBlank()) != (preferences != null);
+    @AssertTrue(message = "Cung cấp biểu mẫu và mô tả bổ sung, hoặc chỉ cung cấp text")
+    public boolean isInputValid() {
+        boolean hasText = text != null && !text.isBlank();
+        boolean hasAdditionalText = additionalText != null && !additionalText.isBlank();
+        return preferences != null ? !hasText : hasText && !hasAdditionalText;
     }
 
     public record Origin(@NotBlank @Size(max = 160) String name,
@@ -39,7 +47,7 @@ public record GenerateDraftRequest(
 
     /** Explicit user input; never presented as an AI-extracted intent. */
     public record Preferences(@NotBlank @Size(max = 160) String destination,
-                              @NotNull @Min(1) @Max(2) Integer numberOfDays,
+                              @NotNull @Min(1) @Max(DraftLimits.MAX_DAYS) Integer numberOfDays,
                               @Size(max = 10) List<@NotNull Tag> interests,
                               @Size(max = 10) List<@NotNull Tag> excludedTags,
                               @NotNull @Pattern(regexp = "(?:[01][0-9]|2[0-3]):[0-5][0-9]") String dailyStartTime,

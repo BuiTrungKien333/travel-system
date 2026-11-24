@@ -20,7 +20,7 @@ public class DraftController {
     }
 
     @PostMapping("/generate-draft")
-    @Operation(summary = "Preview a 1–2 day itinerary from text or structured preferences, with AI/fallback provenance; no persistence")
+    @Operation(summary = "Preview a 1–3 day itinerary from text or structured preferences, with AI/fallback provenance; no persistence")
     public ApiResponse<DraftResponse> generate(@Valid @RequestBody GenerateDraftRequest request) {
         return ApiResponse.success(service.generate(request));
     }

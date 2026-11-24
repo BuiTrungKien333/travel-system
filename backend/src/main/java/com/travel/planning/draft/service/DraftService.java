@@ -13,6 +13,7 @@ import com.travel.planning.ai.resilience.AiRequestContext;
 import com.travel.planning.draft.dto.request.GenerateDraftRequest;
 import com.travel.planning.draft.dto.response.DraftResponse;
 import com.travel.planning.draft.model.DraftTravelMatrix;
+import com.travel.planning.draft.model.DraftLimits;
 import com.travel.planning.retrieval.config.RagProperties;
 import com.travel.planning.retrieval.dto.response.PlaceSearchResponse;
 import com.travel.planning.retrieval.model.PlaceCandidate;
@@ -68,14 +69,20 @@ public class DraftService {
         IntentAnalysisResponse analysis;
         try {
             analysis = context.measure(INTENT, () -> request.preferences() == null
-                    ? intents.analyze(request.text()) : intents.analyze(request.preferences().toIntent()));
-            context.record(INTENT, request.preferences() == null ? "AI" : "USER_PROVIDED",
-                    request.preferences() == null ? "GEMINI_STRUCTURED_EXTRACTION" : "STRUCTURED_PREFERENCES", context.lastReason(INTENT), null);
+                    ? intents.analyze(request.text()) : intents.analyze(request.preferences().toIntent(), request.additionalText()));
+            context.record(INTENT, request.preferences() == null ? "AI" : request.additionalText() == null ? "USER_PROVIDED" : "AI_AND_USER_PROVIDED",
+                    request.preferences() == null ? "GEMINI_STRUCTURED_EXTRACTION" : request.additionalText() == null ? "STRUCTURED_PREFERENCES" : "STRUCTURED_WITH_SUPPLEMENTAL_EXTRACTION", context.lastReason(INTENT), null);
         } catch (AppException ex) {
-            if (request.preferences() != null) throw ex;
+            if (request.preferences() != null && request.additionalText() == null) throw ex;
             String reason = ex instanceof AiCallFailure failure ? failure.reason()
                     : ex.getErrorCode() == ErrorCode.AI_VALIDATION_FAILED ? "INVALID_RESPONSE" : "AI_UNAVAILABLE";
             context.failure(INTENT, reason, ex instanceof AiCallFailure failure ? failure.providerStatus() : null);
+            if (request.preferences() != null) {
+                metadata.put("nextAction", "RETRY_OR_REMOVE_SUPPLEMENTAL_TEXT");
+                issues.add(new Problem("SUPPLEMENT_UNAVAILABLE", true, null,
+                        "AI chưa đọc được mô tả bổ sung. Hãy thử lại hoặc xóa phần mô tả để tiếp tục bằng thông tin biểu mẫu."));
+                return response("NEEDS_INPUT", request, null, List.of(), List.of(), issues, DraftWeatherService.unknown(), metadata);
+            }
             metadata.put("nextAction", "RESUBMIT_WITH_PREFERENCES");
             issues.add(new Problem("INTENT_UNAVAILABLE", true, null,
                     "AI tạm thời chưa đọc được yêu cầu. Bạn có thể chọn nhu cầu bằng biểu mẫu để tiếp tục; hệ thống không tự đoán sở thích."));
@@ -91,7 +98,7 @@ public class DraftService {
             return response("NEEDS_INPUT", request, initial, List.of(), List.of(), issues, DraftWeatherService.unknown(), metadata);
 
         // Reject incomplete planning input before paying for a query embedding.
-        var search = context.measure(RETRIEVAL, () -> intents.search(analysis, 8));
+        var search = context.measure(RETRIEVAL, () -> intents.search(analysis, DraftLimits.CANDIDATE_LIMIT));
         if (search.candidates() != null) {
             var result = search.candidates();
             boolean hybrid = "HYBRID".equals(result.retrievalMode());
@@ -114,9 +121,15 @@ public class DraftService {
             issues.add(new Problem("STALE_REQUIRED_PLACE", true, null, "Điểm bắt buộc đã thay đổi hoặc không còn được duyệt; hãy tạo lại yêu cầu."));
             return response("NEEDS_INPUT", request, search, List.of(), List.of(), issues, DraftWeatherService.unknown(), metadata);
         }
+        TravelIntent intent = analysis.intent();
+        if (required.size() > intent.numberOfDays() * DraftLimits.MAX_STOPS_PER_DAY) {
+            issues.add(new Problem("REQUIRED_STOP_LIMIT", true, null,
+                    "Có quá nhiều điểm bắt buộc cho số ngày đã chọn. Giảm số điểm cần ghé hoặc tăng thời lượng chuyến đi."));
+            return response("INFEASIBLE", request, search, List.of(), candidates.stream()
+                    .map(p -> new Unassigned(p, "REQUIRED_STOP_LIMIT")).toList(), issues, DraftWeatherService.unknown(), metadata);
+        }
         if (candidates.isEmpty())
             return response("NO_CANDIDATES", request, search, List.of(), List.of(), issues, DraftWeatherService.unknown(), metadata);
-        TravelIntent intent = analysis.intent();
         int requiredMinutes = candidates.stream().filter(p -> required.contains(p.placeId())).mapToInt(PlaceCandidate::estimatedDurationMinutes).sum();
         long availableMinutes = Duration.between(LocalTime.parse(intent.dailyStartTime()), LocalTime.parse(intent.dailyEndTime())).toMinutes() * intent.numberOfDays();
         if (requiredMinutes > availableMinutes) {
@@ -186,8 +199,8 @@ public class DraftService {
     }
 
     private void validatePlanningInput(GenerateDraftRequest request, TravelIntent intent, List<Problem> issues) {
-        if (intent.numberOfDays() == null || intent.numberOfDays() < 1 || intent.numberOfDays() > 2)
-            issues.add(new Problem("NUMBER_OF_DAYS", true, null, "Hãy nêu rõ chuyến đi một hoặc hai ngày trong yêu cầu."));
+        if (intent.numberOfDays() == null || intent.numberOfDays() < 1 || intent.numberOfDays() > DraftLimits.MAX_DAYS)
+            issues.add(new Problem("NUMBER_OF_DAYS", true, null, "Hãy nêu rõ chuyến đi từ một đến ba ngày trong yêu cầu."));
         if (intent.dailyStartTime() == null || intent.dailyEndTime() == null)
             issues.add(new Problem("DAILY_WINDOW", true, null, "Hãy nêu giờ bắt đầu và kết thúc mỗi ngày; hệ thống không tự đoán."));
     }

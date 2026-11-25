@@ -29,6 +29,8 @@ spring-*.log
 # ============================================================
 node_modules/
 .next/
+.next-dev/
+.next-production/
 *.tsbuildinfo
 out/
 dist/

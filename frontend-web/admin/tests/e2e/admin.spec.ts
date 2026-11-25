@@ -19,6 +19,33 @@ test("direct protected navigation redirects to login", async ({ page }) => {
     page.getByRole("heading", { name: "Đăng nhập quản trị" }),
   ).toBeVisible();
 });
+test("external html classes do not disrupt hydration or sign-in", async ({
+  page,
+}) => {
+  const hydrationErrors: string[] = [];
+  page.on("console", (message) => {
+    if (
+      message.type() === "error" &&
+      /hydrat|server rendered|server-rendered/i.test(message.text())
+    )
+      hydrationErrors.push(message.text());
+  });
+  await page.route("**/admin/login", async (route) => {
+    const response = await route.fetch();
+    const html = await response.text();
+    expect(html).toContain('<html lang="vi">');
+    await route.fulfill({
+      response,
+      body: html.replace('<html lang="vi">', '<html lang="vi" class="mdl-js">'),
+    });
+  });
+
+  await login(page);
+  await expect(
+    page.getByRole("heading", { name: "Quản lý tài khoản", exact: true }),
+  ).toBeVisible();
+  expect(hydrationErrors).toEqual([]);
+});
 for (const email of ["member@wego.test", "member3@wego.test"])
   test(`${email} cannot enter administration`, async ({ page, context }) => {
     await login(page, email);

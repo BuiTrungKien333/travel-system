@@ -14,7 +14,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="vi">
+    // Browser integrations can add root attributes before React hydrates.
+    <html lang="vi" suppressHydrationWarning>
       <body>
         <Providers>{children}</Providers>
       </body>

@@ -1,0 +1,35 @@
+{
+  "info": {
+    "name": "Navigation S1 authenticated contract",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{accessToken}}", "type": "string"}]},
+  "item": [
+    {
+      "name": "API-01: authenticated route returns metadata and unknown alerts",
+      "request": {
+        "method": "POST",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "url": "{{baseUrl}}/api/v1/navigation/routes",
+        "body": {"mode": "raw", "raw": "{\"origin\":{\"latitude\":21.0285,\"longitude\":105.8542},\"vehicle\":\"DRIVE\",\"destinations\":[{\"latitude\":21.0278,\"longitude\":105.8342}]}"}
+      },
+      "event": [{"listen": "test", "script": {"type": "text/javascript", "exec": [
+        "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+        "const body = pm.response.json();",
+        "pm.test('Authenticated driving route', () => { pm.expect(body.success).to.eql(true); pm.expect(body.data.vehicle).to.eql('DRIVE'); pm.expect(body.data.waypoints.length).to.eql(2); });",
+        "pm.test('Leg-local geometry and maneuver metadata', () => { const leg = body.data.legs[0]; pm.expect(leg.geometry.length).to.be.above(1); pm.expect(leg.steps.some(s => s.maneuver && s.maneuver.type)).to.eql(true); leg.steps.forEach(s => { pm.expect(s.fromIndex).to.be.at.least(0); pm.expect(s.toIndex).to.be.below(leg.geometry.length); }); });",
+        "pm.test('Unverified road alerts remain unknown', () => { pm.expect(body.data.dataAvailability).to.eql({speedLimits:'UNKNOWN',roadAlerts:'UNKNOWN'}); pm.expect(JSON.stringify(body)).not.to.include('speed_limit'); });"
+      ]}}]
+    },
+    {
+      "name": "AUTH-01: anonymous route is rejected",
+      "request": {"auth": {"type": "noauth"}, "method": "POST", "url": "{{baseUrl}}/api/v1/navigation/routes", "header": [{"key": "Content-Type", "value": "application/json"}], "body": {"mode": "raw", "raw": "{}"}},
+      "event": [{"listen": "test", "script": {"exec": ["pm.test('HTTP 401', () => pm.response.to.have.status(401));"]}}]
+    },
+    {
+      "name": "API-03: unsupported bicycle mode is rejected",
+      "request": {"method": "POST", "url": "{{baseUrl}}/api/v1/navigation/routes", "header": [{"key": "Content-Type", "value": "application/json"}], "body": {"mode": "raw", "raw": "{\"origin\":{\"latitude\":21.0285,\"longitude\":105.8542},\"vehicle\":\"BICYCLE\",\"destinations\":[{\"latitude\":21.0278,\"longitude\":105.8342}]}"}},
+      "event": [{"listen": "test", "script": {"exec": ["pm.test('HTTP 400', () => pm.response.to.have.status(400));"]}}]
+    }
+  ]
+}

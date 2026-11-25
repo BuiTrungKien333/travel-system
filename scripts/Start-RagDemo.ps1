@@ -37,7 +37,7 @@ $env:SERVER_PORT = $Port.ToString()
 if ($LASTEXITCODE -ne 0) { throw 'Demo PostgreSQL could not start.' }
 Push-Location (Join-Path $taskRoot 'backend')
 try {
-    & mvn spring-boot:run '-Dspring-boot.run.profiles=rag-demo'
+    & .\mvnw.cmd clean spring-boot:run '-Dspring-boot.run.profiles=rag-demo'
 
     if ($LASTEXITCODE -ne 0) { throw 'Demo backend failed.' }
 } finally { Pop-Location }

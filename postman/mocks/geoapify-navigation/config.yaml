@@ -1,0 +1,11 @@
+version: 1
+id: 8a0e6131-031a-40a2-9831-b65145bb27b5
+name: geoapify-navigation
+slug: geoapify-navigation
+protocol: http
+interceptRequests: true
+port: 18765
+scenarios:
+  - name: default
+    path: ./default.js
+    default: true

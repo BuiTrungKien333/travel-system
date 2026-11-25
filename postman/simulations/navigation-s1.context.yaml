@@ -1,0 +1,30 @@
+purpose:
+  stands_in_for: Geoapify routing HTTP for the recorded public Hanoi driving sample.
+  unblocks: S1 transport and contract checks without using real credentials or credits.
+assumptions:
+  - id: observed-driving-shape
+    status: supported
+    claim: The recorded driving response contains ordered waypoints, per-leg geometry and maneuver metadata.
+    reason: The fixture was captured from the real provider in S0 on public coordinates; the mock rejects requests outside that narrow fixture.
+    verification: S0 returned HTTP 200. S1 real HTTP backend-to-simulation smoke passed; Postman ran 3 requests and 6 assertions with zero failures. Simulation observed 4 routing calls. See backend target navigation-s1-simulation.log and navigation-s1-postman.log.
+    source: backend/src/test/resources/navigation/geoapify-drive-hanoi.json; https://apidocs.geoapify.com/docs/routing/
+    updated_at: '2026-11-23'
+  - id: global-vehicle-and-alert-coverage
+    status: unknown
+    claim: The provider satisfies Vietnamese vehicle restrictions and legal speed or camera coverage nationwide.
+    reason: This one-route mock cannot prove restrictions, freshness, enforcement coverage or vehicle-specific speed limits.
+    verification: Not established. The application returns UNKNOWN availability and deployment remains disabled by default.
+    source: backend/docs/NAVIGATION_API.md; mobile ANDROID-NAVIGATION-S0-RESULTS.md
+    updated_at: '2026-11-23'
+  - id: billing-account-hard-cap
+    status: unknown
+    claim: The application's reservation ledger guarantees no billable traffic for the entire vendor account.
+    reason: The ledger covers new navigation API calls, not legacy endpoints or SDK map and offline requests. The simulation does not reach a billing account.
+    verification: PostgreSQL concurrency and persistence tests cover the application ledger only; account-level and SDK limits remain S0 gates.
+    source: backend/docs/NAVIGATION_API.md
+    updated_at: '2026-11-23'
+fingerprints:
+  - id: navigation-s1-local
+    date: '2026-11-23'
+    commit: cb3d8e4 plus uncommitted S0 and S1 changes
+    cli: Postman 1.73.0

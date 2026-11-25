@@ -1,0 +1,147 @@
+{
+  "info": {
+    "name": "Geoapify live navigation smoke",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Login local test account",
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/auth/login",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"email\":\"{{email}}\",\"password\":\"{{password}}\"}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const auth = pm.response.json().data; pm.environment.set('accessToken', auth.accessToken); pm.environment.set('refreshToken', auth.refreshToken);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Live DRIVE four legs",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/navigation/routes",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"origin\":{\"latitude\":21.0285,\"longitude\":105.8542},\"vehicle\":\"DRIVE\",\"destinations\":[{\"latitude\":21.0278,\"longitude\":105.8342},{\"latitude\":21.0305,\"longitude\":105.842},{\"latitude\":21.035,\"longitude\":105.845},{\"latitude\":21.0285,\"longitude\":105.8542}]}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const route = pm.response.json().data;",
+              "pm.test('Live Geoapify provider', () => pm.expect(route.provider).to.eql('geoapify-routing'));",
+              "pm.test('Vehicle and 4 legs', () => { pm.expect(route.vehicle).to.eql('DRIVE'); pm.expect(route.legs.length).to.eql(4); });",
+              "pm.test('Positive distance and duration', () => { pm.expect(route.distanceMeters).to.be.above(0); pm.expect(route.durationSeconds).to.be.above(0); });",
+              "pm.test('Usable route geometry and instructions', () => { route.legs.forEach(leg => { pm.expect(leg.geometry.length).to.be.above(1); pm.expect(leg.steps.some(s => s.maneuver)).to.eql(true); leg.steps.forEach(s => { pm.expect(s.fromIndex).to.be.at.least(0); pm.expect(s.toIndex).to.be.below(leg.geometry.length); }); }); });",
+              "console.log(JSON.stringify({provider:route.provider,vehicle:route.vehicle,legs:route.legs.length,distanceMeters:route.distanceMeters,durationSeconds:route.durationSeconds}));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Live TWO_WHEELER one leg",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/navigation/routes",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"origin\":{\"latitude\":21.0285,\"longitude\":105.8542},\"vehicle\":\"TWO_WHEELER\",\"destinations\":[{\"latitude\":21.0278,\"longitude\":105.8342}]}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+              "const route = pm.response.json().data;",
+              "pm.test('Live Geoapify provider', () => pm.expect(route.provider).to.eql('geoapify-routing'));",
+              "pm.test('Vehicle and 1 legs', () => { pm.expect(route.vehicle).to.eql('TWO_WHEELER'); pm.expect(route.legs.length).to.eql(1); });",
+              "pm.test('Positive distance and duration', () => { pm.expect(route.distanceMeters).to.be.above(0); pm.expect(route.durationSeconds).to.be.above(0); });",
+              "pm.test('Usable route geometry and instructions', () => { route.legs.forEach(leg => { pm.expect(leg.geometry.length).to.be.above(1); pm.expect(leg.steps.some(s => s.maneuver)).to.eql(true); leg.steps.forEach(s => { pm.expect(s.fromIndex).to.be.at.least(0); pm.expect(s.toIndex).to.be.below(leg.geometry.length); }); }); });",
+              "console.log(JSON.stringify({provider:route.provider,vehicle:route.vehicle,legs:route.legs.length,distanceMeters:route.distanceMeters,durationSeconds:route.durationSeconds}));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Logout test account",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/auth/logout",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"refreshToken\":\"{{refreshToken}}\"}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Logout accepted', () => pm.expect(pm.response.code).to.be.oneOf([200,204]));",
+              "pm.environment.unset('accessToken'); pm.environment.unset('refreshToken');"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

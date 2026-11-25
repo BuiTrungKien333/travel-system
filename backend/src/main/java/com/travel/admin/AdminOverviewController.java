@@ -8,5 +8,5 @@ import org.springframework.web.bind.annotation.*;
 public class AdminOverviewController {
  private final AdminOverviewService service;
  @GetMapping("/overview") public ApiResponse<AdminOverviewService.Overview> overview(@RequestParam(defaultValue="30") int days){return ApiResponse.success(service.overview(days));}
- @GetMapping("/knowledge") public ApiResponse<AdminOverviewService.KnowledgePage> knowledge(@RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="20") int size){return ApiResponse.success(service.list(page,size));}
+ @GetMapping("/knowledge") public ApiResponse<AdminOverviewService.KnowledgePage> knowledge(@RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="20") int size,@RequestParam(required=false) String provinceCode,@RequestParam(required=false) String indexStatus){return ApiResponse.success(service.list(page,size,provinceCode,indexStatus));}
 }

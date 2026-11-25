@@ -37,12 +37,13 @@ public class PlaceAdminIndexController {
     @Operation(summary = "Test hybrid RAG retrieval as an administrator",
             description = "Runs lexical and semantic place retrieval and reports which source matched each candidate.")
     public ApiResponse<PlaceSearchResponse> search(@Valid @RequestBody SearchRequest request) {
-        return ApiResponse.success(service.search(request.positiveQuery(), request.excludedTags(), request.limit()));
+        return ApiResponse.success(service.search(request.positiveQuery(), request.excludedTags(), request.provinceCode(), request.limit()));
     }
 
     public record SearchRequest(
             @NotBlank @Size(max = 1000) String positiveQuery,
             @Size(max = 10) List<@Pattern(regexp = "[A-Z_]{2,30}") String> excludedTags,
+            @Pattern(regexp = "\\d{2}") String provinceCode,
             @Min(1) @Max(8) int limit) {
         public SearchRequest {
             excludedTags = excludedTags == null ? List.of() : List.copyOf(excludedTags);

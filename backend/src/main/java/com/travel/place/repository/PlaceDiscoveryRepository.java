@@ -10,6 +10,7 @@ import org.springframework.stereotype.Repository;
 
 import java.text.Normalizer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -30,8 +31,7 @@ public class PlaceDiscoveryRepository {
     public Filter filter(UUID province, UUID trip, String query) {
         String sql = """
              WHERE p.source='INTERNAL' AND p.province_id=?
-               AND EXISTS (SELECT 1 FROM place_retrieval_profiles r WHERE r.place_id=p.id AND r.approved
-                   AND r.verification_scope <> 'DEV_DEMO_ONLY_NOT_FACT_VERIFIED')
+               AND EXISTS (SELECT 1 FROM place_retrieval_profiles r WHERE r.place_id=p.id AND r.approved AND r.archived_at IS NULL)
             """;
         List<Object> args = new ArrayList<>();
         args.add(province);
@@ -58,7 +58,7 @@ public class PlaceDiscoveryRepository {
     }
 
     public boolean isPublished(UUID id) {
-        return jdbc.queryForObject("SELECT count(*) FROM places p JOIN place_retrieval_profiles r ON r.place_id=p.id WHERE p.id=? AND p.source='INTERNAL' AND r.approved AND r.verification_scope <> 'DEV_DEMO_ONLY_NOT_FACT_VERIFIED'", Long.class, id) == 1;
+        return jdbc.queryForObject("SELECT count(*) FROM places p JOIN place_retrieval_profiles r ON r.place_id=p.id WHERE p.id=? AND p.source='INTERNAL' AND r.approved AND r.archived_at IS NULL", Long.class, id) == 1;
     }
 
     public List<Summary> page(Filter filter, int size, long offset) {
@@ -75,8 +75,23 @@ public class PlaceDiscoveryRepository {
                         new Location(r.getDouble("latitude"), r.getDouble("longitude")),
                         r.getObject("province_id", UUID.class),
                         r.getString("category") == null ? null : new Category(r.getString("category"), r.getString("category")),
-                        null
+                        firstPhoto(r.getArray("sample_photo_urls"))
                 ), args.toArray());
+    }
+
+    public List<String> samplePhotoUrls(UUID placeId) {
+        return jdbc.query("SELECT sample_photo_urls FROM places WHERE id=?", rs -> {
+            if (!rs.next()) return List.of();
+            java.sql.Array urls = rs.getArray(1);
+            return urls == null ? List.of() : Arrays.asList((String[]) urls.getArray());
+        }, placeId);
+    }
+
+    private static com.travel.place.dto.PlaceDiscovery.Photo firstPhoto(java.sql.Array values) throws java.sql.SQLException {
+        if (values == null) return null;
+        String[] urls = (String[]) values.getArray();
+        return urls.length == 0 ? null : new com.travel.place.dto.PlaceDiscovery.Photo(
+                urls[0], "ADMIN_SAMPLE", List.of());
     }
 
     private static String fold(String text) {

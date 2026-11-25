@@ -33,13 +33,14 @@ export function serverConfig() {
 export async function backendRequest(
   path: string,
   options: {
-    method?: "GET" | "POST" | "PATCH";
+    method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
     token?: string;
     body?: unknown;
+    timeoutMillis?: number;
   } = {},
 ) {
   if (
-    !/^\/api\/v1\/(auth\/(login|refresh|logout)|admin\/(session|overview|ai\/executions|knowledge|catalog(?:\/[a-f0-9-]{36})?|planning\/retrieval\/(index|search)|users(?:\/[a-f0-9-]{36})?))(?:\?.*)?$/i.test(
+    !/^\/api\/v1\/(auth\/(login|refresh|logout)|admin\/(session|overview|ai\/executions|integrations\/health(?:\/check)?|knowledge|catalog(?:\/provinces|\/images\/upload|\/[a-f0-9-]{36}(?:\/restore)?)?|planning\/retrieval\/(index|search)|users(?:\/[a-f0-9-]{36})?))(?:\?.*)?$/i.test(
       path,
     )
   )
@@ -51,13 +52,19 @@ export async function backendRequest(
       headers: {
         Accept: "application/json",
         "Accept-Language": "vi",
-        ...(options.body ? { "Content-Type": "application/json" } : {}),
+        ...(options.body && !(options.body instanceof FormData)
+          ? { "Content-Type": "application/json" }
+          : {}),
         ...(options.token ? { Authorization: `Bearer ${options.token}` } : {}),
       },
-      body: options.body ? JSON.stringify(options.body) : undefined,
+      body: options.body
+        ? options.body instanceof FormData
+          ? options.body
+          : JSON.stringify(options.body)
+        : undefined,
       cache: "no-store",
       redirect: "error",
-      signal: AbortSignal.timeout(path.endsWith("/index") ? 180000 : 12000),
+      signal: AbortSignal.timeout(options.timeoutMillis ?? (path.endsWith("/index") ? 180000 : 12000)),
     });
   } catch {
     throw new ApiError("UPSTREAM", 503);

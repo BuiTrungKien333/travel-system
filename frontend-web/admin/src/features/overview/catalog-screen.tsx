@@ -1,9 +1,10 @@
 "use client";
 import { useState, type FormEvent } from "react";
+import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { Banner, Button } from "@/components/ui";
 import { useSession } from "@/features/auth/api";
 import { errorMessage } from "@/lib/errors";
-import { useKnowledge, useCatalogAction, useRagSearch } from "./hooks";
+import { useKnowledge, useCatalogAction, useRagSearch, useCatalogProvinces } from "./hooks";
 import { labels, type Entry } from "./data";
 
 const retrievalTags = [
@@ -29,15 +30,24 @@ export function CatalogScreen({ knowledge = false }: { knowledge?: boolean }) {
   const [selected, setSelected] = useState<Entry | "index">();
   const [ragQuery, setRagQuery] = useState("");
   const [excludedTags, setExcludedTags] = useState<string[]>([]);
+  const [indexSuccessDismissed, setIndexSuccessDismissed] = useState(false);
+  const [knowledgeFilters, setKnowledgeFilters] = useState({ provinceCode: "", indexStatus: "" });
   const allowed = !!session.data?.permissions.includes("admin:catalog");
   const canTestRag = !!session.data?.permissions.includes("admin:ai:index");
-  const q = useKnowledge(session.data?.id, page, allowed);
+  const q = useKnowledge(session.data?.id, page, allowed, knowledgeFilters);
+  const provinces = useCatalogProvinces(session.data?.id, knowledge && allowed);
+  const totalPages = Math.max(1, Math.ceil((q.data?.totalElements ?? 0) / 20));
   const action = useCatalogAction();
   const rag = useRagSearch();
   function searchRag(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!ragQuery.trim() || rag.isPending) return;
-    rag.mutate({ positiveQuery: ragQuery.trim(), excludedTags, limit: 8 });
+    rag.mutate({
+      positiveQuery: ragQuery.trim(),
+      provinceCode: knowledgeFilters.provinceCode || undefined,
+      excludedTags,
+      limit: 8,
+    });
   }
   if (!allowed) return <Banner error>Chưa có quyền quản lý catalog.</Banner>;
   return (
@@ -67,23 +77,133 @@ export function CatalogScreen({ knowledge = false }: { knowledge?: boolean }) {
               disabled={action.isPending}
               onClick={() => {
                 action.reset();
+                setIndexSuccessDismissed(false);
                 setSelected("index");
               }}
             >
-              Cập nhật index
+              {action.isPending ? "Đang cập nhật index…" : "Cập nhật index"}
             </Button>
           ) : null}
         </div>
       </div>
+      {selected ? (
+        <section
+          aria-label="Xác nhận thao tác catalog"
+          className="rounded-xl border border-amber-200 bg-amber-50 p-5"
+        >
+          <h2 className="font-semibold">
+            {selected === "index"
+              ? "Xác nhận cập nhật index AI"
+              : `${selected.approved ? "Gỡ công khai" : "Duyệt công khai"}: ${selected.name}`}
+          </h2>
+          <p className="my-3 text-sm">
+            {selected === "index"
+              ? "Thao tác gọi dịch vụ embedding và có thể phát sinh chi phí. Các embedding hiện hành được bỏ qua."
+              : "Thay đổi được ghi lịch sử; dữ liệu riêng trong các chuyến đi vẫn được giữ."}
+          </p>
+          <div className="flex gap-3">
+            <Button
+              busy={action.isPending}
+              onClick={() =>
+                action.mutate(
+                  selected === "index"
+                    ? "index"
+                    : {
+                        id: selected.id,
+                        approved: !selected.approved,
+                        version: selected.version,
+                      },
+                  { onSuccess: () => setSelected(undefined) },
+                )
+              }
+            >
+              {action.isPending ? "Đang xử lý…" : "Xác nhận"}
+            </Button>
+            <Button
+              variant="secondary"
+              disabled={action.isPending}
+              onClick={() => setSelected(undefined)}
+            >
+              Hủy
+            </Button>
+          </div>
+        </section>
+      ) : null}
+      {action.isPending ? (
+        <Banner>
+          <p role="status" aria-live="polite" className="font-medium">
+            Đang cập nhật kho embedding. Hệ thống xử lý các địa điểm đủ điều
+            kiện; số lượng cập nhật, bỏ qua và lỗi sẽ hiển thị khi hoàn tất.
+          </p>
+        </Banner>
+      ) : null}
+      {action.isError ? (
+        <Banner error>
+          <p role="alert">
+            Cập nhật index không hoàn tất: {errorMessage(action.error)} Đóng xác
+            nhận và tải lại dữ liệu nếu phiên bản đã thay đổi.
+          </p>
+        </Banner>
+      ) : null}
+      {action.isSuccess && action.data && !indexSuccessDismissed ? (
+        action.data.failed > 0 ? (
+          <Banner error>
+            <p role="status" aria-live="polite" className="font-medium">
+              Index hoàn tất nhưng còn địa điểm lỗi: cập nhật {action.data.updated},
+              bỏ qua {action.data.skipped}, lỗi {action.data.failed} · Model {action.data.model}.
+            </p>
+          </Banner>
+        ) : (
+          <div className="flex items-start justify-between gap-4 border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+            <p role="status" aria-live="polite" className="font-medium">
+              Đã cập nhật index thành công: cập nhật {action.data.updated}, giữ
+              nguyên {action.data.skipped}, lỗi {action.data.failed} · Model {action.data.model}.
+            </p>
+            <button
+              type="button"
+              aria-label="Đóng thông báo cập nhật index thành công"
+              title="Đóng thông báo"
+              onClick={() => setIndexSuccessDismissed(true)}
+              className="grid size-8 shrink-0 place-items-center text-green-800 hover:bg-green-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-800"
+            >
+              <X size={17} aria-hidden="true" />
+            </button>
+          </div>
+        )
+      ) : action.isSuccess ? (
+        <Banner>
+          <p role="status" aria-live="polite">Đã cập nhật trạng thái công khai.</p>
+        </Banner>
+      ) : null}
       {q.isPending ? <p role="status">Đang tải catalog…</p> : null}
       {q.isError ? <Banner error>{errorMessage(q.error)}</Banner> : null}
+      {knowledge && provinces.isError ? <Banner error>{errorMessage(provinces.error)}</Banner> : null}
       {q.data ? (
         <>
           <Banner>
             {knowledge
-              ? `Model: ${q.data.model} · ${q.data.indexAvailable ? "Có kho embedding" : "Chưa bật kho embedding"} · Chỉ index hồ sơ đã duyệt trong phạm vi RAG.`
-              : "Duyệt công khai không đồng nghĩa đã xác minh đầy đủ tọa độ/giờ mở cửa. Hồ sơ demo chưa xác minh không thể được duyệt."}
+              ? `Model: ${q.data.model} · ${q.data.indexAvailable ? "Có kho embedding" : "Chưa bật kho embedding"} · Index toàn quốc cho mọi địa điểm nội bộ đã duyệt, chưa lưu trữ.`
+              : "Duyệt sẽ công khai hồ sơ. Hãy kiểm tra nguồn tham khảo, tọa độ và giờ hoạt động trước khi xác nhận."}
           </Banner>
+          {knowledge ? (
+            <section aria-label="Lọc kho tri thức AI" className="grid gap-3 border-y border-line py-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <label htmlFor="knowledge-province" className="label">Tỉnh/thành</label>
+                <select id="knowledge-province" className="input w-full" value={knowledgeFilters.provinceCode} onChange={(event) => { setKnowledgeFilters((current) => ({ ...current, provinceCode: event.target.value })); setPage(0); }}>
+                  <option value="">Tất cả tỉnh/thành</option>
+                  {(provinces.data ?? []).map((province) => <option key={province.code} value={province.code}>{province.name}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label htmlFor="knowledge-status" className="label">Trạng thái embedding</label>
+                <select id="knowledge-status" className="input w-full" value={knowledgeFilters.indexStatus} onChange={(event) => { setKnowledgeFilters((current) => ({ ...current, indexStatus: event.target.value })); setPage(0); }}>
+                  <option value="">Tất cả trạng thái</option>
+                  <option value="CURRENT">Hiện hành</option><option value="STALE">Cần cập nhật</option><option value="MISSING">Chưa index</option><option value="OUT_OF_SCOPE">Ngoài phạm vi RAG</option>
+                </select>
+              </div>
+              <p className="text-xs text-muted sm:col-span-2">Mọi địa điểm nội bộ đã duyệt và chưa lưu trữ đều có thể được index, kể cả dữ liệu demo.</p>
+            </section>
+          ) : null}
           {knowledge && canTestRag ? (
             <section
               className="space-y-4 rounded-2xl border border-line bg-white p-5 sm:p-6"
@@ -98,7 +218,9 @@ export function CatalogScreen({ knowledge = false }: { knowledge?: boolean }) {
                   Nhập truy vấn RAG thuần để so sánh tìm kiếm từ khóa với
                   embedding Gemini; bước phân tích ý định không chạy ở đây. Mỗi
                   lần tìm tạo embedding câu hỏi và có thể dùng quota Gemini. Kết
-                  quả chỉ gồm địa điểm nội bộ đã duyệt trong phạm vi RAG.
+                  quả chỉ gồm địa điểm nội bộ đã duyệt, chưa lưu trữ và không
+                  phải dữ liệu demo. Bộ lọc tỉnh/thành phía trên cũng áp dụng
+                  cho lần truy vấn này; để trống tỉnh sẽ tìm trên toàn quốc.
                 </p>
               </div>
               <form onSubmit={searchRag} className="space-y-4">
@@ -126,6 +248,22 @@ export function CatalogScreen({ knowledge = false }: { knowledge?: boolean }) {
                   >
                     Tìm địa điểm
                   </Button>
+                  {ragQuery || excludedTags.length || rag.data || rag.error ? (
+                    <button
+                      type="button"
+                      aria-label="Đặt lại truy vấn RAG"
+                      title="Đặt lại tìm kiếm"
+                      disabled={rag.isPending}
+                      onClick={() => {
+                        setRagQuery("");
+                        setExcludedTags([]);
+                        rag.reset();
+                      }}
+                      className="grid size-12 shrink-0 place-items-center rounded-lg border border-line text-muted transition-colors hover:bg-canvas hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <X size={18} aria-hidden="true" />
+                    </button>
+                  ) : null}
                 </div>
                 <details className="rounded-xl border border-line bg-canvas px-4 py-3">
                   <summary className="cursor-pointer text-sm font-medium">
@@ -248,7 +386,7 @@ export function CatalogScreen({ knowledge = false }: { knowledge?: boolean }) {
           ) : null}
           <section className="overflow-hidden rounded-2xl border border-line bg-white">
             <div className="border-b border-line p-5 text-sm font-semibold">
-              {q.data.totalElements} hồ sơ · Trang {page + 1}
+              {q.data.totalElements.toLocaleString("vi-VN")} hồ sơ
             </div>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[760px] text-left text-sm">
@@ -307,12 +445,7 @@ export function CatalogScreen({ knowledge = false }: { knowledge?: boolean }) {
                       <td className="px-5 py-5">
                         <Button
                           variant="secondary"
-                          disabled={
-                            action.isPending ||
-                            (!p.approved &&
-                              p.verificationScope ===
-                                "DEV_DEMO_ONLY_NOT_FACT_VERIFIED")
-                          }
+                          disabled={action.isPending}
                           onClick={() => {
                             action.reset();
                             setSelected(p);
@@ -332,85 +465,68 @@ export function CatalogScreen({ knowledge = false }: { knowledge?: boolean }) {
                 nhầm.
               </p>
             ) : null}
-            <div className="flex justify-end gap-3 border-t border-line p-4">
+            <div className="flex flex-wrap items-center justify-between gap-4 border-t border-line px-5 py-4 text-xs text-muted sm:px-6">
+              <p>
+                {q.data.totalElements === 0
+                  ? "0 hồ sơ"
+                  : `${page * 20 + 1}–${Math.min((page + 1) * 20, q.data.totalElements)} / ${q.data.totalElements.toLocaleString("vi-VN")} hồ sơ`}
+              </p>
+              <nav
+                aria-label={`Phân trang ${knowledge ? "kho tri thức AI" : "địa điểm"}`}
+                className="flex items-center gap-1"
+              >
               <Button
                 variant="secondary"
-                disabled={!page || q.isFetching}
+                aria-label="Trang trước"
+                disabled={page === 0 || q.isFetching}
                 onClick={() => setPage(page - 1)}
               >
-                Trang trước
+                  <ChevronLeft size={15} />
               </Button>
-              <Button
-                variant="secondary"
-                disabled={
-                  (page + 1) * 20 >= q.data.totalElements || q.isFetching
-                }
-                onClick={() => setPage(page + 1)}
-              >
-                Trang sau
-              </Button>
+                {paginationPages(page, totalPages).map((pageNumber, index) =>
+                  pageNumber === "ellipsis" ? (
+                    <span key={`ellipsis-${index}`} className="px-1" aria-hidden="true">
+                      …
+                    </span>
+                  ) : (
+                    <Button
+                      key={pageNumber}
+                      variant={pageNumber === page ? "primary" : "secondary"}
+                      aria-label={`Trang ${pageNumber + 1}`}
+                      aria-current={pageNumber === page ? "page" : undefined}
+                      disabled={q.isFetching}
+                      onClick={() => setPage(pageNumber)}
+                    >
+                      {pageNumber + 1}
+                    </Button>
+                  ),
+                )}
+                <Button
+                  variant="secondary"
+                  aria-label="Trang sau"
+                  disabled={page + 1 >= totalPages || q.isFetching}
+                  onClick={() => setPage(page + 1)}
+                >
+                  <ChevronRight size={15} />
+                </Button>
+              </nav>
             </div>
           </section>
         </>
       ) : null}
-      {selected ? (
-        <section
-          aria-label="Xác nhận thao tác catalog"
-          className="rounded-xl border border-amber-200 bg-amber-50 p-5"
-        >
-          <h2 className="font-semibold">
-            {selected === "index"
-              ? "Xác nhận cập nhật index AI"
-              : `${selected.approved ? "Gỡ công khai" : "Duyệt công khai"}: ${selected.name}`}
-          </h2>
-          <p className="my-3 text-sm">
-            {selected === "index"
-              ? "Thao tác gọi dịch vụ embedding và có thể phát sinh chi phí. Các embedding hiện hành được bỏ qua."
-              : "Thay đổi được ghi lịch sử; dữ liệu riêng trong các chuyến đi vẫn được giữ."}
-          </p>
-          <div className="flex gap-3">
-            <Button
-              busy={action.isPending}
-              onClick={() =>
-                action.mutate(
-                  selected === "index"
-                    ? "index"
-                    : {
-                        id: selected.id,
-                        approved: !selected.approved,
-                        version: selected.version,
-                      },
-                  { onSuccess: () => setSelected(undefined) },
-                )
-              }
-            >
-              Xác nhận
-            </Button>
-            <Button
-              variant="secondary"
-              disabled={action.isPending}
-              onClick={() => setSelected(undefined)}
-            >
-              Hủy
-            </Button>
-          </div>
-        </section>
-      ) : null}
-      {action.isError ? (
-        <Banner error>
-          {errorMessage(action.error)} Đóng xác nhận và tải lại dữ liệu nếu
-          phiên bản đã thay đổi.
-        </Banner>
-      ) : null}
-      {action.isSuccess ? (
-        <Banner>
-          {action.data
-            ? `Index hoàn tất: cập nhật ${action.data.updated}, giữ nguyên ${action.data.skipped}, lỗi ${action.data.failed}.`
-            : "Đã cập nhật trạng thái công khai."}
-        </Banner>
-      ) : null}
+
     </div>
   );
+}
+
+function paginationPages(current: number, total: number) {
+  const visible = [...new Set([0, total - 1, current - 1, current, current + 1])]
+    .filter((page) => page >= 0 && page < total)
+    .sort((a, b) => a - b);
+  return visible.flatMap((page, index) => [
+    ...(index > 0 && page - visible[index - 1] > 1 ? (["ellipsis"] as const) : []),
+    page,
+  ]);
 }
 
 function retrievalModeLabel(mode: string) {

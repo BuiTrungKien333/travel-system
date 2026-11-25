@@ -95,6 +95,11 @@ public class MapboxDirectionsService {
                 matrixValues(response.path("durations"), points.size()));
     }
 
+    public void checkConnection() {
+        matrix(List.of(new RoutePoint("A", 16.0544, 108.2022),
+                new RoutePoint("B", 16.0611, 108.2275)), Mode.DRIVE);
+    }
+
     private double[][] matrixValues(JsonNode rows, int size) {
         if (!rows.isArray() || rows.size() != size) throw invalid();
         double[][] result = new double[size][size];

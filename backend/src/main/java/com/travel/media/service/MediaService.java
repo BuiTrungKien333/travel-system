@@ -41,6 +41,8 @@ public interface MediaService {
      */
     UploadResponse uploadImage(MultipartFile file, UUID userId);
 
+    UploadResponse uploadPlaceImage(MultipartFile file);
+
     /**
      * Delete a specific Media entity from a memory. Validates ownership.
      *

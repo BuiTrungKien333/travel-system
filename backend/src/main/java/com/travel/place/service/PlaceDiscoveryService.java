@@ -43,12 +43,13 @@ public class PlaceDiscoveryService {
         if (!Set.of("vi", "en").contains(locale)) throw new AppException(ErrorCode.VALIDATION_ERROR);
         if (!catalog.isPublished(id)) throw new AppException(ErrorCode.PLACE_NOT_FOUND);
         return PlaceDiscovery.detail(places.findVisible(id, null)
-                .orElseThrow(() -> new AppException(ErrorCode.PLACE_NOT_FOUND)), clock.instant());
+                .orElseThrow(() -> new AppException(ErrorCode.PLACE_NOT_FOUND)), catalog.samplePhotoUrls(id), clock.instant());
     }
 
     @Transactional(readOnly = true)
     public PlaceDiscovery.Detail detail(UUID owner, UUID id, String locale) {
         if (!Set.of("vi", "en").contains(locale)) throw new AppException(ErrorCode.VALIDATION_ERROR);
-        return PlaceDiscovery.detail(places.findVisible(id, owner).orElseThrow(() -> new AppException(ErrorCode.PLACE_NOT_FOUND)), clock.instant());
+        return PlaceDiscovery.detail(places.findVisible(id, owner).orElseThrow(() -> new AppException(ErrorCode.PLACE_NOT_FOUND)),
+                catalog.samplePhotoUrls(id), clock.instant());
     }
 }

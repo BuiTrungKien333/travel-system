@@ -26,6 +26,11 @@ public class MongoExecutionStore {
         this.retentionDays=days;
     }
     public boolean enabled(){return client!=null;}
+    public void ping(){
+        if(client==null)throw new IllegalStateException("Telemetry disabled");
+        var result=client.getDatabase(database).runCommand(new Document("ping",1));
+        if(result.get("ok",Number.class).doubleValue()!=1.0)throw new IllegalStateException("MongoDB ping failed");
+    }
     public int retentionDays(){return retentionDays;}
     public synchronized MongoCollection<Document> collection() {
         if(client==null)throw new IllegalStateException("Telemetry disabled");

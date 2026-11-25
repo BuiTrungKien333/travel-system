@@ -122,7 +122,7 @@ public class DraftTimelinePlanner {
                     issues.add(new Problem("CLOSING_TIME", true, p.placeId(), "Không đủ thời gian tham quan trước giờ đóng cửa."));
             }
             if (!"VERIFIED".equals(p.coordinatesQuality()))
-                issues.add(new Problem("APPROXIMATE_COORDINATES", false, p.placeId(), "Tọa độ điểm dừng chỉ là xấp xỉ demo."));
+                issues.add(new Problem("APPROXIMATE_COORDINATES", false, p.placeId(), "Tọa độ địa điểm chưa được xác minh chính xác."));
             stops.add(new Stop(p, cursor, context.arrivalTime(), visitStart, departure, context.waitingMinutes(),
                     context.transitMinutesFromPrev(), round(leg.getDistanceMeters() / 1000.0), context.openingStatus().name()));
             totalTransit += context.transitMinutesFromPrev();

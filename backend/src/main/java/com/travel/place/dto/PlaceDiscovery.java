@@ -27,13 +27,16 @@ public final class PlaceDiscovery {
                          Admission admission, List<String> amenities, List<String> tips, String description,
                          List<Photo> photos, List<Attribution> attributions, Availability dataAvailability, Instant evaluatedAt) { }
 
-    public static Detail detail(Place p, Instant now) {
+    public static Detail detail(Place p, List<String> samplePhotoUrls, Instant now) {
         Hours hours = p.getOpeningTime() != null && p.getClosingTime() != null
                 ? new Hours(List.of(p.getOpeningTime() + " – " + p.getClosingTime()), "INTERNAL") : null;
+        List<Photo> photos = samplePhotoUrls.stream().map(url ->
+                new Photo(url, "ADMIN_SAMPLE", List.of())).toList();
         return new Detail(p.getId(), new Reference(p.getSource(), p.getId()), p.getSource(), p.getName(), p.getAddress(),
                 new Location(p.getLatitude(), p.getLongitude()), p.getProvince() == null ? null : p.getProvince().getId(),
                 p.getCategory() == null ? null : new Category(p.getCategory(), p.getCategory()), p.getPlaceType().name(),
-                hours, "UNKNOWN", "UNKNOWN", null, null, List.of(), List.of(), null, List.of(), List.of(),
-                new Availability(hours == null ? "NOT_PROVIDED" : "AVAILABLE", "NOT_PROVIDED", "NOT_PROVIDED", "NOT_PROVIDED"), now);
+                hours, "UNKNOWN", "UNKNOWN", null, null, List.of(), List.of(), null, photos, List.of(),
+                new Availability(hours == null ? "NOT_PROVIDED" : "AVAILABLE", "NOT_PROVIDED",
+                        photos.isEmpty() ? "NOT_PROVIDED" : "AVAILABLE", "NOT_PROVIDED"), now);
     }
 }

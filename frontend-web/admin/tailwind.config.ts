@@ -2,6 +2,17 @@ import type { Config } from "tailwindcss";
 export default {
   content: ["./src/**/*.{ts,tsx}"],
   theme: {
+    borderRadius: {
+      none: "0px",
+      sm: "0.125rem",
+      DEFAULT: "0.25rem",
+      md: "0.25rem",
+      lg: "0.375rem",
+      xl: "0.5rem",
+      "2xl": "0.625rem",
+      "3xl": "0.75rem",
+      full: "9999px",
+    },
     extend: {
       colors: {
         ink: "#143D42",
@@ -16,7 +27,7 @@ export default {
         canvas: "#F5F8F8",
         line: "#DFE8E7",
       },
-      boxShadow: { panel: "0 4px 24px rgba(20,61,66,.04)" },
+      boxShadow: { panel: "none" },
     },
   },
   plugins: [],

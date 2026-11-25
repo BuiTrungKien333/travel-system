@@ -60,7 +60,7 @@ public class DraftThemeService {
             case "HISTORY" -> "Tìm hiểu lịch sử";
             case "SEA_SCENERY" -> "Biển và cảnh quan";
             case "LOCAL_MARKETS" -> "Khám phá địa phương";
-            default -> day.stops().isEmpty() ? "Thời gian tự do" : "Trải nghiệm Đà Nẵng";
+            default -> day.stops().isEmpty() ? "Thời gian tự do" : "Khám phá địa phương";
         };
         String summary = names.isEmpty() ? "Chưa xếp điểm tham quan cho ngày này." : "Lịch có " + day.stops().size()
                 + " điểm dừng; điểm nhấn: " + String.join(", ", names) + ".";

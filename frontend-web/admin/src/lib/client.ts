@@ -34,11 +34,15 @@ async function raw(
       credentials: "same-origin",
       cache: "no-store",
       headers:
-        options.body !== undefined
+        options.body !== undefined && !(options.body instanceof FormData)
           ? { "Content-Type": "application/json" }
           : undefined,
       body:
-        options.body !== undefined ? JSON.stringify(options.body) : undefined,
+        options.body === undefined
+          ? undefined
+          : options.body instanceof FormData
+            ? options.body
+            : JSON.stringify(options.body),
       signal:
         options.signal ??
         AbortSignal.timeout(path.endsWith("/index") ? 190000 : 15000),

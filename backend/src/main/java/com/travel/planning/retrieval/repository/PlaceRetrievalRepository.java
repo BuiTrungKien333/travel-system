@@ -1,6 +1,7 @@
 package com.travel.planning.retrieval.repository;
 
 import com.travel.planning.retrieval.model.PlaceCandidate;
+import com.travel.planning.retrieval.model.ProvinceOption;
 import com.travel.planning.retrieval.provider.GeminiEmbeddingClient;
 import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -27,13 +28,13 @@ public class PlaceRetrievalRepository {
 
     private static final String JOINS = """
              FROM places p JOIN place_retrieval_profiles r ON r.place_id = p.id
-                AND r.verification_scope <> 'DEV_DEMO_ONLY_NOT_FACT_VERIFIED'
+                AND r.archived_at IS NULL
              JOIN provinces province ON province.id = p.province_id
             """;
     private static final String DOCUMENT = "(p.name || E'\\n' || r.description || E'\\n' || array_to_string(r.tags, ', '))";
     private static final String HASH = "encode(sha256(convert_to(" + DOCUMENT + ", 'UTF8')), 'hex')";
     private static final String CATALOG = "SELECT p.*, r.* " + JOINS
-            + " WHERE r.approved AND p.source='INTERNAL' AND province.code = '48'";
+            + " WHERE r.approved AND p.source='INTERNAL'";
 
     public PlaceRetrievalRepository(JdbcTemplate jdbc) {
         this.jdbc = jdbc;
@@ -43,29 +44,65 @@ public class PlaceRetrievalRepository {
         return jdbc.query(CATALOG + " ORDER BY p.name", this::map);
     }
 
-    public List<PlaceCandidate> candidates(Collection<UUID> ids) {
+    public List<ProvinceOption> provinces() {
+        return jdbc.query("SELECT code,name FROM provinces WHERE code ~ '^[0-9]{2}$' ORDER BY name,code",
+                (rs, row) -> new ProvinceOption(rs.getString("code"), rs.getString("name")));
+    }
+
+    public String provinceCode(UUID provinceId) {
+        if (provinceId == null) return null;
+        List<String> codes = jdbc.query("SELECT code FROM provinces WHERE id = ? AND code ~ '^[0-9]{2}$'",
+                (rs, row) -> rs.getString("code"), provinceId);
+        return codes.isEmpty() ? null : codes.getFirst();
+    }
+
+    public List<PlaceCandidate> catalog(String provinceCode) {
+        if (provinceCode == null || provinceCode.isBlank()) return List.of();
+        return jdbc.query(CATALOG + " AND province.code=? ORDER BY p.name", this::map, provinceCode);
+    }
+
+    public List<PlaceCandidate> candidates(Collection<UUID> ids, String provinceCode) {
         if (ids.isEmpty()) return List.of();
         String placeholders = String.join(",", Collections.nCopies(ids.size(), "?"));
-        return jdbc.query(CATALOG + " AND p.id IN (" + placeholders + ") ORDER BY p.name", this::map, ids.toArray());
+        String provinceFilter = provinceCode == null || provinceCode.isBlank() ? "" : " AND province.code=?";
+        Object[] args = provinceCode == null || provinceCode.isBlank()
+                ? ids.toArray()
+                : java.util.stream.Stream.concat(java.util.stream.Stream.of(provinceCode), ids.stream()).toArray();
+        return jdbc.query(CATALOG + provinceFilter + " AND p.id IN (" + placeholders + ") ORDER BY p.name", this::map, args);
+    }
+
+    public List<PlaceCandidate> candidates(Collection<UUID> ids) {
+        return candidates(ids, null);
+    }
+
+    public List<UUID> semantic(float[] vector, String model, String provinceCode) {
+        String provinceFilter = provinceCode == null || provinceCode.isBlank() ? "" : " AND province.code=?";
+        String sql = "SELECT p.id " + JOINS + " JOIN place_embeddings e ON e.place_id=p.id "
+                + "WHERE r.approved AND p.source='INTERNAL' AND e.model=? AND e.content_hash=" + HASH
+                + provinceFilter + " ORDER BY e.embedding <=> CAST(? AS vector),p.id LIMIT 40";
+        if (provinceCode == null || provinceCode.isBlank())
+            return jdbc.query(sql, (rs, row) -> rs.getObject("id", UUID.class), model, GeminiEmbeddingClient.vectorLiteral(vector));
+        return jdbc.query(sql, (rs, row) -> rs.getObject("id", UUID.class), model, provinceCode, GeminiEmbeddingClient.vectorLiteral(vector));
     }
 
     public List<UUID> semantic(float[] vector, String model) {
-        return jdbc.query("SELECT p.id " + JOINS + """
-                         JOIN place_embeddings e ON e.place_id = p.id
-                         WHERE r.approved AND p.source='INTERNAL' AND province.code = '48' AND e.model = ?
-                         AND e.content_hash =
-                        """ + HASH + " ORDER BY e.embedding <=> CAST(? AS vector), p.id LIMIT 40",
-                (rs, row) -> rs.getObject("id", UUID.class), model, GeminiEmbeddingClient.vectorLiteral(vector));
+        return semantic(vector, model, null);
+    }
+
+    public List<UUID> lexical(String query, String provinceCode) {
+        String textVector = "to_tsvector('simple', unaccent(" + DOCUMENT + "))";
+        String textQuery = "websearch_to_tsquery('simple', unaccent(?))";
+        String provinceFilter = provinceCode == null || provinceCode.isBlank() ? "" : " AND province.code=?";
+        String sql = "SELECT p.id " + JOINS + " WHERE r.approved AND p.source='INTERNAL' AND "
+                + textVector + " @@ " + textQuery + provinceFilter + " ORDER BY ts_rank(" + textVector + ", "
+                + textQuery + ") DESC,p.id LIMIT 40";
+        if (provinceCode == null || provinceCode.isBlank())
+            return jdbc.query(sql, (rs, row) -> rs.getObject("id", UUID.class), query, query);
+        return jdbc.query(sql, (rs, row) -> rs.getObject("id", UUID.class), query, provinceCode, query);
     }
 
     public List<UUID> lexical(String query) {
-        String textVector = "to_tsvector('simple', unaccent(" + DOCUMENT + "))";
-        String textQuery = "websearch_to_tsquery('simple', unaccent(?))";
-
-        return jdbc.query("SELECT p.id " + JOINS + " WHERE r.approved AND p.source='INTERNAL' AND province.code = '48' AND "
-                        + textVector + " @@ " + textQuery + " ORDER BY ts_rank(" + textVector + ", "
-                        + textQuery + ") DESC, p.id LIMIT 40",
-                (rs, row) -> rs.getObject("id", UUID.class), query, query);
+        return lexical(query, null);
     }
 
     public boolean indexed(PlaceCandidate place, String model) {

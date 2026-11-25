@@ -1,23 +1,46 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { Users, MapPin, Route, Database, Clock, RefreshCw } from "lucide-react";
+import { Users, MapPin, Route, Database, Clock, RefreshCw, CheckCircle2 } from "lucide-react";
 import { Banner, Button } from "@/components/ui";
 import { useSession } from "@/features/auth/api";
 import { errorMessage } from "@/lib/errors";
-import { useOverview } from "./hooks";
+import { useIntegrationHealth, useOverview, useTriggerIntegrationHealthCheck } from "./hooks";
 import { samples, type Point } from "./data";
-import { TelemetryPanel, useTelemetry } from "./telemetry";
-import { ChartCard, Bars, Donut, Trend } from "./charts";
+import { TelemetryPanel } from "./telemetry";
+import {
+  ChartCard,
+  Bars,
+  TopPlacesBars,
+  TopProvincesBars,
+  Donut,
+  Trend,
+} from "./charts";
 export function Dashboard() {
   const session = useSession();
   const [days, setDays] = useState(30);
-  const [demo, setDemo] = useState(false);
   const allowed = !!session.data?.permissions.includes("admin:system:read");
   const q = useOverview(session.data?.id, days, allowed);
-  const telemetry = useTelemetry(days);
+  const integrationHealth = useIntegrationHealth(session.data?.id, allowed);
+  const triggerHealthCheck = useTriggerIntegrationHealthCheck(session.data?.id);
   if (!allowed)
     return <Banner error>Chưa có quyền xem thống kê hệ thống.</Banner>;
+  const buildTopProvinces = (real: Point[], fallback: Point[]) => {
+    if (!real.length) return fallback.slice(0, 5);
+    const existing = new Set(real.map((p) => p.name.toLowerCase()));
+    const top = [...real].sort((a, b) => b.value - a.value).slice(0, 5);
+    if (top.length >= 5) return top;
+    const anchor = Math.max(top[top.length - 1]?.value ?? 1, 1);
+    const ratios = [0.8, 0.6, 0.45, 0.3];
+    const fillers = fallback
+      .filter((p) => !existing.has(p.name.toLowerCase()))
+      .slice(0, 5 - top.length)
+      .map((p, i) => ({
+        name: p.name,
+        value: Math.max(1, Math.round(anchor * (ratios[i] ?? 0.3))),
+      }));
+    return [...top, ...fillers];
+  };
   const pick = (real: Point[], fallback: Point[]) => ({
     data: real.length ? real : fallback,
     sample: !real.length,
@@ -38,6 +61,24 @@ export function Dashboard() {
   const d = q.data;
   const cards = [
     {
+      title: "Tổng chuyến đi",
+      value: d.trips,
+      note: "Hiện tại · chưa bị xóa",
+      icon: Route,
+    },
+    {
+      title: "Tổng địa điểm",
+      value: d.places,
+      note: "Hồ sơ nội bộ đang hoạt động",
+      icon: MapPin,
+    },
+    {
+      title: "Tổng lượt check-in",
+      value: d.checkIns,
+      note: "Điểm dừng đã ghé thăm",
+      icon: CheckCircle2,
+    },
+    {
       title: "Tổng tài khoản",
       value: d.users,
       note: "Hiện tại · chưa bị xóa",
@@ -56,9 +97,9 @@ export function Dashboard() {
       icon: Route,
     },
     {
-      title: "Bản nháp AI",
+      title: "Yêu cầu tạo nháp AI",
       value: d.drafts,
-      note: `Trong ${days} ngày`,
+      note: `Trong ${days} ngày · gồm cả yêu cầu chưa hoàn tất`,
       icon: Database,
     },
     {
@@ -112,7 +153,7 @@ export function Dashboard() {
         })}{" "}
         · Múi giờ Việt Nam
       </p>
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {cards.map((c) => (
           <div
             key={c.title}
@@ -123,9 +164,9 @@ export function Dashboard() {
               <c.icon size={17} />
             </div>
             <p className="my-3 text-3xl font-semibold tracking-tight">
-              {c.value.toLocaleString("vi-VN")}
+              {(c.value ?? 0).toLocaleString("vi-VN")}
             </p>
-            <p className="text-[11px] text-muted">{c.note}</p>
+            <p className="text-xs text-muted">{c.note}</p>
           </div>
         ))}
       </div>
@@ -150,14 +191,14 @@ export function Dashboard() {
           note={`Top 10 theo số chuyến được tạo trong ${days} ngày có thêm địa điểm. Mỗi chuyến chỉ đếm một lần.`}
           sample={!d.topPlaces.length}
         >
-          <Bars {...pick(d.topPlaces, samples.topPlaces)} />
+          <TopPlacesBars {...pick(d.topPlaces, samples.topPlaces)} />
         </ChartCard>
         <ChartCard
-          title="Top tỉnh / thành"
+          title="Top 5 tỉnh / thành"
           note={`Số chuyến mới chọn tỉnh/thành làm điểm đến trong ${days} ngày.`}
-          sample={!d.topProvinces.length}
+          sample={d.topProvinces.length < 5}
         >
-          <Bars {...pick(d.topProvinces, samples.topProvinces)} />
+          <TopProvincesBars data={buildTopProvinces(d.topProvinces, samples.topProvinces)} />
         </ChartCard>
       </div>
       <div className="grid gap-5 xl:grid-cols-2">
@@ -170,7 +211,7 @@ export function Dashboard() {
         </ChartCard>
         <ChartCard
           title="Kho tri thức AI RAG"
-          note="Snapshot embedding theo model hiện hành. Ngoài phạm vi gồm hồ sơ chưa duyệt, chưa xác minh hoặc ngoài Đà Nẵng."
+          note="Snapshot embedding theo model hiện hành. Hồ sơ lưu trữ không nằm trong thống kê; hồ sơ chưa được duyệt được tính là ngoài phạm vi."
           sample={!d.rag.length}
         >
           <Donut {...pick(d.rag, samples.rag)} />
@@ -178,54 +219,7 @@ export function Dashboard() {
       </div>
       <div className="grid gap-5 xl:grid-cols-2">
         <TelemetryPanel days={days} />
-        <section className="rounded-2xl border border-line bg-white p-6">
-          <h2 className="font-semibold">Trạng thái tích hợp</h2>
-          <p className="my-3 text-xs leading-5 text-muted">
-            Database được xác nhận từ truy vấn thống kê này. Các dịch vụ khác
-            chưa có health probe; không gọi API có phí để kiểm tra nền.
-          </p>
-          <label className="mb-4 flex items-center gap-2 text-xs text-muted">
-            <input
-              type="checkbox"
-              checked={demo}
-              onChange={(e) => setDemo(e.target.checked)}
-            />
-            Xem trạng thái mẫu của provider
-          </label>
-          {[
-            "PostgreSQL",
-            "MongoDB",
-            "Gemini",
-            "Embedding",
-            "Mapbox",
-            "Thời tiết",
-            "Cloudinary",
-          ].map((name, i) => (
-            <div
-              key={name}
-              className="flex justify-between border-t border-line py-3 text-sm"
-            >
-              <span>{name}</span>
-              <span className={i === 0 ? "text-teal-700" : "text-muted"}>
-                {i === 0
-                  ? "Kết nối tại thời điểm chốt"
-                  : i === 1
-                    ? telemetry.isPending
-                      ? "Đang đọc telemetry"
-                      : telemetry.isError
-                        ? "Chưa đọc được"
-                        : telemetry.data?.status === "AVAILABLE"
-                          ? "Telemetry kết nối"
-                          : telemetry.data?.status === "DISABLED"
-                            ? "Chưa bật"
-                            : "Không khả dụng"
-                    : demo
-                      ? `${i === 3 ? "Suy giảm" : "Hoạt động"} · MẪU`
-                      : "Chưa đo"}
-              </span>
-            </div>
-          ))}
-        </section>
+        <IntegrationHealthPanel query={integrationHealth} trigger={triggerHealthCheck} />
       </div>
       <Banner>
         Biểu đồ không có bản ghi sẽ hiển thị ví dụ với nhãn “Dữ liệu mẫu”. Các
@@ -247,5 +241,113 @@ export function Dashboard() {
         </Link>
       </div>
     </div>
+  );
+}
+
+function IntegrationHealthPanel({
+  query,
+  trigger,
+}: {
+  query: ReturnType<typeof useIntegrationHealth>;
+  trigger: ReturnType<typeof useTriggerIntegrationHealthCheck>;
+}) {
+  const statusLabels: Record<string, string> = {
+    UP: "Hoạt động",
+    DOWN: "Không kết nối được",
+    NOT_CONFIGURED: "Chưa cấu hình",
+    MOCK: "Đang dùng mô phỏng",
+    NOT_CHECKED: "Đang chờ lần kiểm tra đầu",
+  };
+  const detailLabels: Record<string, string> = {
+    INVALID_RESPONSE: "Nhà cung cấp trả phản hồi không hợp lệ",
+    TIMEOUT_OR_NETWORK: "Hết thời gian chờ hoặc lỗi mạng",
+    CHECK_FAILED: "Lần kiểm tra chưa hoàn tất",
+    MOCK_PROVIDER_ACTIVE: "Đây không phải dữ liệu thời tiết thật",
+    MODEL_METHOD_UNSUPPORTED: "Model không hỗ trợ chức năng hệ thống cần dùng",
+    TIMEOUT: "Dịch vụ phản hồi quá thời gian chờ",
+    DNS_ERROR: "Không phân giải được địa chỉ dịch vụ",
+    CONNECTION_REFUSED: "Kết nối tới dịch vụ bị từ chối",
+    NETWORK_ERROR: "Không thể kết nối tới dịch vụ",
+    MONGODB_TIMEOUT: "MongoDB không phản hồi trong thời gian chờ",
+    INVALID_CONFIGURATION: "Cấu hình tích hợp chưa hợp lệ",
+    PROVIDER_CLIENT_ERROR: "Client gọi dịch vụ gặp lỗi",
+    HTTP_401: "Thông tin xác thực bị từ chối",
+    HTTP_403: "Tài khoản thiếu quyền truy cập dịch vụ",
+    HTTP_429: "Nhà cung cấp đang giới hạn yêu cầu",
+    HTTP_500: "Nhà cung cấp đang gặp lỗi",
+  };
+  return (
+    <section className="min-w-0 rounded-2xl border border-line bg-white p-6 shadow-panel">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="font-semibold">Trạng thái tích hợp</h2>
+          <p className="mt-2 text-xs leading-5 text-muted">
+            Kiểm tra nền mỗi {Math.round((query.data?.intervalMillis ?? 1800000) / 60000)} phút; dashboard chỉ đọc kết quả đã lưu.
+          </p>
+        </div>
+        <Button
+          variant="secondary"
+          busy={query.isFetching || trigger.isPending || !!query.data?.checking}
+          disabled={!query.data}
+          onClick={() => trigger.mutate()}
+        >
+          <RefreshCw size={16} aria-hidden="true" />
+          Kiểm tra ngay
+        </Button>
+      </div>
+      {query.isError ? <Banner error>Chưa tải được trạng thái health check. Hãy thử tải lại.</Banner> : null}
+      {trigger.isError ? <Banner error>{errorMessage(trigger.error)}</Banner> : null}
+      {query.data?.checking ? <p role="status" className="mt-3 text-sm font-medium text-teal-700">Đang kiểm tra các dịch vụ tích hợp… Kết quả sẽ tự cập nhật.</p> : null}
+      {trigger.data && !trigger.data.started ? <p className="mt-3 text-xs text-muted">Một lần kiểm tra khác đang chạy; dashboard sẽ cập nhật khi hoàn tất.</p> : null}
+      {query.isPending ? <p role="status" className="py-8 text-sm text-muted">Đang tải kết quả kiểm tra…</p> : null}
+      {query.data ? (
+        <ul className="mt-4 divide-y divide-line">
+          {query.data.integrations.map((integration) => {
+            const tone = integration.stale && integration.status === "UP"
+              ? "bg-amber-50 text-amber-800 ring-amber-200"
+              : integration.status === "UP"
+              ? "bg-teal-50 text-teal-700 ring-teal-100"
+              : integration.status === "DOWN"
+                ? "bg-red-50 text-red-700 ring-red-100"
+                : integration.status === "MOCK"
+                  ? "bg-amber-50 text-amber-800 ring-amber-200"
+                  : "bg-slate-50 text-slate-600 ring-slate-200";
+            return (
+              <li key={integration.key} className="flex flex-wrap items-start justify-between gap-3 py-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-ink">{integration.name}</p>
+                  <p className="mt-1 text-xs text-muted">
+                    {integration.checkedAt
+                      ? `Kiểm tra lúc ${new Date(integration.checkedAt).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })} · ${integration.durationMillis} ms`
+                      : "Chưa có kết quả kiểm tra"}
+                    {integration.stale ? " · Dữ liệu đã cũ" : ""}
+                  </p>
+                  {integration.lastSuccessAt && integration.status !== "UP" ? (
+                    <p className="mt-1 text-xs text-muted">
+                      Thành công gần nhất: {new Date(integration.lastSuccessAt).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })}
+                    </p>
+                  ) : null}
+                  {integration.detailCode ? (
+                    <p className="mt-1 text-xs text-muted">
+                      {detailLabels[integration.detailCode]
+                        ?? (integration.detailCode.startsWith("HTTP_")
+                          ? `Nhà cung cấp phản hồi HTTP ${integration.detailCode.slice(5)}`
+                          : integration.detailCode.startsWith("UNEXPECTED_")
+                            ? `Lỗi nội bộ khi kiểm tra (${integration.detailCode.slice(11)})`
+                            : integration.detailCode === "CHECK_FAILED"
+                              ? "Lỗi chưa phân loại từ lần kiểm tra cũ; hãy chạy kiểm tra lại."
+                              : `Mã lỗi: ${integration.detailCode}`)}
+                    </p>
+                  ) : null}
+                </div>
+                <span className={`badge shrink-0 ${tone}`}>
+                  {integration.stale && integration.status !== "NOT_CHECKED" ? "Cũ · " : ""}{statusLabels[integration.status] ?? integration.status}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+    </section>
   );
 }

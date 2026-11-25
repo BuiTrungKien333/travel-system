@@ -36,6 +36,14 @@ public final class CloudinaryPathBuilder {
         return String.format("%s/users/%s/misc", ROOT, userId);
     }
 
+    public static String placeImageFolder() {
+        return ROOT + "/places";
+    }
+
+    public static String generatePlaceImageFileName() {
+        return "place_" + UUID.randomUUID();
+    }
+
     /**
      * Đặt lại tên file upload theo format:
      *   memory_{yyyyMMdd}_{HHmmss}_{index}

@@ -75,7 +75,7 @@ export function Brand({ light = false }: { light?: boolean }) {
       <span className="text-2xl font-bold tracking-tight">
         WeGo
         <span
-          className={`ml-2 border-l pl-2 text-[10px] font-semibold uppercase tracking-[.18em] ${light ? "border-white/25 text-teal-100" : "border-line text-muted"}`}
+          className={`ml-2 border-l pl-2 text-xs font-semibold uppercase tracking-[.12em] ${light ? "border-white/25 text-teal-100" : "border-line text-muted"}`}
         >
           Admin
         </span>

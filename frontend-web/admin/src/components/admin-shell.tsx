@@ -35,7 +35,7 @@ export function AdminShell({
         <Link href="/dashboard" aria-label="WeGo Admin - dashboard">
           <Brand />
         </Link>
-        <p className="mb-3 mt-10 hidden text-[10px] font-semibold uppercase tracking-[.18em] text-muted lg:block">
+        <p className="mb-3 mt-10 hidden text-xs font-semibold uppercase tracking-[.12em] text-muted lg:block">
           Không gian quản trị
         </p>
         <nav aria-label="Điều hướng quản trị" className="mt-5 lg:mt-0">

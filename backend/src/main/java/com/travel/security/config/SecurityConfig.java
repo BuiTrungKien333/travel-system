@@ -22,6 +22,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.List;
+
 import org.springframework.http.HttpMethod;
 import org.springframework.core.env.Environment;
 import org.springframework.core.env.Profiles;
@@ -77,11 +78,14 @@ public class SecurityConfig {
                                 "/api/v1/public/weather/current", "/api/v1/public/weather/forecast",
                                 "/api/v1/auth/verify-email", "/api/v1/auth/google/verify-link").permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html")
-                            .access(new WebExpressionAuthorizationManager(environment.acceptsProfiles(Profiles.of("dev", "test", "rag-demo"))
+                        .access(new WebExpressionAuthorizationManager(environment.acceptsProfiles(Profiles.of("dev", "test", "rag-demo"))
                                 ? "permitAll" : "hasRole('ADMIN') and hasAuthority('admin:system:read')"))
                         .requestMatchers("/actuator/**").access(admin("admin:system:read"))
                         .requestMatchers(HttpMethod.GET, "/api/v1/admin/ai/executions").access(admin("admin:system:read"))
                         .requestMatchers(HttpMethod.GET, "/api/v1/admin/overview").access(admin("admin:system:read"))
+                        .requestMatchers(HttpMethod.GET, "/api/v1/admin/integrations/health").access(admin("admin:system:read"))
+                        .requestMatchers(HttpMethod.POST, "/api/v1/admin/integrations/health/check").access(admin("admin:system:read"))
+                        .requestMatchers(HttpMethod.POST, "/api/v1/admin/integrations/health/check").access(admin("admin:system:read"))
                         .requestMatchers(HttpMethod.GET, "/api/v1/admin/knowledge").access(admin("admin:catalog"))
                         .requestMatchers(HttpMethod.GET, "/api/v1/admin/session").hasRole("ADMIN")
                         .requestMatchers("/api/v1/admin/users/**").access(admin("admin:users"))

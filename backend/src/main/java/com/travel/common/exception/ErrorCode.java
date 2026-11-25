@@ -30,6 +30,7 @@ public enum ErrorCode {
     ADMIN_SELF_CHANGE("ADMIN_002", "error.admin.self-change", HttpStatus.CONFLICT),
     ADMIN_LAST_ACCOUNT("ADMIN_003", "error.admin.last-account", HttpStatus.CONFLICT),
     ADMIN_UNVERIFIED("ADMIN_004", "error.admin.unverified", HttpStatus.CONFLICT),
+    ADMIN_CATALOG_CONFLICT("ADMIN_005", "error.admin.catalog-conflict", HttpStatus.CONFLICT),
     USER_ALREADY_EXISTS("AUTH_003", "error.auth.email-exists", HttpStatus.CONFLICT),
     INVALID_CREDENTIALS("AUTH_004", "error.auth.invalid-credentials", HttpStatus.UNAUTHORIZED),
     INVALID_REFRESH_TOKEN("AUTH_005", "error.auth.invalid-refresh-token", HttpStatus.UNAUTHORIZED),
@@ -73,6 +74,7 @@ public enum ErrorCode {
     ITINERARY_CHANGED("TRIP_008", "error.itinerary.changed", HttpStatus.CONFLICT),
     PLACE_NOT_FOUND("PLACE_001", "error.place.not-found", HttpStatus.NOT_FOUND),
     PROVINCE_NOT_FOUND("PLACE_002", "error.place.province-not-found", HttpStatus.NOT_FOUND),
+    PLACE_CATALOG_DUPLICATE("PLACE_003", "error.place.catalog-duplicate", HttpStatus.CONFLICT),
     PLACE_PROVIDER_UNAVAILABLE("PLACE_004", "error.place.provider-unavailable", HttpStatus.SERVICE_UNAVAILABLE),
     PLACE_PROVIDER_INVALID_RESPONSE("PLACE_005", "error.place.provider-invalid-response", HttpStatus.BAD_GATEWAY),
 

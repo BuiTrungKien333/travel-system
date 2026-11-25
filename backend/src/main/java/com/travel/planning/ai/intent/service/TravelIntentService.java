@@ -157,8 +157,12 @@ public class TravelIntentService {
     }
 
     private String canonicalDestination(String value) {
-        String normalized = normalize(value);
-        return Set.of("danang", "tp da nang", "thanh pho da nang").contains(normalized) ? "da nang" : normalized;
+        return PlaceRetrievalService.canonicalProvinceName(value);
+    }
+
+    private String resolveProvinceCode(String destination) {
+        if (destination == null || destination.isBlank()) return null;
+        return retrieval.resolveProvinceCode(destination);
     }
 
     private List<String> union(List<String> first, List<String> second) {
@@ -175,7 +179,7 @@ public class TravelIntentService {
 
         if (intent.destination() == null) {
             missing.add("destination");
-            questions.add("Bạn muốn đi tỉnh/thành nào? Demo hiện có dữ liệu Đà Nẵng.");
+            questions.add("Bạn muốn đi tỉnh/thành nào?");
         }
         if (intent.numberOfDays() == null) {
             missing.add("numberOfDays");
@@ -190,11 +194,11 @@ public class TravelIntentService {
             missing.add("travelPace");
         }
         if (intent.numberOfDays() != null && intent.numberOfDays() > 3) {
-            warnings.add("Demo lập lịch tiếp theo giới hạn 1–3 ngày; hiện chỉ truy xuất ứng viên.");
+            warnings.add("Gợi ý lịch trình AI hiện hỗ trợ từ 1 đến 3 ngày.");
         }
         if (intent.dailyStartTime() != null && intent.dailyEndTime() != null
                 && !LocalTime.parse(intent.dailyStartTime()).isBefore(LocalTime.parse(intent.dailyEndTime()))) {
-            questions.add("Khung giờ trong ngày chưa hợp lệ. Bạn xác nhận lại giờ bắt đầu và kết thúc; demo chưa hỗ trợ khung qua đêm.");
+            questions.add("Khung giờ trong ngày chưa hợp lệ. Hãy chọn giờ bắt đầu sớm hơn giờ kết thúc trong cùng ngày.");
         }
 
         Set<String> overlap = new HashSet<>(intent.interests());
@@ -203,11 +207,16 @@ public class TravelIntentService {
             questions.add("Bạn vừa muốn vừa loại trừ nhóm " + String.join(", ", new TreeSet<>(overlap)) + ". Hãy xác nhận lại.");
         }
 
-        boolean supported = intent.destination() != null && Set.of("da nang", "danang", "tp da nang", "thanh pho da nang")
-                .contains(normalize(intent.destination()));
+        String provinceCode = resolveProvinceCode(intent.destination());
+        boolean supported = provinceCode != null;
         String status = supported ? "READY_FOR_RETRIEVAL" : intent.destination() == null ? "NEEDS_INPUT" : "UNSUPPORTED_DESTINATION";
         if (intent.destination() != null && !supported) {
-            questions.add("Kho demo chỉ có Đà Nẵng; chưa truy xuất cho điểm đến bạn yêu cầu.");
+            if (mentionsMultipleDestinations(intent.destination())) {
+                questions.add("Một lịch trình hiện gắn với một tỉnh/thành. Hãy chọn một điểm đến cho chuyến đi này.");
+            } else {
+                questions.add("Chưa nhận diện được tỉnh/thành ‘" + intent.destination()
+                        + "’ trong danh mục. Hãy chọn một tỉnh/thành có trong hệ thống.");
+            }
         }
 
         List<PlaceCandidate> required = new ArrayList<>();
@@ -215,11 +224,12 @@ public class TravelIntentService {
 
         // Resolve names only against the curated DB catalog, never via LLM identifiers.
         if (supported) {
-            List<PlaceCandidate> catalog = retrieval.catalog();
+            List<PlaceCandidate> catalog = retrieval.catalog(provinceCode);
             for (String name : intent.mustVisitNames()) {
                 List<PlaceCandidate> found = resolve(name, catalog);
                 if (found.size() != 1) {
-                    questions.add("Điểm bắt buộc '" + name + "' chưa xác định duy nhất trong kho demo. Hãy chọn lại từ catalog.");
+                    questions.add("Điểm bắt buộc '" + name + "' chưa xác định duy nhất trong kho địa điểm của "
+                            + intent.destination() + ". Hãy chọn lại từ danh sách.");
                 } else if (required.stream().noneMatch(p -> p.placeId().equals(found.getFirst().placeId()))) {
                     required.add(found.getFirst());
                 }
@@ -227,7 +237,8 @@ public class TravelIntentService {
             for (String name : intent.excludedPlaceNames()) {
                 List<PlaceCandidate> found = resolve(name, catalog);
                 if (found.size() != 1) {
-                    questions.add("Điểm loại trừ '" + name + "' chưa xác định duy nhất trong kho demo. Hãy xác nhận lại.");
+                    questions.add("Điểm loại trừ '" + name + "' chưa xác định duy nhất trong kho địa điểm của "
+                            + intent.destination() + ". Hãy xác nhận lại.");
                 } else {
                     excludedIds.add(found.getFirst().placeId());
                 }
@@ -259,7 +270,7 @@ public class TravelIntentService {
         return new IntentAnalysisResponse(
                 status,
                 intent,
-                supported ? "48" : null,
+                provinceCode,
                 missing,
                 questions,
                 warnings,
@@ -300,7 +311,7 @@ public class TravelIntentService {
             return new IntentSearchResponse("NEEDS_INPUT", revised, null);
         }
 
-        var result = retrieval.search(analysis.positiveQuery(), analysis.intent().excludedTags(), limit);
+        var result = retrieval.search(analysis.positiveQuery(), analysis.intent().excludedTags(), analysis.provinceCode(), limit);
         Set<UUID> excluded = new HashSet<>(analysis.excludedPlaceIds());
         List<PlaceSearchResponse.Match> matches = new ArrayList<>();
         for (PlaceCandidate required : analysis.mustVisitPlaces()) {
@@ -343,5 +354,10 @@ public class TravelIntentService {
                 .replace('đ', 'd')
                 .replaceAll("[^a-z0-9]+", " ")
                 .strip();
+    }
+
+    private boolean mentionsMultipleDestinations(String value) {
+        String normalized = normalize(value);
+        return normalized.contains(" va ") || value.contains(",") || normalized.contains(" & ");
     }
 }

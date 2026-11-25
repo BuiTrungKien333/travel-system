@@ -195,7 +195,7 @@ export function UsersScreen() {
                 Danh sách tài khoản và quyền truy cập hiện tại
               </caption>
               <thead>
-                <tr className="border-b border-line bg-canvas/50 text-[11px] uppercase tracking-[.08em] text-muted">
+                <tr className="border-b border-line bg-canvas/50 text-xs uppercase tracking-[.08em] text-muted">
                   <th scope="col" className="px-6 py-4 font-semibold">
                     Tài khoản
                   </th>
@@ -237,7 +237,7 @@ export function UsersScreen() {
                           <div className="flex items-center gap-2 font-semibold text-ink">
                             {account.fullName}
                             {account.id === session.data?.id ? (
-                              <span className="text-[10px] font-medium text-teal-600">
+                              <span className="text-xs font-medium text-teal-600">
                                 BẠN
                               </span>
                             ) : null}

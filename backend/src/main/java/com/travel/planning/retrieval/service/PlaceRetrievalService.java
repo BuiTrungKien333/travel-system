@@ -8,12 +8,14 @@ import com.travel.planning.retrieval.dto.response.PlaceIndexResponse;
 import com.travel.planning.retrieval.dto.response.PlaceSearchResponse;
 import com.travel.planning.retrieval.dto.response.PlaceSearchResponse.Match;
 import com.travel.planning.retrieval.model.PlaceCandidate;
+import com.travel.planning.retrieval.model.ProvinceOption;
 import com.travel.planning.retrieval.provider.GeminiEmbeddingClient;
 import com.travel.planning.retrieval.repository.PlaceRetrievalRepository;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import java.text.Normalizer;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @Service
@@ -33,6 +35,43 @@ public class PlaceRetrievalService {
 
     public List<PlaceCandidate> catalog() {
         return repository.catalog();
+    }
+
+    public List<PlaceCandidate> catalog(String provinceCode) {
+        return repository.catalog(provinceCode);
+    }
+
+    public List<ProvinceOption> provinces() {
+        return repository.provinces();
+    }
+
+    public String provinceCode(UUID provinceId) {
+        return repository.provinceCode(provinceId);
+    }
+
+    public String resolveProvinceCode(String provinceName) {
+        if (provinceName == null || provinceName.isBlank()) return null;
+        String normalized = canonicalProvinceName(provinceName);
+        List<String> matches = repository.provinces().stream()
+                .filter(province -> canonicalProvinceName(province.name()).equals(normalized))
+                .map(ProvinceOption::code).distinct().toList();
+        return matches.size() == 1 ? matches.getFirst() : null;
+    }
+
+    public static String canonicalProvinceName(String value) {
+        String normalized = Normalizer.normalize(value, Normalizer.Form.NFD).replaceAll("\\p{M}", "")
+                .replace('đ', 'd').replace('Đ', 'D').toLowerCase(Locale.ROOT)
+                .replaceAll("[^a-z0-9]+", " ").strip();
+        for (String prefix : List.of("thanh pho ", "tinh ", "tp ")) {
+            if (normalized.startsWith(prefix)) {
+                normalized = normalized.substring(prefix.length()).strip();
+                break;
+            }
+        }
+        return switch (normalized) {
+            case "sai gon", "tphcm", "tp hcm", "hcm", "hcmc" -> "ho chi minh";
+            default -> normalized;
+        };
     }
 
     public PlaceIndexResponse index() {
@@ -58,13 +97,13 @@ public class PlaceRetrievalService {
         }
     }
 
-    public PlaceSearchResponse search(String positiveQuery, List<String> excludedTags, int limit) {
-        List<UUID> lexical = repository.lexical(positiveQuery);
+    public PlaceSearchResponse search(String positiveQuery, List<String> excludedTags, String provinceCode, int limit) {
+        List<UUID> lexical = repository.lexical(positiveQuery, provinceCode);
         List<UUID> semantic;
         String mode;
         String fallbackReason = null;
         try {
-            semantic = repository.semantic(embeddings.embed(positiveQuery, false), properties.getEmbeddingModel());
+            semantic = repository.semantic(embeddings.embed(positiveQuery, false), properties.getEmbeddingModel(), provinceCode);
             mode = semantic.isEmpty() ? "LEXICAL_ONLY_NO_CURRENT_EMBEDDINGS" : "HYBRID";
             if (semantic.isEmpty()) fallbackReason = "NO_CURRENT_EMBEDDINGS";
         } catch (AppException ex) {
@@ -79,12 +118,16 @@ public class PlaceRetrievalService {
         Set<UUID> lexicalIds = new HashSet<>(lexical);
         Set<UUID> semanticIds = new HashSet<>(semantic);
         // Hydrate only approved, existing DB rows. Rankings never create places.
-        List<Match> matches = repository.candidates(scores.keySet()).stream()
+        List<Match> matches = repository.candidates(scores.keySet(), provinceCode).stream()
                 .filter(p -> p.tags().stream().noneMatch(excluded::contains))
                 .map(p -> new Match(p, scores.get(p.placeId()), lexicalIds.contains(p.placeId()), semanticIds.contains(p.placeId())))
                 .sorted(Comparator.comparingDouble(Match::rankScore).reversed().thenComparing(m -> m.place().placeId()))
                 .limit(limit).toList();
         return new PlaceSearchResponse(mode, properties.getEmbeddingModel(), matches, fallbackReason);
+    }
+
+    public PlaceSearchResponse search(String positiveQuery, List<String> excludedTags, int limit) {
+        return search(positiveQuery, excludedTags, null, limit);
     }
 
     private void addRanks(Map<UUID, Double> scores, List<UUID> ids) {

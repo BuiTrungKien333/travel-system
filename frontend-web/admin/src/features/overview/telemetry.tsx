@@ -142,13 +142,13 @@ export function TelemetryPanel({
               ["p95 xấp xỉ", seconds(data.p95Ms)],
             ].map(([name, value]) => (
               <div key={name} className="rounded-xl bg-canvas p-3">
-                <p className="text-[10px] text-muted">{name}</p>
+                <p className="text-xs text-muted">{name}</p>
                 <p className="mt-2 text-lg font-semibold">{value}</p>
               </div>
             ))}
           </div>
           {data.total ? (
-            <Bars data={data.statuses} />
+            <Bars data={data.statuses} multiColor />
           ) : (
             <p className="py-12 text-center text-sm text-muted">
               Chưa có lượt thực thi được đồng bộ trong kỳ này. Tạo bản nháp AI
@@ -232,7 +232,7 @@ export function TelemetryPanel({
           ) : null}
         </>
       ) : null}
-      <p className="mt-4 text-[11px] leading-5 text-muted">
+      <p className="mt-4 text-xs leading-5 text-muted">
         Chỉ ghi nhận từ khi cài outbox; không sao chép lịch sử cũ. Dữ liệu
         MongoDB đồng bộ bất đồng bộ; khi có lỗi, số liệu chậm hơn do retry. Thời lượng tính toàn
         luồng; p95 dùng ước lượng MongoDB.

@@ -76,6 +76,12 @@ public class MediaServiceImpl implements MediaService {
     }
 
     @Override
+    public UploadResponse uploadPlaceImage(MultipartFile file) {
+        var image = ImageUploadPolicy.inspect(file);
+        return doUpload(image, CloudinaryPathBuilder.placeImageFolder(), CloudinaryPathBuilder.generatePlaceImageFileName());
+    }
+
+    @Override
     public void deleteMedia(UUID mediaId, UUID requestUserId) {
         deletion.delete(mediaId, requestUserId);
     }

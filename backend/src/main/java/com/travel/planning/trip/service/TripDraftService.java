@@ -24,7 +24,6 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
-import java.text.Normalizer;
 import java.time.*;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -124,7 +123,8 @@ public class TripDraftService {
             if (!draft.canApply()) throw new AppException(ErrorCode.AI_VALIDATION_FAILED);
             var proposal = draft.proposal();
             validateProposal(trip, proposal);
-            Map<UUID, PlaceCandidate> current = retrieval.catalog().stream()
+            String provinceCode = tripProvinceCode(trip);
+            Map<UUID, PlaceCandidate> current = retrieval.catalog(provinceCode).stream()
                     .collect(Collectors.toMap(PlaceCandidate::placeId, p -> p));
             var stops = proposal.days().stream().flatMap(d -> d.stops().stream()).toList();
             for (var stop : stops) {
@@ -183,9 +183,7 @@ public class TripDraftService {
         if (trip.getStatus() == com.travel.trip.enums.TripStatus.ACTIVE
                 || !"PLANNING".equals(TripCalendar.mode(trip.getStatus().name(), trip.getStartDate(), trip.getEndDate(), TripCalendar.today(clock))))
             throw new AppException(ErrorCode.TRIP_READ_ONLY);
-        String destination = Normalizer.normalize(Objects.toString(trip.getDestination(), ""), Normalizer.Form.NFD)
-                .replaceAll("\\p{M}", "").replace('đ', 'd').replace('Đ', 'D').toLowerCase(Locale.ROOT).trim();
-        if (!Set.of("da nang", "danang", "tp da nang", "thanh pho da nang").contains(destination)
+        if (tripProvinceCode(trip) == null
                 || trip.getStartDate() == null || trip.getEndDate() == null
                 || numberOfDays(trip) < 1 || numberOfDays(trip) > DraftLimits.MAX_DAYS)
             throw new AppException(ErrorCode.PLANNING_UNSUPPORTED_TRIP);
@@ -195,12 +193,26 @@ public class TripDraftService {
     private long numberOfDays(Trip trip) {
         return java.time.temporal.ChronoUnit.DAYS.between(trip.getStartDate(), trip.getEndDate()) + 1;
     }
+    private String tripProvinceCode(Trip trip) {
+        String provinceCode = retrieval.provinceCode(trip.getDestinationProvinceId());
+        return provinceCode != null ? provinceCode : retrieval.resolveProvinceCode(trip.getDestination());
+    }
     private void validateInput(Trip trip, GenerateDraftRequest input) {
         if (!trip.getStartDate().equals(input.startDate()) || (input.preferences() != null
                 && input.preferences().numberOfDays() != numberOfDays(trip)))
             throw new AppException(ErrorCode.INVALID_ITINERARY);
+        if (input.preferences() != null && !Objects.equals(
+                tripProvinceCode(trip),
+                retrieval.resolveProvinceCode(input.preferences().destination())))
+            throw new AppException(ErrorCode.INVALID_ITINERARY);
     }
     private void validateProposal(Trip trip, DraftResponse proposal) {
+        String expectedProvince = tripProvinceCode(trip);
+        if (expectedProvince == null || proposal.analysis() == null
+                || !Objects.equals(expectedProvince, proposal.analysis().provinceCode()))
+            throw new AppException(ErrorCode.INVALID_ITINERARY);
+        Set<UUID> allowedPlaceIds = retrieval.catalog(expectedProvince).stream()
+                .map(PlaceCandidate::placeId).collect(Collectors.toSet());
         if (proposal.analysis() != null && proposal.analysis().intent() != null
                 && proposal.analysis().intent().numberOfDays() != null
                 && proposal.analysis().intent().numberOfDays() != numberOfDays(trip))
@@ -210,7 +222,8 @@ public class TripDraftService {
         for (var day : proposal.days()) {
             if (day.date().isBefore(trip.getStartDate()) || day.date().isAfter(trip.getEndDate()) || !dates.add(day.date()))
                 throw new AppException(ErrorCode.INVALID_ITINERARY);
-            for (var stop : day.stops()) if (!ids.add(stop.place().placeId())
+            for (var stop : day.stops()) if (!allowedPlaceIds.contains(stop.place().placeId())
+                    || !ids.add(stop.place().placeId())
                     || (!day.blocked() && !stop.visitStart().toLocalDate().equals(day.date())) || !stop.departure().isAfter(stop.visitStart()))
                 throw new AppException(ErrorCode.INVALID_ITINERARY);
         }

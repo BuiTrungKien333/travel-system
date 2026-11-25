@@ -1,4 +1,4 @@
-import { CatalogScreen } from "@/features/overview/catalog-screen";
+import { PlacesManagementScreen } from "@/features/overview/places-management-screen";
 export default function Page() {
-  return <CatalogScreen />;
+  return <PlacesManagementScreen />;
 }

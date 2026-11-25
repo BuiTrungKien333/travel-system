@@ -144,7 +144,7 @@ public class DraftService {
         TravelIntent intent = search.analysis().intent();
         metadata.put("bufferMinutesBetweenStops", Integer.toString(scheduling.bufferMinutes(intent)));
         if (intent.travelPace() == null)
-            issues.add(new Problem("PACE_NOT_SPECIFIED", false, null, "Nhịp độ chưa nêu; sử dụng cấu hình demo cân bằng, không ghi thành sở thích người dùng."));
+            issues.add(new Problem("PACE_NOT_SPECIFIED", false, null, "Nhịp độ chưa nêu; hệ thống dùng phương án cân bằng để tạo lịch, không ghi thành sở thích của bạn."));
         try (var forecast = weather.start(request, intent.numberOfDays())) {
             var allocation = context.measure(ALLOCATION, () -> allocations.allocate(candidates, required, intent, request.startDate()));
             boolean aiAllocation = "AI".equals(allocation.source());
@@ -174,7 +174,7 @@ public class DraftService {
                 boolean routeBlocked = schedule.days().stream().anyMatch(Day::blocked);
                 schedule.days().forEach(d -> issues.addAll(d.issues()));
                 if (!routeBlocked)
-                    issues.add(new Problem("NO_SCHEDULED_PLACES", true, null, "Chưa xếp được điểm phù hợp với yêu cầu trong kho demo; hãy điều chỉnh sở thích hoặc điều kiện loại trừ."));
+                    issues.add(new Problem("NO_SCHEDULED_PLACES", true, null, "Chưa xếp được điểm phù hợp với yêu cầu trong kho địa điểm của tỉnh/thành này; hãy điều chỉnh sở thích hoặc điều kiện loại trừ."));
                 context.record(WEATHER, "UNAVAILABLE", "CANCELLED", "NO_SCHEDULED_PLACES", null);
                 return response(routeBlocked ? "CONFLICTS_DETECTED" : "NO_CANDIDATES", request, search,
                         routeBlocked ? schedule.days() : List.of(), schedule.unassigned(), issues, DraftWeatherService.unknown(), metadata);

@@ -12,6 +12,7 @@ import {
 
 const requestSchema = z.object({
   positiveQuery: z.string().trim().min(1).max(1000),
+  provinceCode: z.string().regex(/^\d{2}$/).optional(),
   excludedTags: z
     .array(z.string().regex(/^[A-Z_]{2,30}$/))
     .max(10)

@@ -55,7 +55,7 @@ export function AccountDialog({
         if (mutation.isPending) event.preventDefault();
         else onClose();
       }}
-      className="w-[calc(100%-2rem)] max-w-lg rounded-2xl border border-line bg-white p-0 text-ink shadow-2xl backdrop:bg-ink/40"
+      className="w-[calc(100%-2rem)] max-w-lg rounded-2xl border border-line bg-white p-0 text-ink shadow-panel backdrop:bg-ink/40"
     >
       <form
         onSubmit={handleSubmit(async (change) => {

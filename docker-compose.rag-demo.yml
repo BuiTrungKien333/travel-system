@@ -1,0 +1,19 @@
+services:
+  rag-postgres:
+    image: pgvector/pgvector:0.8.2-pg17
+    container_name: travel-rag-demo-postgres
+    environment:
+      POSTGRES_DB: travel_rag_demo
+      POSTGRES_USER: travel_demo
+      POSTGRES_PASSWORD: ${RAG_DEMO_DB_PASSWORD:?Set RAG_DEMO_DB_PASSWORD locally}
+    ports:
+      - "127.0.0.1:${RAG_DEMO_DB_PORT:-5435}:5432"
+    volumes:
+      - rag_demo_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U travel_demo -d travel_rag_demo"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+volumes:
+  rag_demo_data:

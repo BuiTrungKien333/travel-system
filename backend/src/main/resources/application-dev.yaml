@@ -1,4 +1,13 @@
+server:
+  port: ${SERVER_PORT:18081}
+
 spring:
+  config:
+    import:
+      - classpath:application-rag.yaml
+      - optional:file:../.env[.properties]
+      - optional:file:.env[.properties]
+      - optional:file:backend/.env[.properties]
   datasource:
     url: jdbc:postgresql://localhost:${POSTGRES_PORT:5432}/${POSTGRES_DB:travel_db}
     username: ${POSTGRES_USER:postgres}
@@ -6,19 +15,42 @@ spring:
 
   jpa:
     open-in-view: false
-
     hibernate:
       ddl-auto: validate
-
     properties:
       hibernate:
         format_sql: true
-
+        jdbc:
+          time_zone: UTC
   sql:
     init:
       mode: never
 
+  flyway:
+    enabled: true
+    locations: classpath:db/migration,classpath:db/rag
+
 logging:
   level:
+    root: INFO
+    com.travel: DEBUG
     org.springframework.web: INFO
     org.hibernate.SQL: DEBUG
+
+####################
+application:
+  security:
+    cors:
+      allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:8081,http://localhost:8082}
+
+app:
+  google:
+    link-url: ${GOOGLE_LINK_URL:http://localhost:8082/google-link}
+    allow-insecure-links: true
+  auth:
+    verify-email-url: ${AUTH_VERIFY_EMAIL_URL:http://localhost:8082/verify-email}
+    reset-password-url: ${AUTH_RESET_PASSWORD_URL:http://localhost:8082/reset-password}
+    allow-insecure-links: true
+
+telemetry:
+  enabled: ${MONGODB_ENABLED:false}

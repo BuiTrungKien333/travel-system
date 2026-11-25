@@ -19,6 +19,8 @@ jobs:
     name: Backend (Java 21 + Maven)
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      DOCKER_API_VERSION: "1.44"
     defaults:
       run:
         working-directory: backend
@@ -32,6 +34,12 @@ jobs:
           distribution: temurin
           java-version: "21"
           cache: maven
+
+      # Testcontainers 1.20.x defaults to Docker API 1.32, which Docker Engine 29+ on ubuntu-latest rejects (< 1.44).
+      - name: Configure Docker API for Testcontainers
+        run: |
+          docker version
+          printf 'api.version=1.44\n' >> "$HOME/.docker-java.properties"
 
       # Integration tests start PostgreSQL through Testcontainers (Docker is preinstalled on ubuntu runners).
       - name: Build and test

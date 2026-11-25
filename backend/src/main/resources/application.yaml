@@ -125,3 +125,13 @@ telemetry:
   retention-days: ${AI_TELEMETRY_RETENTION_DAYS:90}
   publish-enabled: ${AI_TELEMETRY_PUBLISH_ENABLED:true}
   publish-delay-ms: 5000
+
+logging:
+  file:
+    name: logs/travel-backend.log
+  logback:
+    rollingpolicy:
+      file-name-pattern: logs/travel-backend-%d{yyyy-MM-dd}.%i.log
+      max-file-size: 10MB
+      max-history: 30
+      total-size-cap: 500MB

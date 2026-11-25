@@ -109,16 +109,8 @@ class RagCatalogIntegrationTest {
         var place = repository.catalog().getFirst();
         var vector = vector(1, 0);
         assertThat(repository.saveEmbedding(place, "fixture", vector)).isTrue();
-        var originalScope = jdbc.queryForObject(
-            "SELECT verification_scope FROM place_retrieval_profiles WHERE place_id=?",
-            String.class,
-            place.placeId()
-        );
         try {
-            jdbc.update(
-                "UPDATE place_retrieval_profiles SET verification_scope='DEV_DEMO_ONLY_NOT_FACT_VERIFIED' WHERE place_id=?",
-                place.placeId()
-            );
+            jdbc.update("UPDATE place_retrieval_profiles SET archived_at=now() WHERE place_id=?", place.placeId());
 
             assertThat(repository.catalog())
                 .extracting(candidate -> candidate.placeId())
@@ -131,11 +123,7 @@ class RagCatalogIntegrationTest {
                 jdbc.queryForObject("SELECT count(*) FROM places WHERE id=?", Integer.class, place.placeId())
             ).isEqualTo(1);
         } finally {
-            jdbc.update(
-                "UPDATE place_retrieval_profiles SET verification_scope=? WHERE place_id=?",
-                originalScope,
-                place.placeId()
-            );
+            jdbc.update("UPDATE place_retrieval_profiles SET archived_at=NULL WHERE place_id=?", place.placeId());
         }
     }
 

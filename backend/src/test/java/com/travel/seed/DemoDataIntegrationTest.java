@@ -50,7 +50,7 @@ class DemoDataIntegrationTest {
             .cleanDisabled(false)
             .load();
         flyway.migrate();
-        assertThat(flyway.info().current().getVersion().toString()).isEqualTo("23");
+        assertThat(flyway.info().current().getVersion().toString()).isEqualTo("26");
         assertThat(count("SELECT count(*) FROM users WHERE id::text LIKE 'd3100000-%'")).isZero();
     }
 

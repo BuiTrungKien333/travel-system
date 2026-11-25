@@ -25,7 +25,9 @@ class TravelIntentServiceTest {
 
     @BeforeEach
     void catalog() {
-        when(retrieval.catalog()).thenReturn(List.of(museum, beach));
+        when(retrieval.resolveProvinceCode("Đà Nẵng")).thenReturn("48");
+        when(retrieval.resolveProvinceCode("Da Nang")).thenReturn("48");
+        when(retrieval.catalog("48")).thenReturn(List.of(museum, beach));
     }
 
     @Test
@@ -38,7 +40,7 @@ class TravelIntentServiceTest {
         assertThat(result.candidates()).isNull();
         assertThat(result.analysis().intent().destination()).isNull();
         assertThat(result.analysis().missingFields()).contains("destination", "numberOfDays", "dailyStartTime");
-        verify(retrieval, never()).search(anyString(), anyList(), anyInt());
+        verify(retrieval, never()).search(anyString(), anyList(), any(), anyInt());
     }
 
     @Test
@@ -47,7 +49,7 @@ class TravelIntentServiceTest {
             IntentFixtures.intent("Huế", List.of("HISTORY"), List.of(), List.of(), List.of())
         );
         assertThat(service.search("text", 4).status()).isEqualTo("UNSUPPORTED_DESTINATION");
-        verify(retrieval, never()).search(anyString(), anyList(), anyInt());
+        verify(retrieval, never()).search(anyString(), anyList(), any(), anyInt());
     }
 
     @Test
@@ -63,7 +65,9 @@ class TravelIntentServiceTest {
 
     @Test
     void ambiguousNameRequiresConfirmation() {
-        when(retrieval.catalog()).thenReturn(List.of(museum, place("Bảo tàng Mỹ thuật Đà Nẵng", List.of("MUSEUM"))));
+        when(retrieval.catalog("48")).thenReturn(
+            List.of(museum, place("Bảo tàng Mỹ thuật Đà Nẵng", List.of("MUSEUM")))
+        );
         when(client.extract("text")).thenReturn(
             IntentFixtures.intent("Da Nang", List.of(), List.of(), List.of("bảo tàng"), List.of())
         );
@@ -110,7 +114,7 @@ class TravelIntentServiceTest {
         when(client.extract("text")).thenReturn(
             IntentFixtures.intent("Da Nang", List.of(), List.of(), List.of("Mỹ Khê"), List.of())
         );
-        when(retrieval.search(anyString(), anyList(), eq(8))).thenReturn(
+        when(retrieval.search(anyString(), anyList(), eq("48"), eq(1))).thenReturn(
             new PlaceSearchResponse("LEXICAL", "fixture", List.of())
         );
         var result = service.search("text", 1);
@@ -126,7 +130,7 @@ class TravelIntentServiceTest {
         when(client.extract("text")).thenReturn(
             IntentFixtures.intent("Đà Nẵng", List.of("SCENERY"), List.of(), List.of(), List.of("Mỹ Khê"))
         );
-        when(retrieval.search(anyString(), anyList(), eq(8))).thenReturn(
+        when(retrieval.search(anyString(), anyList(), eq("48"), eq(4))).thenReturn(
             new PlaceSearchResponse(
                 "fixture",
                 "fixture",

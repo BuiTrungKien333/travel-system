@@ -166,7 +166,6 @@ public class TripDraftService {
             eligible(trip);
             if (!draft.canApply()) throw new AppException(ErrorCode.AI_VALIDATION_FAILED);
             var proposal = draft.proposal();
-            validateProposal(trip, proposal);
             String provinceCode = tripProvinceCode(trip);
             Map<UUID, PlaceCandidate> current = retrieval
                 .catalog(provinceCode)
@@ -182,6 +181,7 @@ public class TripDraftService {
                     ErrorCode.ITINERARY_CHANGED
                 );
             }
+            validateProposal(trip, proposal);
             var ids = stops
                 .stream()
                 .map(stop -> stop.place().placeId())

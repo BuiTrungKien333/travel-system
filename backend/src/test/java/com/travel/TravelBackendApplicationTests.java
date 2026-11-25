@@ -20,7 +20,7 @@ import org.springframework.test.context.ActiveProfiles;
 @ActiveProfiles("test")
 class TravelBackendApplicationTests {
 
-    private static final int LATEST_SCHEMA_VERSION = 23;
+    private static final int LATEST_SCHEMA_VERSION = 26;
     // Recorded from the released V11 dev database, not calculated from today's files.
     private static final Map<String, Integer> RELEASED = Map.ofEntries(
         Map.entry("V1__init_schema.sql", 2030714601),

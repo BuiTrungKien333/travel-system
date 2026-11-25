@@ -449,7 +449,7 @@ class RagApiIntegrationTest {
             .putArray("interests")
             .add("INVENTED_TAG");
         var tooManyDays = base.deepCopy();
-        ((com.fasterxml.jackson.databind.node.ObjectNode) tooManyDays.get("preferences")).put("numberOfDays", 3);
+        ((com.fasterxml.jackson.databind.node.ObjectNode) tooManyDays.get("preferences")).put("numberOfDays", 4);
         for (var body : java.util.List.of(both, neither, invalidTime, invalidTag, tooManyDays))
             mvc.perform(
                 post("/api/v1/public/planning/generate-draft")

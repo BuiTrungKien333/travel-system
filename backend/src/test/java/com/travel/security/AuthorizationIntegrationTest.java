@@ -355,7 +355,8 @@ class AuthorizationIntegrationTest {
         UUID published = place(province, "INTERNAL", true, "EXISTENCE_ONLY");
         UUID privatePlace = place(province, "USER", true, "EXISTENCE_ONLY");
         UUID unapproved = place(province, "INTERNAL", false, "EXISTENCE_ONLY");
-        UUID demo = place(province, "INTERNAL", true, "DEV_DEMO_ONLY_NOT_FACT_VERIFIED");
+        UUID demo = place(province, "INTERNAL", true, "EXISTENCE_ONLY");
+        jdbc.update("UPDATE place_retrieval_profiles SET archived_at=now() WHERE place_id=?", demo);
         mvc.perform(get("/api/v1/public/places/" + published)).andExpect(status().isOk());
         for (UUID id : List.of(privatePlace, unapproved, demo))
             mvc.perform(get("/api/v1/public/places/" + id)).andExpect(status().isNotFound());
@@ -391,13 +392,14 @@ class AuthorizationIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"approved\":false,\"version\":1}")
         ).andExpect(status().isConflict());
-        UUID demo = place(province, "INTERNAL", false, "DEV_DEMO_ONLY_NOT_FACT_VERIFIED");
+        UUID demo = place(province, "INTERNAL", false, "EXISTENCE_ONLY");
+        jdbc.update("UPDATE place_retrieval_profiles SET archived_at=now() WHERE place_id=?", demo);
         mvc.perform(
             patch("/api/v1/admin/catalog/" + demo)
                 .header("Authorization", "Bearer " + adminToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"approved\":true,\"version\":1}")
-        ).andExpect(status().isBadRequest());
+        ).andExpect(status().isNotFound());
         assertThat(
             jdbc.queryForObject("SELECT count(*) FROM admin_catalog_events WHERE place_id=?", Integer.class, id)
         ).isEqualTo(1);

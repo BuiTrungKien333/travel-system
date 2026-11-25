@@ -18,6 +18,7 @@ import com.travel.planning.ai.resilience.AiRequestContext;
 import com.travel.planning.algorithm.*;
 import com.travel.planning.draft.dto.request.GenerateDraftRequest;
 import com.travel.planning.draft.dto.response.DraftResponse;
+import com.travel.planning.draft.model.DraftLimits;
 import com.travel.planning.draft.provider.GeminiDraftClient;
 import com.travel.planning.draft.service.*;
 import com.travel.planning.draft.service.DraftService;
@@ -75,6 +76,7 @@ class DraftServiceTest {
                 anyMap()
             )
         ).thenThrow(new AppException(ErrorCode.AI_SERVICE_UNAVAILABLE));
+        when(retrieval.catalog("48")).thenReturn(points);
         when(retrieval.catalog()).thenReturn(points);
         when(repository.findAllByIdIn(anyCollection())).thenReturn(new ArrayList<>(entities(points).values()));
     }
@@ -118,7 +120,7 @@ class DraftServiceTest {
                 .toList()
         );
         when(intents.analyze("demo")).thenReturn(analysis);
-        when(intents.search(analysis, 8)).thenReturn(
+        when(intents.search(analysis, DraftLimits.CANDIDATE_LIMIT)).thenReturn(
             new IntentSearchResponse("CANDIDATES_FOUND", analysis, candidates)
         );
     }
@@ -217,7 +219,7 @@ class DraftServiceTest {
                 .toList()
         );
         when(intents.analyze("demo")).thenReturn(analysis);
-        when(intents.search(analysis, 8)).thenReturn(
+        when(intents.search(analysis, DraftLimits.CANDIDATE_LIMIT)).thenReturn(
             new IntentSearchResponse("CANDIDATES_FOUND", analysis, candidates)
         );
         var result = service.generate(request());

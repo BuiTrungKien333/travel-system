@@ -21,11 +21,14 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
 
     @Override
     public void commence(
-            HttpServletRequest request,
-            HttpServletResponse response,
-            AuthenticationException authException
+        HttpServletRequest request,
+        HttpServletResponse response,
+        AuthenticationException authException
     ) {
-        log.debug("[JWT] Delegating authentication error to GlobalExceptionHandler for URI: {}", request.getRequestURI());
+        log.debug(
+            "[JWT] Delegating authentication error to GlobalExceptionHandler for URI: {}",
+            request.getRequestURI()
+        );
         resolver.resolveException(request, response, null, authException);
     }
 }

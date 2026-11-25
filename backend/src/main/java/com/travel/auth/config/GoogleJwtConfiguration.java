@@ -18,7 +18,8 @@ public class GoogleJwtConfiguration {
         factory.setReadTimeout(5000);
 
         var decoder = NimbusJwtDecoder.withJwkSetUri("https://www.googleapis.com/oauth2/v3/certs")
-                .restOperations(new RestTemplate(factory)).build();
+            .restOperations(new RestTemplate(factory))
+            .build();
         decoder.setJwtValidator(validators(properties));
 
         return decoder;
@@ -27,9 +28,11 @@ public class GoogleJwtConfiguration {
     public static OAuth2TokenValidator<Jwt> validators(GoogleAuthProperties properties) {
         OAuth2TokenValidator<Jwt> issuerAudience = jwt -> {
             String issuer = jwt.getClaimAsString("iss");
-            if (("accounts.google.com".equals(issuer) || "https://accounts.google.com".equals(issuer))
-                    && jwt.getExpiresAt() != null && jwt.getAudience().contains(properties.webClientId()))
-                return OAuth2TokenValidatorResult.success();
+            if (
+                ("accounts.google.com".equals(issuer) || "https://accounts.google.com".equals(issuer)) &&
+                jwt.getExpiresAt() != null &&
+                jwt.getAudience().contains(properties.webClientId())
+            ) return OAuth2TokenValidatorResult.success();
 
             return OAuth2TokenValidatorResult.failure(new OAuth2Error("invalid_token"));
         };

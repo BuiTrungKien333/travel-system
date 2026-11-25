@@ -1,21 +1,20 @@
 package com.travel.planning.algorithm;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 import com.travel.common.exception.AppException;
 import com.travel.common.exception.ErrorCode;
 import com.travel.place.entity.Place;
 import com.travel.planning.algorithm.model.RouteLeg;
 import com.travel.planning.algorithm.model.TspRequest;
 import com.travel.planning.algorithm.model.TspResult;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 class HeldKarpSolverTest {
 
@@ -82,10 +81,10 @@ class HeldKarpSolverTest {
         Place d = Place.builder().id(UUID.randomUUID()).name("D").latitude(16.1).longitude(108.0).build();
 
         TspRequest request = TspRequest.builder()
-                .places(List.of(a, c, b, d))
-                .roundTrip(true)
-                .startPlaceId(a.getId())
-                .build();
+            .places(List.of(a, c, b, d))
+            .roundTrip(true)
+            .startPlaceId(a.getId())
+            .build();
 
         TspResult result = solver.solve(request);
 
@@ -112,11 +111,11 @@ class HeldKarpSolverTest {
         Place d = Place.builder().id(UUID.randomUUID()).name("D").latitude(16.1).longitude(108.0).build();
 
         TspRequest request = TspRequest.builder()
-                .places(List.of(a, b, c, d))
-                .roundTrip(false)
-                .startPlaceId(a.getId())
-                .endPlaceId(c.getId())
-                .build();
+            .places(List.of(a, b, c, d))
+            .roundTrip(false)
+            .startPlaceId(a.getId())
+            .endPlaceId(c.getId())
+            .build();
 
         TspResult result = solver.solve(request);
 
@@ -132,20 +131,22 @@ class HeldKarpSolverTest {
     void solve_exceedsMaxLocations_throwsAppException() {
         List<Place> places = new ArrayList<>();
         for (int i = 0; i < 17; i++) {
-            places.add(Place.builder()
+            places.add(
+                Place.builder()
                     .id(UUID.randomUUID())
                     .name("Place " + i)
                     .latitude(16.0 + i * 0.01)
                     .longitude(108.0 + i * 0.01)
-                    .build());
+                    .build()
+            );
         }
 
         TspRequest request = TspRequest.builder().places(places).build();
 
         assertThatThrownBy(() -> solver.solve(request))
-                .isInstanceOf(AppException.class)
-                .extracting("errorCode")
-                .isEqualTo(ErrorCode.TSP_EXCEEDS_MAX_LOCATIONS);
+            .isInstanceOf(AppException.class)
+            .extracting("errorCode")
+            .isEqualTo(ErrorCode.TSP_EXCEEDS_MAX_LOCATIONS);
     }
 
     @Test
@@ -155,14 +156,14 @@ class HeldKarpSolverTest {
         Place b = Place.builder().id(UUID.randomUUID()).name("B").latitude(16.1).longitude(108.1).build();
 
         TspRequest request = TspRequest.builder()
-                .places(List.of(a, b))
-                .startPlaceId(UUID.randomUUID()) // ID không tồn tại
-                .build();
+            .places(List.of(a, b))
+            .startPlaceId(UUID.randomUUID()) // ID không tồn tại
+            .build();
 
         assertThatThrownBy(() -> solver.solve(request))
-                .isInstanceOf(AppException.class)
-                .extracting("errorCode")
-                .isEqualTo(ErrorCode.INVALID_TSP_LOCATIONS);
+            .isInstanceOf(AppException.class)
+            .extracting("errorCode")
+            .isEqualTo(ErrorCode.INVALID_TSP_LOCATIONS);
     }
 
     @Test
@@ -171,12 +172,14 @@ class HeldKarpSolverTest {
         int n = 12;
         List<Place> places = new ArrayList<>();
         for (int i = 0; i < n; i++) {
-            places.add(Place.builder()
+            places.add(
+                Place.builder()
                     .id(UUID.randomUUID())
                     .name("Place " + i)
                     .latitude(16.0 + Math.sin(i) * 0.1)
                     .longitude(108.0 + Math.cos(i) * 0.1)
-                    .build());
+                    .build()
+            );
         }
 
         long startTime = System.currentTimeMillis();
@@ -192,48 +195,48 @@ class HeldKarpSolverTest {
     void solve_realWorldScenario_daNangTour() {
         // Tọa độ thực tế tại Đà Nẵng
         Place startHotel = Place.builder()
-                .id(UUID.randomUUID())
-                .name("Khách sạn Mỹ Khê")
-                .latitude(16.0592)
-                .longitude(108.2464)
-                .build();
+            .id(UUID.randomUUID())
+            .name("Khách sạn Mỹ Khê")
+            .latitude(16.0592)
+            .longitude(108.2464)
+            .build();
 
         Place cauRong = Place.builder()
-                .id(UUID.randomUUID())
-                .name("Cầu Rồng")
-                .latitude(16.0610)
-                .longitude(108.2272)
-                .build();
+            .id(UUID.randomUUID())
+            .name("Cầu Rồng")
+            .latitude(16.0610)
+            .longitude(108.2272)
+            .build();
 
         Place chuaLinhUng = Place.builder()
-                .id(UUID.randomUUID())
-                .name("Chùa Linh Ứng (Sơn Trà)")
-                .latitude(16.1002)
-                .longitude(108.2758)
-                .build();
+            .id(UUID.randomUUID())
+            .name("Chùa Linh Ứng (Sơn Trà)")
+            .latitude(16.1002)
+            .longitude(108.2758)
+            .build();
 
         Place nguHanhSon = Place.builder()
-                .id(UUID.randomUUID())
-                .name("Ngũ Hành Sơn")
-                .latitude(16.0042)
-                .longitude(108.2631)
-                .build();
+            .id(UUID.randomUUID())
+            .name("Ngũ Hành Sơn")
+            .latitude(16.0042)
+            .longitude(108.2631)
+            .build();
 
         Place baNaHills = Place.builder()
-                .id(UUID.randomUUID())
-                .name("Bà Nà Hills")
-                .latitude(15.9988)
-                .longitude(107.9959)
-                .build();
+            .id(UUID.randomUUID())
+            .name("Bà Nà Hills")
+            .latitude(15.9988)
+            .longitude(107.9959)
+            .build();
 
         // Danh sách địa điểm đưa vào bị xáo trộn thứ tự
         List<Place> places = List.of(startHotel, baNaHills, chuaLinhUng, nguHanhSon, cauRong);
 
         TspRequest request = TspRequest.builder()
-                .places(places)
-                .startPlaceId(startHotel.getId())
-                .roundTrip(true)
-                .build();
+            .places(places)
+            .startPlaceId(startHotel.getId())
+            .roundTrip(true)
+            .build();
 
         TspResult result = solver.solve(request);
 
@@ -244,33 +247,84 @@ class HeldKarpSolverTest {
         // In kết quả trực quan ra console để kiểm tra
         System.out.println("\n=== KẾT QUẢ TỐI ƯU LỘ TRÌNH ĐÀ NẴNG (HELD-KARP TSP) ===");
         System.out.printf("Tổng quãng đường: %.2f km\n", result.getTotalDistanceMeters() / 1000.0);
-        System.out.printf("Tổng thời gian di chuyển ước tính: %d phút (%.1f giờ)\n",
-                result.getTotalDurationSeconds() / 60,
-                result.getTotalDurationSeconds() / 3600.0);
+        System.out.printf(
+            "Tổng thời gian di chuyển ước tính: %d phút (%.1f giờ)\n",
+            result.getTotalDurationSeconds() / 60,
+            result.getTotalDurationSeconds() / 3600.0
+        );
         System.out.println("---------------------------------------------------------");
         for (int i = 0; i < result.getLegs().size(); i++) {
             RouteLeg leg = result.getLegs().get(i);
-            System.out.printf("Chặng %d: [%s] ➔ [%s]\n",
-                    i + 1, leg.getFromPlace().getName(), leg.getToPlace().getName());
-            System.out.printf("   ↳ Khoảng cách: %.2f km | Thời gian: %d phút\n",
-                    leg.getDistanceMeters() / 1000.0, leg.getDurationSeconds() / 60);
+            System.out.printf(
+                "Chặng %d: [%s] ➔ [%s]\n",
+                i + 1,
+                leg.getFromPlace().getName(),
+                leg.getToPlace().getName()
+            );
+            System.out.printf(
+                "   ↳ Khoảng cách: %.2f km | Thời gian: %d phút\n",
+                leg.getDistanceMeters() / 1000.0,
+                leg.getDurationSeconds() / 60
+            );
         }
         System.out.println("=========================================================\n");
     }
-    @Test void directedDurationCostsKeepStartButChooseTheBestFreeEnd() {
-        double[][] costs = {{0, 100, 1}, {100, 0, 100}, {100, 1, 0}};
+
+    @Test
+    void directedDurationCostsKeepStartButChooseTheBestFreeEnd() {
+        double[][] costs = {
+            { 0, 100, 1 },
+            { 100, 0, 100 },
+            { 100, 1, 0 },
+        };
         assertThat(solver.solveFixedStart(costs, null)).containsExactly(0, 2, 1);
-        assertThat(solver.solveFixedStart(new double[][]{{0, 7}, {20, 0}}, null)).containsExactly(0, 1);
-    }
-    @Test void directedCostsCanKeepAnExplicitReturnDestination() {
-        double[][] costs = {{0, 100, 1, 50}, {100, 0, 100, 1}, {100, 1, 0, 100}, {100, 100, 100, 0}};
-        assertThat(solver.solveFixedStart(costs, 3)).containsExactly(0, 2, 1, 3);
-    }
-    @Test void directedCostsRejectMalformedAndUnreachablePaths() {
-        assertThatThrownBy(() -> solver.solveFixedStart(new double[][]{{0, Double.POSITIVE_INFINITY}, {1, 0}}, null))
-                .isInstanceOf(AppException.class).extracting("errorCode").isEqualTo(ErrorCode.RESOURCE_NOT_FOUND);
-        assertThatThrownBy(() -> solver.solveFixedStart(new double[][]{{0, -1}, {1, 0}}, null)).isInstanceOf(AppException.class);
-        assertThatThrownBy(() -> solver.solveFixedStart(new double[][]{{0}, {1, 0}}, null)).isInstanceOf(AppException.class);
+        assertThat(
+            solver.solveFixedStart(
+                new double[][] {
+                    { 0, 7 },
+                    { 20, 0 },
+                },
+                null
+            )
+        ).containsExactly(0, 1);
     }
 
+    @Test
+    void directedCostsCanKeepAnExplicitReturnDestination() {
+        double[][] costs = {
+            { 0, 100, 1, 50 },
+            { 100, 0, 100, 1 },
+            { 100, 1, 0, 100 },
+            { 100, 100, 100, 0 },
+        };
+        assertThat(solver.solveFixedStart(costs, 3)).containsExactly(0, 2, 1, 3);
+    }
+
+    @Test
+    void directedCostsRejectMalformedAndUnreachablePaths() {
+        assertThatThrownBy(() ->
+            solver.solveFixedStart(
+                new double[][] {
+                    { 0, Double.POSITIVE_INFINITY },
+                    { 1, 0 },
+                },
+                null
+            )
+        )
+            .isInstanceOf(AppException.class)
+            .extracting("errorCode")
+            .isEqualTo(ErrorCode.RESOURCE_NOT_FOUND);
+        assertThatThrownBy(() ->
+            solver.solveFixedStart(
+                new double[][] {
+                    { 0, -1 },
+                    { 1, 0 },
+                },
+                null
+            )
+        ).isInstanceOf(AppException.class);
+        assertThatThrownBy(() -> solver.solveFixedStart(new double[][] { { 0 }, { 1, 0 } }, null)).isInstanceOf(
+            AppException.class
+        );
+    }
 }

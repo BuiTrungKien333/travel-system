@@ -3,14 +3,17 @@ import { ApiError } from "./errors";
 let refreshing: Promise<void> | undefined;
 let generation = 0;
 let closed = false;
+
 export function invalidateClientSession() {
   generation++;
   closed = true;
 }
+
 export function openClientSession() {
   generation++;
   closed = false;
 }
+
 export function announceSession(type: "login" | "logout") {
   if (typeof BroadcastChannel !== "undefined") {
     const channel = new BroadcastChannel("wego-admin-session");
@@ -18,11 +21,13 @@ export function announceSession(type: "login" | "logout") {
     channel.close();
   }
 }
+
 async function sessionLock<T>(action: () => Promise<T>) {
   if (typeof navigator !== "undefined" && navigator.locks)
     return navigator.locks.request("wego-admin-session", action);
   return action();
 }
+
 async function raw(
   path: string,
   options: { method?: string; body?: unknown; signal?: AbortSignal } = {},
@@ -59,8 +64,10 @@ async function raw(
       response.status,
     );
   }
+
   return body;
 }
+
 async function refreshSession() {
   if (!refreshing) {
     const version = generation;
@@ -72,8 +79,10 @@ async function refreshSession() {
       refreshing = undefined;
     });
   }
+
   return refreshing;
 }
+
 export async function apiRequest(
   path: string,
   options: { method?: string; body?: unknown; signal?: AbortSignal } = {},
@@ -93,9 +102,11 @@ export async function apiRequest(
       throw error;
     await refreshSession();
     if (version !== generation) throw new ApiError("AUTH_001", 401);
+
     return raw(path, options);
   }
 }
+
 export async function signIn(body: unknown) {
   return sessionLock(async () => {
     const result = await raw("/auth/login", { method: "POST", body });
@@ -103,11 +114,14 @@ export async function signIn(body: unknown) {
     return result;
   });
 }
+
 export async function signOut() {
   invalidateClientSession();
+
   return sessionLock(async () => {
     const result = await raw("/auth/logout", { method: "POST" });
     announceSession("logout");
+
     return z
       .object({
         success: z.literal(true),

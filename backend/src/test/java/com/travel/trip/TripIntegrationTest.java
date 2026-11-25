@@ -1,5 +1,10 @@
 package com.travel.trip;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.travel.TestcontainersConfiguration;
@@ -15,6 +20,16 @@ import com.travel.trip.repository.TripRepository;
 import com.travel.user.entity.User;
 import com.travel.user.enums.Role;
 import com.travel.user.repository.UserRepository;
+import java.time.Instant;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -32,38 +47,42 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
-import java.time.Instant;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.Callable;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
-
 @SpringBootTest
 @ActiveProfiles("test")
 @Import(TestcontainersConfiguration.class)
 class TripIntegrationTest {
+
     private static final String TRIPS = "/api/v1/trips";
 
-    @Autowired WebApplicationContext context;
-    @Autowired UserRepository users;
-    @Autowired PasswordEncoder passwords;
-    @Autowired TripRepository trips;
-    @Autowired PlaceRepository places;
-    @Autowired ProvinceRepository provinces;
-    @Autowired TripPlaceRepository tripPlaces;
-    @Autowired MemoryRepository memories;
-    @Autowired org.springframework.jdbc.core.JdbcTemplate jdbc;
-    @MockitoBean AuthEmailSender emailSender;
+    @Autowired
+    WebApplicationContext context;
+
+    @Autowired
+    UserRepository users;
+
+    @Autowired
+    PasswordEncoder passwords;
+
+    @Autowired
+    TripRepository trips;
+
+    @Autowired
+    PlaceRepository places;
+
+    @Autowired
+    ProvinceRepository provinces;
+
+    @Autowired
+    TripPlaceRepository tripPlaces;
+
+    @Autowired
+    MemoryRepository memories;
+
+    @Autowired
+    org.springframework.jdbc.core.JdbcTemplate jdbc;
+
+    @MockitoBean
+    AuthEmailSender emailSender;
 
     private final ObjectMapper json = new ObjectMapper();
     private MockMvc mvc;
@@ -74,9 +93,15 @@ class TripIntegrationTest {
     void setup() throws Exception {
         mvc = MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build();
         String password = UUID.randomUUID().toString();
-        owner = users.saveAndFlush(User.builder().fullName("Trip Owner")
-                .email(UUID.randomUUID() + "@example.com").passwordHash(passwords.encode(password))
-                .role(Role.USER).emailVerifiedAt(Instant.now()).build());
+        owner = users.saveAndFlush(
+            User.builder()
+                .fullName("Trip Owner")
+                .email(UUID.randomUUID() + "@example.com")
+                .passwordHash(passwords.encode(password))
+                .role(Role.USER)
+                .emailVerifiedAt(Instant.now())
+                .build()
+        );
         token = login(owner, password);
     }
 
@@ -87,24 +112,39 @@ class TripIntegrationTest {
 
     @Test
     void internalPlaceBatchDoesNotReturnPrivateLocations() {
-        var internal = places.saveAndFlush(Place.builder().name("Public fixture").latitude(16.0).longitude(108.0).build());
-        var privatePlace = places.saveAndFlush(Place.builder().name("Private fixture").latitude(16.1).longitude(108.1)
-                .source("USER").ownerId(owner.getId()).build());
-        assertThat(places.findByIdInAndSource(java.util.List.of(internal.getId(), privatePlace.getId()), "INTERNAL"))
-                .containsExactly(internal);
+        var internal = places.saveAndFlush(
+            Place.builder().name("Public fixture").latitude(16.0).longitude(108.0).build()
+        );
+        var privatePlace = places.saveAndFlush(
+            Place.builder()
+                .name("Private fixture")
+                .latitude(16.1)
+                .longitude(108.1)
+                .source("USER")
+                .ownerId(owner.getId())
+                .build()
+        );
+        assertThat(
+            places.findByIdInAndSource(java.util.List.of(internal.getId(), privatePlace.getId()), "INTERNAL")
+        ).containsExactly(internal);
     }
 
     @Test
     void legacyStorageSurvivesJpaUpdatesWithoutObsoleteMappings() {
         var trip = trips.saveAndFlush(com.travel.trip.entity.Trip.builder().user(owner).name("Original").build());
-        jdbc.update("UPDATE trips SET budget=123.45, transportation='LEGACY', budget_amount=120000, budget_currency='VND' WHERE id=?",
-                trip.getId());
+        jdbc.update(
+            "UPDATE trips SET budget=123.45, transportation='LEGACY', budget_amount=120000, budget_currency='VND' WHERE id=?",
+            trip.getId()
+        );
 
         var loaded = trips.findById(trip.getId()).orElseThrow();
         loaded.setName("Renamed");
         trips.saveAndFlush(loaded);
 
-        var stored = jdbc.queryForMap("SELECT name, budget, transportation, budget_amount FROM trips WHERE id=?", trip.getId());
+        var stored = jdbc.queryForMap(
+            "SELECT name, budget, transportation, budget_amount FROM trips WHERE id=?",
+            trip.getId()
+        );
         assertThat(stored.get("name")).isEqualTo("Renamed");
         assertThat(stored.get("budget")).isEqualTo(new java.math.BigDecimal("123.45"));
         assertThat(stored.get("transportation")).isEqualTo("LEGACY");
@@ -116,51 +156,77 @@ class TripIntegrationTest {
         var body = tripBody();
         body.put("preferences", List.of("nature", "food"));
         body.put("budget", Map.of("amount", 2500000, "currency", "VND"));
-        JsonNode created = data(send(post(TRIPS), body).andExpect(status().isCreated())
-                .andExpect(jsonPath("$.data.trip.passwordHash").doesNotExist()));
+        JsonNode created = data(
+            send(post(TRIPS), body)
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.trip.passwordHash").doesNotExist())
+        );
         String path = TRIPS + "/" + created.path("id").asText();
-        assertThat(trips.findById(UUID.fromString(created.path("id").asText())).orElseThrow().getUser().getId())
-                .isEqualTo(owner.getId());
+        assertThat(
+            trips
+                .findById(UUID.fromString(created.path("id").asText()))
+                .orElseThrow()
+                .getUser()
+                .getId()
+        ).isEqualTo(owner.getId());
         assertThat(created.path("preferences").get(0).asText()).isEqualTo("nature");
         assertThat(created.path("budget").path("amount").asInt()).isEqualTo(2500000);
-        send(get(path)).andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.trip.title").value("Weekend trip"));
-        send(patch(path), Map.of("title", "Updated holiday", "version", created.path("version").asLong(),
-                        "notes", "Family holiday"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.data.trip.title").value("Updated holiday"))
-                .andExpect(jsonPath("$.data.trip.destination.name").value("Da Nang"))
-                .andExpect(jsonPath("$.data.trip.startDate").value("2027-01-10"))
-                .andExpect(jsonPath("$.data.trip.notes").value("Family holiday"))
-                .andExpect(jsonPath("$.data.trip.preferences[1]").value("food"));
+        send(get(path)).andExpect(status().isOk()).andExpect(jsonPath("$.data.trip.title").value("Weekend trip"));
+        send(
+            patch(path),
+            Map.of("title", "Updated holiday", "version", created.path("version").asLong(), "notes", "Family holiday")
+        )
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.trip.title").value("Updated holiday"))
+            .andExpect(jsonPath("$.data.trip.destination.name").value("Da Nang"))
+            .andExpect(jsonPath("$.data.trip.startDate").value("2027-01-10"))
+            .andExpect(jsonPath("$.data.trip.notes").value("Family holiday"))
+            .andExpect(jsonPath("$.data.trip.preferences[1]").value("food"));
         JsonNode list = data(send(get(TRIPS)).andExpect(status().isOk()));
         assertThat(list.isArray()).isTrue();
         assertThat(list).hasSize(1);
         assertThat(list.get(0).path("id").asText()).isEqualTo(created.path("id").asText());
-        assertThat(trips.findById(UUID.fromString(created.path("id").asText())).orElseThrow().getName())
-                .isEqualTo("Updated holiday");
+        assertThat(
+            trips
+                .findById(UUID.fromString(created.path("id").asText()))
+                .orElseThrow()
+                .getName()
+        ).isEqualTo("Updated holiday");
     }
 
     @Test
     void partialDateUpdateValidatesAgainstStoredDatesAndRollsBack() throws Exception {
         String path = TRIPS + "/" + createTrip();
         send(patch(path), Map.of("version", 0, "title", "Must roll back", "endDate", "2027-01-09"))
-                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("COMMON_003"));
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("COMMON_003"));
         send(patch(path), Map.of("version", 0, "startDate", "2027-01-13"))
-                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("COMMON_003"));
-        send(get(path)).andExpect(status().isOk()).andExpect(jsonPath("$.data.trip.title").value("Weekend trip"))
-                .andExpect(jsonPath("$.data.trip.endDate").value("2027-01-12"));
-        send(patch(path), Map.of("version", 0, "startDate", "2027-01-10", "endDate", "2027-01-10",
-                        "acknowledgeDateImpact", true))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.data.trip.endDate").value("2027-01-10"));
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.code").value("COMMON_003"));
+        send(get(path))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.trip.title").value("Weekend trip"))
+            .andExpect(jsonPath("$.data.trip.endDate").value("2027-01-12"));
+        send(
+            patch(path),
+            Map.of("version", 0, "startDate", "2027-01-10", "endDate", "2027-01-10", "acknowledgeDateImpact", true)
+        )
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.trip.endDate").value("2027-01-10"));
     }
 
     @Test
     void createRejectsBlankMissingFieldsInvalidDatesAndNegativeBudget() throws Exception {
-        var blank = tripBody(); blank.put("destination", Map.of("name", "   "));
-        var missing = tripBody(); missing.remove("startDate");
-        var dates = tripBody(); dates.put("endDate", "2027-01-09");
-        var budget = tripBody(); budget.put("budget", Map.of("amount", -1, "currency", "VND"));
-        var forgedOwner = tripBody(); forgedOwner.put("userId", UUID.randomUUID());
+        var blank = tripBody();
+        blank.put("destination", Map.of("name", "   "));
+        var missing = tripBody();
+        missing.remove("startDate");
+        var dates = tripBody();
+        dates.put("endDate", "2027-01-09");
+        var budget = tripBody();
+        budget.put("budget", Map.of("amount", -1, "currency", "VND"));
+        var forgedOwner = tripBody();
+        forgedOwner.put("userId", UUID.randomUUID());
         for (var invalid : List.of(blank, missing, dates, budget, forgedOwner)) {
             send(post(TRIPS), invalid).andExpect(status().isBadRequest());
         }
@@ -170,9 +236,15 @@ class TripIntegrationTest {
     @Test
     void foreignAndMissingTripsArePrivateAcrossAllOperations() throws Exception {
         String otherPassword = UUID.randomUUID().toString();
-        User other = users.saveAndFlush(User.builder().fullName("Other Owner")
-                .email(UUID.randomUUID() + "@example.com").passwordHash(passwords.encode(otherPassword))
-                .role(Role.USER).emailVerifiedAt(Instant.now()).build());
+        User other = users.saveAndFlush(
+            User.builder()
+                .fullName("Other Owner")
+                .email(UUID.randomUUID() + "@example.com")
+                .passwordHash(passwords.encode(otherPassword))
+                .role(Role.USER)
+                .emailVerifiedAt(Instant.now())
+                .build()
+        );
         String otherToken = login(other, otherPassword);
         String tripId = createTrip();
         Place place = place();
@@ -180,26 +252,40 @@ class TripIntegrationTest {
         for (String id : List.of(tripId, UUID.randomUUID().toString())) {
             String path = TRIPS + "/" + id;
             List<MockHttpServletRequestBuilder> requests = List.of(
-                    get(path), patch(path).content(json.writeValueAsString(Map.of("title", "Stolen", "version", 0))), delete(path).param("version", "0"),
-                    get(path + "/places"), post(path + "/places").content(json.writeValueAsString(Map.of("placeId", place.getId()))),
-                    put(path + "/places/" + place.getId()).content(json.writeValueAsString(Map.of("visited", true))),
-                    delete(path + "/places/" + place.getId()));
+                get(path),
+                patch(path).content(json.writeValueAsString(Map.of("title", "Stolen", "version", 0))),
+                delete(path).param("version", "0"),
+                get(path + "/places"),
+                post(path + "/places").content(json.writeValueAsString(Map.of("placeId", place.getId()))),
+                put(path + "/places/" + place.getId()).content(json.writeValueAsString(Map.of("visited", true))),
+                delete(path + "/places/" + place.getId())
+            );
             for (var request : requests) {
-                send(request, otherToken).andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("TRIP_001"));
+                send(request, otherToken)
+                    .andExpect(status().isNotFound())
+                    .andExpect(jsonPath("$.code").value("TRIP_001"));
             }
         }
         assertThat(data(send(get(TRIPS), otherToken).andExpect(status().isOk()))).isEmpty();
-        send(get(TRIPS + "/" + tripId)).andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.trip.title").value("Weekend trip"));
+        send(get(TRIPS + "/" + tripId))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.trip.title").value("Weekend trip"));
     }
 
     @Test
     void unauthenticatedRequestsCannotReadOrMutateTrips() throws Exception {
         String path = TRIPS + "/" + createTrip();
-        for (var request : List.of(get(TRIPS), get(path), post(TRIPS).content(json.writeValueAsString(tripBody())),
-                patch(path).content("{\"title\":\"Updated\",\"version\":0}"), delete(path).param("version", "0"), get(path + "/places"),
-                post(path + "/places").content("{}"), put(path + "/places/" + UUID.randomUUID()).content("{}"),
-                delete(path + "/places/" + UUID.randomUUID()))) {
+        for (var request : List.of(
+            get(TRIPS),
+            get(path),
+            post(TRIPS).content(json.writeValueAsString(tripBody())),
+            patch(path).content("{\"title\":\"Updated\",\"version\":0}"),
+            delete(path).param("version", "0"),
+            get(path + "/places"),
+            post(path + "/places").content("{}"),
+            put(path + "/places/" + UUID.randomUUID()).content("{}"),
+            delete(path + "/places/" + UUID.randomUUID())
+        )) {
             mvc.perform(request.contentType(MediaType.APPLICATION_JSON)).andExpect(status().isUnauthorized());
         }
     }
@@ -209,26 +295,66 @@ class TripIntegrationTest {
         String tripId = createTrip();
         String path = TRIPS + "/" + tripId + "/places";
         Place existing = place();
-        send(post(path), Map.of("placeId", existing.getId(), "priority", 2, "estimatedDuration", 45,
-                        "notes", "Visit before lunch", "plannedOrder", 1, "tripId", UUID.randomUUID(), "userId", UUID.randomUUID()))
-                .andExpect(status().isCreated()).andExpect(jsonPath("$.data.placeId").value(existing.getId().toString()))
-                .andExpect(jsonPath("$.data.tripId").value(tripId))
-                .andExpect(jsonPath("$.data.place.name").value(existing.getName()))
-                .andExpect(jsonPath("$.data.visited").value(false));
-        JsonNode created = data(send(post(path), Map.of("name", "New viewpoint", "latitude", 16.05,
-                        "longitude", 108.2, "providerPlaceId", "provider-" + UUID.randomUUID(), "address", "Hill road"))
-                .andExpect(status().isCreated()));
+        send(
+            post(path),
+            Map.of(
+                "placeId",
+                existing.getId(),
+                "priority",
+                2,
+                "estimatedDuration",
+                45,
+                "notes",
+                "Visit before lunch",
+                "plannedOrder",
+                1,
+                "tripId",
+                UUID.randomUUID(),
+                "userId",
+                UUID.randomUUID()
+            )
+        )
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.data.placeId").value(existing.getId().toString()))
+            .andExpect(jsonPath("$.data.tripId").value(tripId))
+            .andExpect(jsonPath("$.data.place.name").value(existing.getName()))
+            .andExpect(jsonPath("$.data.visited").value(false));
+        JsonNode created = data(
+            send(
+                post(path),
+                Map.of(
+                    "name",
+                    "New viewpoint",
+                    "latitude",
+                    16.05,
+                    "longitude",
+                    108.2,
+                    "providerPlaceId",
+                    "provider-" + UUID.randomUUID(),
+                    "address",
+                    "Hill road"
+                )
+            ).andExpect(status().isCreated())
+        );
         assertThat(places.findById(UUID.fromString(created.path("placeId").asText()))).isPresent();
         send(put(path + "/" + existing.getId()), Map.of("visited", true, "notes", "Visited", "plannedOrder", 0))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.data.visited").value(true))
-                .andExpect(jsonPath("$.data.priority").value(2))
-                .andExpect(jsonPath("$.data.estimatedDuration").value(45));
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.visited").value(true))
+            .andExpect(jsonPath("$.data.priority").value(2))
+            .andExpect(jsonPath("$.data.estimatedDuration").value(45));
         JsonNode list = data(send(get(path)).andExpect(status().isOk()));
         assertThat(list).hasSize(2);
         assertThat(list.get(0).path("placeId").asText()).isEqualTo(existing.getId().toString());
-        send(get(TRIPS + "/" + tripId)).andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.trip.stopCount").value(2));
-        assertThat(tripPlaces.findByTripId(UUID.fromString(tripId)).stream().filter(com.travel.trip.entity.TripPlace::isVisited).count()).isEqualTo(1);
+        send(get(TRIPS + "/" + tripId))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.trip.stopCount").value(2));
+        assertThat(
+            tripPlaces
+                .findByTripId(UUID.fromString(tripId))
+                .stream()
+                .filter(com.travel.trip.entity.TripPlace::isVisited)
+                .count()
+        ).isEqualTo(1);
         assertThat(places.findById(existing.getId()).orElseThrow().getName()).isEqualTo(existing.getName());
     }
 
@@ -238,16 +364,25 @@ class TripIntegrationTest {
         Place place = place();
         String path = TRIPS + "/" + tripId + "/places";
         send(post(path), Map.of("placeId", place.getId())).andExpect(status().isCreated());
-        send(post(path), Map.of("placeId", place.getId())).andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value("TRIP_003"));
+        send(post(path), Map.of("placeId", place.getId()))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.code").value("TRIP_003"));
         assertThat(tripPlaces.findByTripId(UUID.fromString(tripId))).hasSize(1);
     }
 
     @Test
     void newPlacesWithSameProviderIdRemainSeparateRecords() throws Exception {
         String path = TRIPS + "/" + createTrip() + "/places";
-        var body = Map.of("name", "Provider location", "latitude", 16.06, "longitude", 108.24,
-                "providerPlaceId", "provider-" + UUID.randomUUID());
+        var body = Map.of(
+            "name",
+            "Provider location",
+            "latitude",
+            16.06,
+            "longitude",
+            108.24,
+            "providerPlaceId",
+            "provider-" + UUID.randomUUID()
+        );
         JsonNode first = data(send(post(path), body).andExpect(status().isCreated()));
         JsonNode second = data(send(post(path), body).andExpect(status().isCreated()));
         assertThat(first.path("placeId").asText()).isNotEqualTo(second.path("placeId").asText());
@@ -259,8 +394,9 @@ class TripIntegrationTest {
         String tripId = createTrip();
         Place place = place();
         String path = TRIPS + "/" + tripId + "/places";
-        assertThat(race(() -> send(post(path), Map.of("placeId", place.getId())).andReturn().getResponse().getStatus()))
-                .containsExactlyInAnyOrder(201, 409);
+        assertThat(
+            race(() -> send(post(path), Map.of("placeId", place.getId())).andReturn().getResponse().getStatus())
+        ).containsExactlyInAnyOrder(201, 409);
         assertThat(tripPlaces.findByTripId(UUID.fromString(tripId))).hasSize(1);
     }
 
@@ -269,20 +405,31 @@ class TripIntegrationTest {
         String path = TRIPS + "/" + createTrip() + "/places";
         List<String> ids = new java.util.ArrayList<>();
         for (int i = 0; i < 3; i++) {
-            ids.add(data(send(post(path), Map.of("name", "Stop " + i, "latitude", 16.0, "longitude", 108.0))
-                    .andExpect(status().isCreated())).path("placeId").asText());
+            ids.add(
+                data(
+                    send(post(path), Map.of("name", "Stop " + i, "latitude", 16.0, "longitude", 108.0)).andExpect(
+                        status().isCreated()
+                    )
+                )
+                    .path("placeId")
+                    .asText()
+            );
         }
         send(put(path + "/" + ids.get(2)), Map.of("plannedOrder", 0)).andExpect(status().isOk());
         JsonNode reordered = data(send(get(path)).andExpect(status().isOk()));
-        assertThat(reordered).extracting(node -> node.path("placeId").asText())
-                .containsExactly(ids.get(2), ids.get(0), ids.get(1));
+        assertThat(reordered)
+            .extracting(node -> node.path("placeId").asText())
+            .containsExactly(ids.get(2), ids.get(0), ids.get(1));
         send(put(path + "/" + ids.get(0)), Map.of("plannedOrder", 100)).andExpect(status().isOk());
         JsonNode clamped = data(send(get(path)).andExpect(status().isOk()));
-        assertThat(clamped).extracting(node -> node.path("placeId").asText())
-                .containsExactly(ids.get(2), ids.get(1), ids.get(0));
+        assertThat(clamped)
+            .extracting(node -> node.path("placeId").asText())
+            .containsExactly(ids.get(2), ids.get(1), ids.get(0));
         send(delete(path + "/" + ids.get(2))).andExpect(status().isNoContent());
         JsonNode remaining = data(send(get(path)).andExpect(status().isOk()));
-        assertThat(remaining).extracting(node -> node.path("plannedOrder").asInt()).containsExactly(0, 1);
+        assertThat(remaining)
+            .extracting(node -> node.path("plannedOrder").asInt())
+            .containsExactly(0, 1);
     }
 
     @Test
@@ -293,20 +440,26 @@ class TripIntegrationTest {
         send(post(first), Map.of("placeId", shared.getId(), "notes", "First trip")).andExpect(status().isCreated());
         send(post(second), Map.of("placeId", shared.getId(), "notes", "Second trip")).andExpect(status().isCreated());
         send(put(first + "/" + shared.getId()), Map.of("notes", "Changed", "visited", true)).andExpect(status().isOk());
-        send(get(second)).andExpect(status().isOk()).andExpect(jsonPath("$.data[0].notes").value("Second trip"))
-                .andExpect(jsonPath("$.data[0].visited").value(false));
+        send(get(second))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data[0].notes").value("Second trip"))
+            .andExpect(jsonPath("$.data[0].visited").value(false));
         send(delete(first + "/" + shared.getId())).andExpect(status().isNoContent());
-        send(get(second)).andExpect(status().isOk()).andExpect(jsonPath("$.data[0].place.name").value(shared.getName()));
+        send(get(second))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data[0].place.name").value(shared.getName()));
     }
 
     @Test
     void invalidCoordinatesAndMetadataAreRejectedBeforePersistence() throws Exception {
         String path = TRIPS + "/" + createTrip() + "/places";
-        for (var invalid : List.of(Map.of("name", "Invalid", "latitude", 91, "longitude", 108),
-                Map.of("name", "Invalid", "latitude", 16, "longitude", -181),
-                Map.of("name", "Invalid", "latitude", 16),
-                Map.of("name", " ", "latitude", 16, "longitude", 108),
-                Map.of("name", "Invalid", "latitude", 16, "longitude", 108, "estimatedDuration", -1))) {
+        for (var invalid : List.of(
+            Map.of("name", "Invalid", "latitude", 91, "longitude", 108),
+            Map.of("name", "Invalid", "latitude", 16, "longitude", -181),
+            Map.of("name", "Invalid", "latitude", 16),
+            Map.of("name", " ", "latitude", 16, "longitude", 108),
+            Map.of("name", "Invalid", "latitude", 16, "longitude", 108, "estimatedDuration", -1)
+        )) {
             send(post(path), invalid).andExpect(status().isBadRequest());
         }
         assertThat(data(send(get(path)).andExpect(status().isOk()))).isEmpty();
@@ -315,32 +468,64 @@ class TripIntegrationTest {
     @Test
     void missingPlaceAndMissingLinkHaveDistinctNotFoundErrors() throws Exception {
         String path = TRIPS + "/" + createTrip() + "/places";
-        send(post(path), Map.of("placeId", UUID.randomUUID())).andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value("PLACE_001"));
+        send(post(path), Map.of("placeId", UUID.randomUUID()))
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.code").value("PLACE_001"));
         Place notLinked = place();
-        send(put(path + "/" + notLinked.getId()), Map.of("visited", true)).andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value("TRIP_002"));
-        send(delete(path + "/" + notLinked.getId())).andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value("TRIP_002"));
+        send(put(path + "/" + notLinked.getId()), Map.of("visited", true))
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.code").value("TRIP_002"));
+        send(delete(path + "/" + notLinked.getId()))
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.code").value("TRIP_002"));
     }
 
     @Test
     void missingProvinceRollsBackPlaceAndValidProvinceIsReturned() throws Exception {
         String path = TRIPS + "/" + createTrip() + "/places";
         long originalPlaceCount = places.count();
-        send(post(path), Map.of("name", "Province location", "latitude", 16.0, "longitude", 108.0,
-                        "provinceId", UUID.randomUUID(), "category", "nature"))
-                .andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("PLACE_002"));
+        send(
+            post(path),
+            Map.of(
+                "name",
+                "Province location",
+                "latitude",
+                16.0,
+                "longitude",
+                108.0,
+                "provinceId",
+                UUID.randomUUID(),
+                "category",
+                "nature"
+            )
+        )
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.code").value("PLACE_002"));
         assertThat(places.count()).isEqualTo(originalPlaceCount);
         assertThat(data(send(get(path)).andExpect(status().isOk()))).isEmpty();
 
-        Province province = provinces.saveAndFlush(Province.builder()
-                .code(UUID.randomUUID().toString().substring(0, 8)).name("Test Province").build());
-        send(post(path), Map.of("name", "Province location", "latitude", 16.0, "longitude", 108.0,
-                        "provinceId", province.getId(), "category", "nature"))
-                .andExpect(status().isCreated()).andExpect(jsonPath("$.data.place.provinceId").value(province.getId().toString()))
-                .andExpect(jsonPath("$.data.place.provinceName").value("Test Province"))
-                .andExpect(jsonPath("$.data.place.category").value("nature"));
+        Province province = provinces.saveAndFlush(
+            Province.builder().code(UUID.randomUUID().toString().substring(0, 8)).name("Test Province").build()
+        );
+        send(
+            post(path),
+            Map.of(
+                "name",
+                "Province location",
+                "latitude",
+                16.0,
+                "longitude",
+                108.0,
+                "provinceId",
+                province.getId(),
+                "category",
+                "nature"
+            )
+        )
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.data.place.provinceId").value(province.getId().toString()))
+            .andExpect(jsonPath("$.data.place.provinceName").value("Test Province"))
+            .andExpect(jsonPath("$.data.place.category").value("nature"));
         assertThat(places.count()).isEqualTo(originalPlaceCount + 1);
     }
 
@@ -353,11 +538,21 @@ class TripIntegrationTest {
         Memory deleted = Memory.create(owner.getId(), id, place.getId(), "Deleted memory", Instant.now());
         deleted.softDelete();
         memories.saveAndFlush(deleted);
-        User other = users.saveAndFlush(User.builder().fullName("Other memory owner")
-                .email(UUID.randomUUID() + "@example.com").role(Role.USER).emailVerifiedAt(Instant.now()).build());
-        memories.saveAndFlush(Memory.create(other.getId(), id, place.getId(), "Not the trip owner's memory", Instant.now()));
+        User other = users.saveAndFlush(
+            User.builder()
+                .fullName("Other memory owner")
+                .email(UUID.randomUUID() + "@example.com")
+                .role(Role.USER)
+                .emailVerifiedAt(Instant.now())
+                .build()
+        );
+        memories.saveAndFlush(
+            Memory.create(other.getId(), id, place.getId(), "Not the trip owner's memory", Instant.now())
+        );
 
-        send(get(TRIPS + "/" + tripId)).andExpect(status().isOk()).andExpect(jsonPath("$.data.trip.memoryCount").value(1));
+        send(get(TRIPS + "/" + tripId))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.trip.memoryCount").value(1));
         send(get(TRIPS)).andExpect(status().isOk()).andExpect(jsonPath("$.data.content[0].memoryCount").value(1));
     }
 
@@ -367,13 +562,16 @@ class TripIntegrationTest {
         Place place = place();
         String path = TRIPS + "/" + tripId + "/places";
         send(post(path), Map.of("placeId", place.getId())).andExpect(status().isCreated());
-        Memory memory = memories.saveAndFlush(Memory.create(owner.getId(), UUID.fromString(tripId),
-                place.getId(), "Keep this memory", Instant.now()));
+        Memory memory = memories.saveAndFlush(
+            Memory.create(owner.getId(), UUID.fromString(tripId), place.getId(), "Keep this memory", Instant.now())
+        );
         send(delete(path + "/" + place.getId())).andExpect(status().isNoContent());
         assertThat(places.findById(place.getId())).isPresent();
         assertThat(memories.findByIdAndDeletedAtIsNull(memory.getId())).isPresent();
-        send(get(TRIPS + "/" + tripId)).andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.trip.stopCount").value(0)).andExpect(jsonPath("$.data.trip.memoryCount").value(1));
+        send(get(TRIPS + "/" + tripId))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.data.trip.stopCount").value(0))
+            .andExpect(jsonPath("$.data.trip.memoryCount").value(1));
     }
 
     @Test
@@ -382,12 +580,31 @@ class TripIntegrationTest {
         Place place = place();
         String path = TRIPS + "/" + tripId;
         send(post(path + "/places"), Map.of("placeId", place.getId())).andExpect(status().isCreated());
-        Memory memory = memories.saveAndFlush(Memory.create(owner.getId(), UUID.fromString(tripId),
-                place.getId(), "Trip deletion keeps this row for soft-delete history", Instant.now()));
-        User other = users.saveAndFlush(User.builder().fullName("Other journal owner")
-                .email(UUID.randomUUID() + "@example.com").role(Role.USER).build());
-        Memory foreign = memories.saveAndFlush(Memory.create(other.getId(), UUID.fromString(tripId),
-                place.getId(), "A legacy reference must not grant delete access", Instant.now()));
+        Memory memory = memories.saveAndFlush(
+            Memory.create(
+                owner.getId(),
+                UUID.fromString(tripId),
+                place.getId(),
+                "Trip deletion keeps this row for soft-delete history",
+                Instant.now()
+            )
+        );
+        User other = users.saveAndFlush(
+            User.builder()
+                .fullName("Other journal owner")
+                .email(UUID.randomUUID() + "@example.com")
+                .role(Role.USER)
+                .build()
+        );
+        Memory foreign = memories.saveAndFlush(
+            Memory.create(
+                other.getId(),
+                UUID.fromString(tripId),
+                place.getId(),
+                "A legacy reference must not grant delete access",
+                Instant.now()
+            )
+        );
         send(delete(path).param("version", "0")).andExpect(status().isNoContent());
         assertThat(trips.findById(UUID.fromString(tripId)).orElseThrow().isDeleted()).isTrue();
         assertThat(places.findById(place.getId())).isPresent();
@@ -396,20 +613,37 @@ class TripIntegrationTest {
         assertThat(memories.findByIdAndDeletedAtIsNull(foreign.getId())).isPresent();
         assertThat(data(send(get(TRIPS)).andExpect(status().isOk()))).isEmpty();
         send(delete(path).param("version", "0")).andExpect(status().isNoContent());
-        for (var request : List.of(get(path), get(path + "/places"), patch(path).content("{\"title\":\"Updated\",\"version\":0}"),
-                post(path + "/places").content(json.writeValueAsString(Map.of("placeId", place.getId()))))) {
+        for (var request : List.of(
+            get(path),
+            get(path + "/places"),
+            patch(path).content("{\"title\":\"Updated\",\"version\":0}"),
+            post(path + "/places").content(json.writeValueAsString(Map.of("placeId", place.getId())))
+        )) {
             send(request).andExpect(status().isNotFound()).andExpect(jsonPath("$.code").value("TRIP_001"));
         }
     }
 
     private Map<String, Object> tripBody() {
-        return new LinkedHashMap<>(Map.of("clientRequestId", UUID.randomUUID().toString(),
-                "title", "Weekend trip", "destination", Map.of("name", "Da Nang"),
-                "startDate", "2027-01-10", "endDate", "2027-01-12"));
+        return new LinkedHashMap<>(
+            Map.of(
+                "clientRequestId",
+                UUID.randomUUID().toString(),
+                "title",
+                "Weekend trip",
+                "destination",
+                Map.of("name", "Da Nang"),
+                "startDate",
+                "2027-01-10",
+                "endDate",
+                "2027-01-12"
+            )
+        );
     }
 
     private String createTrip() throws Exception {
-        return data(send(post(TRIPS), tripBody()).andExpect(status().isCreated())).path("id").asText();
+        return data(send(post(TRIPS), tripBody()).andExpect(status().isCreated()))
+            .path("id")
+            .asText();
     }
 
     private Place place() {
@@ -417,9 +651,17 @@ class TripIntegrationTest {
     }
 
     private String login(User user, String password) throws Exception {
-        return data(mvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
-                .content(json.writeValueAsString(Map.of("email", user.getEmail(), "password", password))))
-                .andExpect(status().isOk())).path("accessToken").asText();
+        return data(
+            mvc
+                .perform(
+                    post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json.writeValueAsString(Map.of("email", user.getEmail(), "password", password)))
+                )
+                .andExpect(status().isOk())
+        )
+            .path("accessToken")
+            .asText();
     }
 
     private ResultActions send(MockHttpServletRequestBuilder request) throws Exception {
@@ -431,7 +673,9 @@ class TripIntegrationTest {
     }
 
     private ResultActions send(MockHttpServletRequestBuilder request, String accessToken) throws Exception {
-        return mvc.perform(request.contentType(MediaType.APPLICATION_JSON).header("Authorization", "Bearer " + accessToken));
+        return mvc.perform(
+            request.contentType(MediaType.APPLICATION_JSON).header("Authorization", "Bearer " + accessToken)
+        );
     }
 
     private JsonNode data(ResultActions result) throws Exception {
@@ -449,7 +693,11 @@ class TripIntegrationTest {
             Callable<Integer> runner = () -> {
                 ready.countDown();
                 if (!start.await(10, TimeUnit.SECONDS)) throw new TimeoutException("Race did not start");
-                try { return action.call(); } finally { SecurityContextHolder.clearContext(); }
+                try {
+                    return action.call();
+                } finally {
+                    SecurityContextHolder.clearContext();
+                }
             };
             var first = executor.submit(runner);
             var second = executor.submit(runner);

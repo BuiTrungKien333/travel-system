@@ -1,11 +1,19 @@
 package com.travel.media.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.Mockito.*;
+
 import com.cloudinary.Cloudinary;
 import com.cloudinary.Uploader;
 import com.travel.common.exception.AppException;
 import com.travel.common.exception.ErrorCode;
 import com.travel.media.dto.UploadResponse;
 import com.travel.media.service.impl.MediaServiceImpl;
+import java.io.IOException;
+import java.util.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -13,18 +21,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.multipart.MultipartFile;
-
-import java.io.IOException;
-import java.util.*;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyMap;
-import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class MediaServiceTest {
@@ -57,10 +56,12 @@ class MediaServiceTest {
     @DisplayName("Upload single image succeeds")
     void uploadImage_Success() throws IOException {
         var bytes = new java.io.ByteArrayOutputStream();
-        javax.imageio.ImageIO.write(new java.awt.image.BufferedImage(8, 6, java.awt.image.BufferedImage.TYPE_INT_RGB), "jpeg", bytes);
-        MockMultipartFile file = new MockMultipartFile(
-                "file", "test.jpg", "image/jpeg", bytes.toByteArray()
+        javax.imageio.ImageIO.write(
+            new java.awt.image.BufferedImage(8, 6, java.awt.image.BufferedImage.TYPE_INT_RGB),
+            "jpeg",
+            bytes
         );
+        MockMultipartFile file = new MockMultipartFile("file", "test.jpg", "image/jpeg", bytes.toByteArray());
 
         Map<String, Object> cloudinaryResult = new HashMap<>();
         cloudinaryResult.put("secure_url", "https://res.cloudinary.com/demo/image/upload/v1/test.jpg");
@@ -86,13 +87,19 @@ class MediaServiceTest {
     @Test
     void uploadWithoutStorageConfigurationReturnsUnavailableWithoutCallingProvider() throws IOException {
         var bytes = new java.io.ByteArrayOutputStream();
-        javax.imageio.ImageIO.write(new java.awt.image.BufferedImage(8, 6, java.awt.image.BufferedImage.TYPE_INT_RGB), "jpeg", bytes);
+        javax.imageio.ImageIO.write(
+            new java.awt.image.BufferedImage(8, 6, java.awt.image.BufferedImage.TYPE_INT_RGB),
+            "jpeg",
+            bytes
+        );
         MockMultipartFile file = new MockMultipartFile("file", "test.jpg", "image/jpeg", bytes.toByteArray());
-        assertThatThrownBy(() -> mediaService.uploadImage(file, userId))
-                .isInstanceOfSatisfying(AppException.class, error -> {
-                    assertThat(error.getErrorCode()).isEqualTo(ErrorCode.MEDIA_STORAGE_UNAVAILABLE);
-                    assertThat(error.getErrorCode().getHttpStatus().value()).isEqualTo(503);
-                });
+        assertThatThrownBy(() -> mediaService.uploadImage(file, userId)).isInstanceOfSatisfying(
+            AppException.class,
+            error -> {
+                assertThat(error.getErrorCode()).isEqualTo(ErrorCode.MEDIA_STORAGE_UNAVAILABLE);
+                assertThat(error.getErrorCode().getHttpStatus().value()).isEqualTo(503);
+            }
+        );
         verifyNoInteractions(cloudinary, uploader, deletion);
     }
 
@@ -102,20 +109,25 @@ class MediaServiceTest {
         MockMultipartFile file = new MockMultipartFile("file", "empty.jpg", "image/jpeg", new byte[0]);
 
         assertThatThrownBy(() -> mediaService.uploadImage(file, userId))
-                .isInstanceOf(AppException.class)
-                .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(ErrorCode.UPLOAD_FILE_EMPTY));
+            .isInstanceOf(AppException.class)
+            .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(ErrorCode.UPLOAD_FILE_EMPTY));
     }
 
     @Test
     @DisplayName("Upload image throws exception when file type is invalid")
     void uploadImage_InvalidType_ThrowsException() {
         MockMultipartFile file = new MockMultipartFile(
-                "file", "document.pdf", "application/pdf", "dummy pdf content".getBytes()
+            "file",
+            "document.pdf",
+            "application/pdf",
+            "dummy pdf content".getBytes()
         );
 
         assertThatThrownBy(() -> mediaService.uploadImage(file, userId))
-                .isInstanceOf(AppException.class)
-                .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(ErrorCode.UPLOAD_INVALID_FILE_TYPE));
+            .isInstanceOf(AppException.class)
+            .satisfies(ex ->
+                assertThat(((AppException) ex).getErrorCode()).isEqualTo(ErrorCode.UPLOAD_INVALID_FILE_TYPE)
+            );
     }
 
     @Test
@@ -127,7 +139,7 @@ class MediaServiceTest {
         }
 
         assertThatThrownBy(() -> mediaService.uploadImages(files, userId, UUID.randomUUID(), UUID.randomUUID()))
-                .isInstanceOf(AppException.class)
-                .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(ErrorCode.UPLOAD_TOO_MANY_FILES));
+            .isInstanceOf(AppException.class)
+            .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(ErrorCode.UPLOAD_TOO_MANY_FILES));
     }
 }

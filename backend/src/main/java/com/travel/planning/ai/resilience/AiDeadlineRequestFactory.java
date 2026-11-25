@@ -1,11 +1,10 @@
 package com.travel.planning.ai.resilience;
 
 import com.travel.planning.retrieval.config.RagProperties;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
-
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.SocketTimeoutException;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 
 /**
  * Bounds connect/read phases to the remaining AI request budget.

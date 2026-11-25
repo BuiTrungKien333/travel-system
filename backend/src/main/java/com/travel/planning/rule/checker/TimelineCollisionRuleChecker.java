@@ -5,9 +5,6 @@ import com.travel.planning.rule.enums.IssueCategory;
 import com.travel.planning.rule.enums.IssueSeverity;
 import com.travel.planning.rule.model.DetectedIssue;
 import com.travel.planning.rule.model.ScheduleItemContext;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -15,6 +12,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
 
 @Component
 @Slf4j(topic = "TIMELINE_COLLISION_RULE")
@@ -57,52 +56,85 @@ public class TimelineCollisionRuleChecker {
             // Ca 1: Chồng lấn trực tiếp (lịch ngày trước kết thúc sau khi lịch ngày sau đã bắt đầu)
             if (lastCurrentDeparture.isAfter(firstNextArrival)) {
                 long overlapMinutes = Duration.between(firstNextArrival, lastCurrentDeparture).toMinutes();
-                issues.add(new DetectedIssue(
+                issues.add(
+                    new DetectedIssue(
                         lastCurrentItem.placeId(),
                         String.format("Va chạm lịch: Ngày %s và Ngày %s", currentDay.dayDate(), nextDay.dayDate()),
                         firstNextArrival,
                         IssueCategory.SCHEDULE_COLLISION,
                         IssueSeverity.CRITICAL,
-                        String.format("Lịch trình ngày %s kết thúc lúc %s (tại '%s'), đè lên giờ bắt đầu ngày %s (đến '%s' lúc %s), bị chồng lấn %d phút.",
-                                currentDay.dayDate(), lastCurrentDeparture.format(TIME_FORMAT), lastCurrentItem.placeName(),
-                                nextDay.dayDate(), firstNextItem.placeName(), firstNextArrival.format(TIME_FORMAT), overlapMinutes),
-                        String.format("Lùi giờ xuất phát của ngày %s sang sau %s hoặc tinh giản bớt điểm tham quan ngày %s.",
-                                nextDay.dayDate(), lastCurrentDeparture.format(TIME_FORMAT), currentDay.dayDate()),
+                        String.format(
+                            "Lịch trình ngày %s kết thúc lúc %s (tại '%s'), đè lên giờ bắt đầu ngày %s (đến '%s' lúc %s), bị chồng lấn %d phút.",
+                            currentDay.dayDate(),
+                            lastCurrentDeparture.format(TIME_FORMAT),
+                            lastCurrentItem.placeName(),
+                            nextDay.dayDate(),
+                            firstNextItem.placeName(),
+                            firstNextArrival.format(TIME_FORMAT),
+                            overlapMinutes
+                        ),
+                        String.format(
+                            "Lùi giờ xuất phát của ngày %s sang sau %s hoặc tinh giản bớt điểm tham quan ngày %s.",
+                            nextDay.dayDate(),
+                            lastCurrentDeparture.format(TIME_FORMAT),
+                            currentDay.dayDate()
+                        ),
                         Map.of(
-                                "prevDayLastDeparture", lastCurrentDeparture.toString(),
-                                "nextDayFirstArrival", firstNextArrival.toString(),
-                                "overlapMinutes", overlapMinutes
+                            "prevDayLastDeparture",
+                            lastCurrentDeparture.toString(),
+                            "nextDayFirstArrival",
+                            firstNextArrival.toString(),
+                            "overlapMinutes",
+                            overlapMinutes
                         )
-                ));
+                    )
+                );
             }
             // Ca 2: Khoảng cách nghỉ ngơi giữa 2 ngày quá ngắn (dưới 6 tiếng)
             else {
                 long restMinutes = Duration.between(lastCurrentDeparture, firstNextArrival).toMinutes();
                 long restHours = restMinutes / 60;
                 if (restHours < MIN_RECOMMENDED_REST_HOURS) {
-                    issues.add(new DetectedIssue(
+                    issues.add(
+                        new DetectedIssue(
                             firstNextItem.placeId(),
                             String.format("Nghỉ ngơi giữa Ngày %s và Ngày %s", currentDay.dayDate(), nextDay.dayDate()),
                             firstNextArrival,
                             IssueCategory.INSUFFICIENT_REST_TIME,
                             IssueSeverity.IMPORTANT,
-                            String.format("Khoảng cách giữa lúc kết thúc ngày %s (%s) và lúc bắt đầu ngày %s (%s) chỉ có %d giờ %d phút (dưới mức tối thiểu %d giờ).",
-                                    currentDay.dayDate(), lastCurrentDeparture.format(TIME_FORMAT),
-                                    nextDay.dayDate(), firstNextArrival.format(TIME_FORMAT),
-                                    restHours, restMinutes % 60, MIN_RECOMMENDED_REST_HOURS),
-                            String.format("Nên lùi giờ xuất phát ngày %s để du khách có đủ giấc ngủ và phục hồi năng lượng.", nextDay.dayDate()),
+                            String.format(
+                                "Khoảng cách giữa lúc kết thúc ngày %s (%s) và lúc bắt đầu ngày %s (%s) chỉ có %d giờ %d phút (dưới mức tối thiểu %d giờ).",
+                                currentDay.dayDate(),
+                                lastCurrentDeparture.format(TIME_FORMAT),
+                                nextDay.dayDate(),
+                                firstNextArrival.format(TIME_FORMAT),
+                                restHours,
+                                restMinutes % 60,
+                                MIN_RECOMMENDED_REST_HOURS
+                            ),
+                            String.format(
+                                "Nên lùi giờ xuất phát ngày %s để du khách có đủ giấc ngủ và phục hồi năng lượng.",
+                                nextDay.dayDate()
+                            ),
                             Map.of(
-                                    "restHours", restHours,
-                                    "restMinutes", restMinutes,
-                                    "minRecommendedHours", MIN_RECOMMENDED_REST_HOURS
+                                "restHours",
+                                restHours,
+                                "restMinutes",
+                                restMinutes,
+                                "minRecommendedHours",
+                                MIN_RECOMMENDED_REST_HOURS
                             )
-                    ));
+                        )
+                    );
                 }
             }
         }
 
-        log.debug("[TIMELINE_COLLISION_RULE] Evaluated {} day transitions, found {} collision issues",
-                dailySchedules.size() - 1, issues.size());
+        log.debug(
+            "[TIMELINE_COLLISION_RULE] Evaluated {} day transitions, found {} collision issues",
+            dailySchedules.size() - 1,
+            issues.size()
+        );
         return issues;
     }
 }

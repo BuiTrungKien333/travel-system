@@ -20,9 +20,9 @@ public class MockAiProvider implements AiProvider {
         AiCopilotAnalysisResult fallback = fallbackCopilotGenerator.generateFallback(context);
 
         return new AiCopilotAnalysisResult(
-                "[Mô phỏng Copilot] " + fallback.greetingAndCaringReminder(),
-                fallback.recommendationCards(),
-                "mock"
+            "[Mô phỏng Copilot] " + fallback.greetingAndCaringReminder(),
+            fallback.recommendationCards(),
+            "mock"
         );
     }
 

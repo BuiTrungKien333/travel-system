@@ -10,12 +10,18 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/v1/places")
 @RequiredArgsConstructor
 public class MapboxAddressController {
+
     private final MapboxAddressService service;
+
     @GetMapping("/addresses")
-    public ApiResponse<MapboxAddressService.Results> search(@RequestParam String q,
-            @RequestParam(required = false) Double latitude, @RequestParam(required = false) Double longitude,
-            @RequestParam(defaultValue = "vi") String locale, HttpServletResponse response) {
-        response.setHeader("Cache-Control","private, no-store");
-        return ApiResponse.success(service.search(q,latitude,longitude,locale));
+    public ApiResponse<MapboxAddressService.Results> search(
+        @RequestParam String q,
+        @RequestParam(required = false) Double latitude,
+        @RequestParam(required = false) Double longitude,
+        @RequestParam(defaultValue = "vi") String locale,
+        HttpServletResponse response
+    ) {
+        response.setHeader("Cache-Control", "private, no-store");
+        return ApiResponse.success(service.search(q, latitude, longitude, locale));
     }
 }

@@ -26,5 +26,5 @@ public enum IssueCategory {
     INSUFFICIENT_REST_TIME,
 
     @Schema(description = "Chưa có số liệu xác minh giờ hoạt động của địa điểm")
-    UNVERIFIED_HOURS
+    UNVERIFIED_HOURS,
 }

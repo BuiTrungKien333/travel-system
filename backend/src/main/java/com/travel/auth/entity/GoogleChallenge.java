@@ -1,10 +1,9 @@
 package com.travel.auth.entity;
 
 import jakarta.persistence.*;
-import lombok.*;
-
 import java.time.Instant;
 import java.util.UUID;
+import lombok.*;
 
 @Entity
 @Table(name = "auth_google_challenges")

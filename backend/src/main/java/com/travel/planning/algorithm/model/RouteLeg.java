@@ -9,6 +9,7 @@ import lombok.*;
 @AllArgsConstructor
 @Builder
 public class RouteLeg {
+
     private Place fromPlace;
     private Place toPlace;
     private double distanceMeters;

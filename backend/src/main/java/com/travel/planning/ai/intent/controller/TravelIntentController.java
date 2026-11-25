@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@Profile({"dev", "rag-demo"})
+@Profile({ "dev", "rag-demo" })
 @RequestMapping("/api/v1/public/planning/retrieval")
 public class TravelIntentController {
 
@@ -39,14 +39,9 @@ public class TravelIntentController {
         return ApiResponse.success(service.search(request.text(), request.limit()));
     }
 
-    public record IntentRequest(
-            @NotBlank @Size(max = 1000) String text
-    ) {}
+    public record IntentRequest(@NotBlank @Size(max = 1000) String text) {}
 
-    public record TextSearchRequest(
-            @NotBlank @Size(max = 1000) String text,
-            @Min(1) @Max(8) Integer limit
-    ) {
+    public record TextSearchRequest(@NotBlank @Size(max = 1000) String text, @Min(1) @Max(8) Integer limit) {
         public TextSearchRequest {
             if (limit == null) {
                 limit = 4;

@@ -1,5 +1,6 @@
 package com.travel.auth.service.impl;
 
+import com.travel.auth.config.AuthEmailProperties;
 import com.travel.auth.dto.request.LoginRequest;
 import com.travel.auth.dto.request.RefreshTokenRequest;
 import com.travel.auth.dto.request.RegisterRequest;
@@ -9,7 +10,6 @@ import com.travel.auth.repository.RefreshTokenRepository;
 import com.travel.auth.service.AuthService;
 import com.travel.auth.service.AuthTokenIssuer;
 import com.travel.auth.service.EmailActionService;
-import com.travel.auth.config.AuthEmailProperties;
 import com.travel.auth.token.ActionTokenCodec;
 import com.travel.common.exception.AppException;
 import com.travel.common.exception.ErrorCode;
@@ -20,15 +20,14 @@ import com.travel.user.enums.Role;
 import com.travel.user.repository.UserRepository;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
+import java.time.Instant;
+import java.util.Locale;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.time.Instant;
-import java.util.Locale;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -54,19 +53,21 @@ public class AuthServiceImpl implements AuthService {
         }
 
         User user = User.builder()
-                .fullName(request.getFullName().trim())
-                .email(email)
-                .passwordHash(passwordEncoder.encode(request.getPassword()))
-                .role(Role.USER)
-                .build();
+            .fullName(request.getFullName().trim())
+            .email(email)
+            .passwordHash(passwordEncoder.encode(request.getPassword()))
+            .role(Role.USER)
+            .build();
 
         try {
             user = userRepository.saveAndFlush(user);
         } catch (DataIntegrityViolationException exception) {
             // Chỉ chuyển lỗi unique email thành 409; lỗi DB khác vẫn là lỗi nội bộ.
             for (Throwable cause = exception; cause != null; cause = cause.getCause()) {
-                if (cause instanceof org.hibernate.exception.ConstraintViolationException violation
-                        && "uk_users_email".equals(violation.getConstraintName())) {
+                if (
+                    cause instanceof org.hibernate.exception.ConstraintViolationException violation &&
+                    "uk_users_email".equals(violation.getConstraintName())
+                ) {
                     throw new AppException(ErrorCode.USER_ALREADY_EXISTS);
                 }
             }
@@ -80,8 +81,10 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public AuthResponse login(LoginRequest request) {
         User user = userRepository.lockByEmail(normalizeEmail(request.getEmail())).orElse(null);
-        boolean passwordMatches = passwordEncoder.matches(request.getPassword(),
-                user != null && user.getPasswordHash() != null ? user.getPasswordHash() : DUMMY_PASSWORD_HASH);
+        boolean passwordMatches = passwordEncoder.matches(
+            request.getPassword(),
+            user != null && user.getPasswordHash() != null ? user.getPasswordHash() : DUMMY_PASSWORD_HASH
+        );
 
         if (user == null || user.getPasswordHash() == null || !passwordMatches) {
             throw new AppException(ErrorCode.INVALID_CREDENTIALS);
@@ -107,12 +110,15 @@ public class AuthServiceImpl implements AuthService {
             throw new AppException(ErrorCode.INVALID_REFRESH_TOKEN);
         }
 
-        User user = userRepository.lockById(userId)
-                .orElseThrow(() -> new AppException(ErrorCode.INVALID_REFRESH_TOKEN));
+        User user = userRepository
+            .lockById(userId)
+            .orElseThrow(() -> new AppException(ErrorCode.INVALID_REFRESH_TOKEN));
 
         requireActiveUser(user);
         Long version = claims.get("sessionVersion", Long.class);
-        if (!user.getEmail().equals(claims.getSubject()) || user.getSessionVersion() != (version == null ? 0 : version)) {
+        if (
+            !user.getEmail().equals(claims.getSubject()) || user.getSessionVersion() != (version == null ? 0 : version)
+        ) {
             throw new AppException(ErrorCode.INVALID_REFRESH_TOKEN);
         }
 

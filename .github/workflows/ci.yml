@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # Only cancel superseded PR runs; every push to a protected branch keeps its result.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  backend:
+    name: Backend (Java 21 + Maven)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      # Integration tests start PostgreSQL through Testcontainers (Docker is preinstalled on ubuntu runners).
+      - name: Build and test
+        run: ./mvnw -B -ntp verify
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v5
+        with:
+          name: backend-test-reports
+          path: backend/target/surefire-reports/
+          retention-days: 7
+
+  admin-web:
+    name: Web Admin (Next.js)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend-web/admin
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend-web/admin/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check
+        run: npm run type-check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Cache Next.js build
+        uses: actions/cache@v4
+        with:
+          path: frontend-web/admin/.next/cache
+          key: nextjs-${{ runner.os }}-${{ hashFiles('frontend-web/admin/package-lock.json') }}-${{ hashFiles('frontend-web/admin/src/**', 'frontend-web/admin/next.config.ts') }}
+          restore-keys: |
+            nextjs-${{ runner.os }}-${{ hashFiles('frontend-web/admin/package-lock.json') }}-
+
+      # Build-time placeholders only; no request is sent to these addresses during the build.
+      - name: Production build
+        env:
+          BACKEND_URL: http://127.0.0.1:18081
+          ADMIN_ORIGIN: http://localhost:3001
+        run: npm run build

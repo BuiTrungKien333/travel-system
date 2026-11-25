@@ -1,5 +1,6 @@
 "use client";
 import { Button } from "@/components/ui";
+
 export default function ErrorPage({ reset }: { reset: () => void }) {
   return (
     <main className="mx-auto max-w-lg space-y-4 px-6 py-24">

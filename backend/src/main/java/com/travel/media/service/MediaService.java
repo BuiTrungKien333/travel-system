@@ -1,14 +1,12 @@
 package com.travel.media.service;
 
-import com.travel.media.dto.UploadResponse;
 import com.travel.media.dto.BatchUploadResponse;
-import org.springframework.web.multipart.MultipartFile;
-
+import com.travel.media.dto.UploadResponse;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.web.multipart.MultipartFile;
 
 public interface MediaService {
-
     /**
      * Upload a single image file to Cloudinary into organized folder:
      * travel-system/users/{userId}/trips/{tripId}/{memoryId}/
@@ -50,5 +48,4 @@ public interface MediaService {
      * @param requestUserId the ID of the user requesting deletion
      */
     void deleteMedia(UUID mediaId, UUID requestUserId);
-
 }

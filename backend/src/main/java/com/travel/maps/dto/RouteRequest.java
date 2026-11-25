@@ -6,10 +6,15 @@ import jakarta.validation.constraints.Size;
 import java.util.List;
 
 public record RouteRequest(
-        @NotNull @Valid RoutePoint origin,
-        @NotNull @Valid RoutePoint destination,
-        @Size(max = 23) List<@NotNull @Valid RoutePoint> intermediates,
-        TravelMode travelMode
+    @NotNull @Valid RoutePoint origin,
+    @NotNull @Valid RoutePoint destination,
+    @Size(max = 23) List<@NotNull @Valid RoutePoint> intermediates,
+    TravelMode travelMode
 ) {
-    public enum TravelMode { DRIVE, WALK, BICYCLE, TWO_WHEELER }
+    public enum TravelMode {
+        DRIVE,
+        WALK,
+        BICYCLE,
+        TWO_WHEELER,
+    }
 }

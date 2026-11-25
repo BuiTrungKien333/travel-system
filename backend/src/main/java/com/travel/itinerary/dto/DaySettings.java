@@ -8,27 +8,28 @@ import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-
 import java.time.LocalTime;
 
 /**
  * A private origin snapshot; it does not create a public Place or a trip stop.
  */
 public record DaySettings(
-        @Valid Origin origin,
-        @NotNull LocalTime departureTime,
-        boolean returnToStart,
-        @NotNull TravelMode travelMode
+    @Valid Origin origin,
+    @NotNull LocalTime departureTime,
+    boolean returnToStart,
+    @NotNull TravelMode travelMode
 ) {
     public enum TravelMode {
-        DRIVE, WALK, BICYCLE
+        DRIVE,
+        WALK,
+        BICYCLE,
     }
 
     public record Origin(
-            @NotBlank @Size(max = 200) String name,
-            @Size(max = 500) String address,
-            @DecimalMin("-90") @DecimalMax("90") Double latitude,
-            @DecimalMin("-180") @DecimalMax("180") Double longitude
+        @NotBlank @Size(max = 200) String name,
+        @Size(max = 500) String address,
+        @DecimalMin("-90") @DecimalMax("90") Double latitude,
+        @DecimalMin("-180") @DecimalMax("180") Double longitude
     ) {
         @JsonIgnore
         @AssertTrue(message = "Both coordinates must be supplied together")

@@ -1,14 +1,13 @@
 package com.travel.planning.ai.provider;
 
 import com.travel.planning.ai.config.AiConfigProperties;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
 
 @Component
 @Slf4j
@@ -19,11 +18,9 @@ public class AiProviderFactory {
 
     public AiProviderFactory(AiConfigProperties aiConfig, List<AiProvider> providers) {
         this.aiConfig = aiConfig;
-        this.providerMap = providers.stream()
-                .collect(Collectors.toMap(
-                        p -> p.getProviderName().toLowerCase(),
-                        Function.identity()
-                ));
+        this.providerMap = providers
+            .stream()
+            .collect(Collectors.toMap(p -> p.getProviderName().toLowerCase(), Function.identity()));
         log.info("[AI_FACTORY] Registered AI providers: {}", providerMap.keySet());
     }
 
@@ -31,9 +28,8 @@ public class AiProviderFactory {
      * Lấy AI Provider được kích hoạt theo cấu hình application.ai.active-provider
      */
     public AiProvider getProvider() {
-        String active = aiConfig.getActiveProvider() != null
-                ? aiConfig.getActiveProvider().trim().toLowerCase()
-                : "gemini";
+        String active =
+            aiConfig.getActiveProvider() != null ? aiConfig.getActiveProvider().trim().toLowerCase() : "gemini";
 
         AiProvider provider = providerMap.get(active);
         if (provider == null) {
@@ -42,7 +38,10 @@ public class AiProviderFactory {
         }
 
         if (!provider.isAvailable()) {
-            log.warn("[AI_FACTORY] AI provider '{}' is not available (e.g. missing API key). Falling back to 'mock'.", active);
+            log.warn(
+                "[AI_FACTORY] AI provider '{}' is not available (e.g. missing API key). Falling back to 'mock'.",
+                active
+            );
             return getFallbackProvider();
         }
 
@@ -63,7 +62,10 @@ public class AiProviderFactory {
             return mock;
         }
         // Nếu không có mock, lấy bất kỳ provider nào đang có
-        return providerMap.values().stream().findFirst()
-                .orElseThrow(() -> new IllegalStateException("No AI Provider registered in application context"));
+        return providerMap
+            .values()
+            .stream()
+            .findFirst()
+            .orElseThrow(() -> new IllegalStateException("No AI Provider registered in application context"));
     }
 }

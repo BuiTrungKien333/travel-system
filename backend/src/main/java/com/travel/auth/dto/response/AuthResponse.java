@@ -14,10 +14,16 @@ import lombok.experimental.FieldDefaults;
 @Schema(description = "Authentication response payload containing JWT tokens")
 public class AuthResponse {
 
-    @Schema(description = "JWT Access Token for authenticating API requests", example = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...")
+    @Schema(
+        description = "JWT Access Token for authenticating API requests",
+        example = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+    )
     String accessToken;
 
-    @Schema(description = "JWT Refresh Token for obtaining new access tokens", example = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...")
+    @Schema(
+        description = "JWT Refresh Token for obtaining new access tokens",
+        example = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+    )
     String refreshToken;
 
     @Builder.Default

@@ -1,13 +1,10 @@
 package com.travel.planning.ai.dto.request.gemini;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-
 import java.util.List;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-public record GeminiResponse(
-        List<GeminiCandidate> candidates
-) {
+public record GeminiResponse(List<GeminiCandidate> candidates) {
     public String extractText() {
         if (candidates == null || candidates.isEmpty()) {
             return null;

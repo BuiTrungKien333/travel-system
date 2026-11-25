@@ -7,16 +7,15 @@ import com.travel.planning.ai.resilience.AiRequestContext;
 import com.travel.planning.ai.resilience.AiRequestContext.Stage;
 import com.travel.planning.ai.resilience.AiRetryExecutor;
 import com.travel.planning.retrieval.config.RagProperties;
+import java.util.List;
+import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
-import java.util.List;
-import java.util.Map;
-
 @Component
-@Profile({"dev", "rag-demo", "planning-ai"})
+@Profile({ "dev", "rag-demo", "planning-ai" })
 public class GeminiEmbeddingClient {
 
     public static final int DIMENSIONS = 768;
@@ -55,18 +54,23 @@ public class GeminiEmbeddingClient {
             }
             return retries.execute(Stage.RETRIEVAL, properties.getEmbeddingModel(), () -> {
                 var body = Map.of(
-                        "model", "models/" + properties.getEmbeddingModel(),
-                        "content", Map.of("parts", List.of(Map.of("text", text))),
-                        "taskType", document ? "RETRIEVAL_DOCUMENT" : "RETRIEVAL_QUERY",
-                        "outputDimensionality", DIMENSIONS
+                    "model",
+                    "models/" + properties.getEmbeddingModel(),
+                    "content",
+                    Map.of("parts", List.of(Map.of("text", text))),
+                    "taskType",
+                    document ? "RETRIEVAL_DOCUMENT" : "RETRIEVAL_QUERY",
+                    "outputDimensionality",
+                    DIMENSIONS
                 );
 
-                EmbeddingResponse response = client.post()
-                        .uri(properties.getBaseUrl() + "/models/{model}:embedContent", properties.getEmbeddingModel())
-                        .header("x-goog-api-key", properties.getApiKey())
-                        .body(body)
-                        .retrieve()
-                        .body(EmbeddingResponse.class);
+                EmbeddingResponse response = client
+                    .post()
+                    .uri(properties.getBaseUrl() + "/models/{model}:embedContent", properties.getEmbeddingModel())
+                    .header("x-goog-api-key", properties.getApiKey())
+                    .body(body)
+                    .retrieve()
+                    .body(EmbeddingResponse.class);
 
                 if (response == null || response.embedding() == null) {
                     throw new AiCallFailure("INVALID_RESPONSE", null);

@@ -7,6 +7,7 @@ import { loginSchema } from "@/lib/contracts";
 import { errorMessage } from "@/lib/errors";
 import { Banner, Brand, Button } from "@/components/ui";
 import { useSignIn } from "./api";
+
 export function LoginForm({ notice }: { notice?: string }) {
   const login = useSignIn();
   const [visible, setVisible] = useState(false);
@@ -18,6 +19,7 @@ export function LoginForm({ notice }: { notice?: string }) {
     resolver: zodResolver(loginSchema),
     defaultValues: { email: "", password: "" },
   });
+
   return (
     <main className="grid min-h-dvh lg:grid-cols-[1fr_1.05fr]">
       <section className="login-art relative hidden overflow-hidden bg-ink p-12 text-white lg:flex lg:flex-col lg:justify-between xl:p-16">

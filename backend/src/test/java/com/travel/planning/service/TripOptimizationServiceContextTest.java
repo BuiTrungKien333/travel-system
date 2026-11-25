@@ -1,5 +1,7 @@
 package com.travel.planning.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.travel.place.repository.PlaceRepository;
 import com.travel.planning.ai.provider.AiProviderFactory;
 import com.travel.planning.algorithm.HeldKarpSolver;
@@ -11,8 +13,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
-
-import static org.assertj.core.api.Assertions.assertThat;
 
 class TripOptimizationServiceContextTest {
 

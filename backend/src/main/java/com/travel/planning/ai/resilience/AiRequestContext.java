@@ -1,27 +1,46 @@
 package com.travel.planning.ai.resilience;
 
 import com.travel.planning.retrieval.config.RagProperties;
+import java.util.*;
+import java.util.function.LongSupplier;
+import java.util.function.Supplier;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
-import java.util.*;
-import java.util.function.LongSupplier;
-import java.util.function.Supplier;
-
 @Component
-@Profile({"dev", "rag-demo", "planning-ai"})
+@Profile({ "dev", "rag-demo", "planning-ai" })
 public class AiRequestContext {
-    public enum Stage {INTENT, RETRIEVAL, ALLOCATION, OPTIMIZATION, THEMES, WEATHER}
 
-    public record StageResult(Stage stage, String source, String method, String model, int attempts,
-                              int retries, String reason, Integer lastProviderStatus, String retryDecision,
-                              long elapsedMillis) {
+    public enum Stage {
+        INTENT,
+        RETRIEVAL,
+        ALLOCATION,
+        OPTIMIZATION,
+        THEMES,
+        WEATHER,
     }
 
-    public record Report(String overallMode, long deadlineMillis, long elapsedMillis, int retriesUsed,
-                         List<StageResult> stages) {
-    }
+    public record StageResult(
+        Stage stage,
+        String source,
+        String method,
+        String model,
+        int attempts,
+        int retries,
+        String reason,
+        Integer lastProviderStatus,
+        String retryDecision,
+        long elapsedMillis
+    ) {}
+
+    public record Report(
+        String overallMode,
+        long deadlineMillis,
+        long elapsedMillis,
+        int retriesUsed,
+        List<StageResult> stages
+    ) {}
 
     private final ThreadLocal<Budget> local = new ThreadLocal<>();
     private final RagProperties properties;
@@ -105,15 +124,37 @@ public class AiRequestContext {
 
     public Report report() {
         Budget b = required();
-        var stages = Arrays.stream(Stage.values()).map(stage -> {
-            var s = b.stages.get(stage);
-            return new StageResult(stage, s.source, s.method, s.model, s.attempts, s.retries, s.reason, s.status, s.retryDecision, s.elapsedNanos / 1_000_000);
-        }).toList();
+        var stages = Arrays.stream(Stage.values())
+            .map(stage -> {
+                var s = b.stages.get(stage);
+                return new StageResult(
+                    stage,
+                    s.source,
+                    s.method,
+                    s.model,
+                    s.attempts,
+                    s.retries,
+                    s.reason,
+                    s.status,
+                    s.retryDecision,
+                    s.elapsedNanos / 1_000_000
+                );
+            })
+            .toList();
         boolean ai = stages.stream().anyMatch(s -> s.source().equals("AI") || s.source().equals("AI_WITH_FALLBACK"));
-        boolean fallback = stages.stream().anyMatch(s -> s.source().equals("FALLBACK") || s.source().equals("AI_WITH_FALLBACK"));
+        boolean fallback = stages
+            .stream()
+            .anyMatch(s -> s.source().equals("FALLBACK") || s.source().equals("AI_WITH_FALLBACK"));
         boolean input = stages.stream().anyMatch(s -> s.source().equals("USER_PROVIDED"));
-        String overall = ai ? fallback ? "AI_WITH_FALLBACK" : "AI_ASSISTED"
-                : fallback ? "FALLBACK" : input ? "USER_PROVIDED" : "UNAVAILABLE";
+        String overall = ai
+            ? fallback
+                ? "AI_WITH_FALLBACK"
+                : "AI_ASSISTED"
+            : fallback
+              ? "FALLBACK"
+              : input
+                ? "USER_PROVIDED"
+                : "UNAVAILABLE";
         return new Report(overall, b.limitMillis, elapsed(b), b.retriesUsed, stages);
     }
 
@@ -132,13 +173,19 @@ public class AiRequestContext {
     }
 
     private static class MutableStage {
-        String source = "SKIPPED", method = "NONE", model, reason, retryDecision = "NONE";
+
+        String source = "SKIPPED",
+            method = "NONE",
+            model,
+            reason,
+            retryDecision = "NONE";
         Integer status;
         int attempts, retries;
         long elapsedNanos;
     }
 
     private static class Budget {
+
         final long startNanos, limitMillis;
         int retriesUsed;
         final EnumMap<Stage, MutableStage> stages = new EnumMap<>(Stage.class);
@@ -151,6 +198,7 @@ public class AiRequestContext {
     }
 
     public final class Scope implements AutoCloseable {
+
         private final boolean owner;
 
         private Scope(boolean owner) {

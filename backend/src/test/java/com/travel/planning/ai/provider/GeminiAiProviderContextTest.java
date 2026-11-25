@@ -1,5 +1,7 @@
 package com.travel.planning.ai.provider;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.travel.planning.ai.config.AiConfigProperties;
 import com.travel.planning.ai.copilot.context.AiCopilotContextBuilder;
 import com.travel.planning.ai.copilot.fallback.FallbackAiCopilotGenerator;
@@ -7,12 +9,12 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
-import static org.assertj.core.api.Assertions.assertThat;
-
 class GeminiAiProviderContextTest {
 
     @Test
-    @DisplayName("Spring ApplicationContext should successfully instantiate GeminiAiProvider with @Autowired constructor")
+    @DisplayName(
+        "Spring ApplicationContext should successfully instantiate GeminiAiProvider with @Autowired constructor"
+    )
     void springContext_instantiatesGeminiAiProviderSuccessfully() {
         try (AnnotationConfigApplicationContext ctx = new AnnotationConfigApplicationContext()) {
             ctx.registerBean(AiConfigProperties.class, AiConfigProperties::new);

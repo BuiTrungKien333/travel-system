@@ -7,19 +7,18 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import jakarta.annotation.PostConstruct;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.stereotype.Component;
-
-import javax.crypto.SecretKey;
 import java.time.Instant;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.Function;
+import javax.crypto.SecretKey;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.stereotype.Component;
 
 @Component
 @Slf4j
@@ -61,9 +60,7 @@ public class JwtUtils {
         if (userDetails instanceof CustomUserDetails user) {
             extraClaims.put("userId", user.getId());
             extraClaims.put("sessionVersion", user.getSessionVersion());
-            extraClaims.put("authorities", user.getAuthorities().stream()
-                    .map(GrantedAuthority::getAuthority)
-                    .toList());
+            extraClaims.put("authorities", user.getAuthorities().stream().map(GrantedAuthority::getAuthority).toList());
         }
 
         return buildToken(extraClaims, userDetails, TokenType.ACCESS_TOKEN, jwtExpiration);
@@ -78,24 +75,29 @@ public class JwtUtils {
         return buildToken(claims, userDetails, TokenType.REFRESH_TOKEN, jwtRefreshExpiration);
     }
 
-    private String buildToken(Map<String, Object> extraClaims, UserDetails userDetails, TokenType type, long expiration) {
+    private String buildToken(
+        Map<String, Object> extraClaims,
+        UserDetails userDetails,
+        TokenType type,
+        long expiration
+    ) {
         Instant now = Instant.now();
         return Jwts.builder()
-                .claims(extraClaims)
-                .claim("tokenType", type.name())
-                .id(UUID.randomUUID().toString())
-                .subject(userDetails.getUsername())
-                .issuedAt(Date.from(now))
-                .expiration(Date.from(now.plusMillis(expiration)))
-                .signWith(getSignInKey(type), Jwts.SIG.HS256)
-                .compact();
+            .claims(extraClaims)
+            .claim("tokenType", type.name())
+            .id(UUID.randomUUID().toString())
+            .subject(userDetails.getUsername())
+            .issuedAt(Date.from(now))
+            .expiration(Date.from(now.plusMillis(expiration)))
+            .signWith(getSignInKey(type), Jwts.SIG.HS256)
+            .compact();
     }
 
     // --- VALIDATE TOKEN ---
     public boolean isTokenValid(String token, UserDetails userDetails, TokenType type) {
         try {
             final String username = extractUsername(token, type);
-            return (username.equals(userDetails.getUsername())) && !isTokenExpired(token, type);
+            return username.equals(userDetails.getUsername()) && !isTokenExpired(token, type);
         } catch (JwtException | IllegalArgumentException e) {
             log.debug("Invalid JWT token type={}", type);
             return false;
@@ -118,11 +120,11 @@ public class JwtUtils {
 
     public Claims extractAllClaims(String token, TokenType type) {
         return Jwts.parser()
-                .verifyWith(getSignInKey(type))
-                .require("tokenType", type.name())
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
+            .verifyWith(getSignInKey(type))
+            .require("tokenType", type.name())
+            .build()
+            .parseSignedClaims(token)
+            .getPayload();
     }
 
     // --- GET KEY HELPER ---

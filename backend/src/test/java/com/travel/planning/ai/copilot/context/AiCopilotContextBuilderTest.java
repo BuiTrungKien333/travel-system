@@ -1,22 +1,21 @@
 package com.travel.planning.ai.copilot.context;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.travel.place.enums.PlaceType;
 import com.travel.planning.ai.copilot.model.AiCopilotPromptContext;
 import com.travel.planning.rule.enums.IssueCategory;
 import com.travel.planning.rule.enums.IssueSeverity;
 import com.travel.planning.rule.model.DetectedIssue;
 import com.travel.planning.rule.model.ScheduleItemContext;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 class AiCopilotContextBuilderTest {
 
@@ -45,20 +44,37 @@ class AiCopilotContextBuilderTest {
         LocalDate date = LocalDate.of(2026, 10, 1);
         UUID p1Id = UUID.randomUUID();
         ScheduleItemContext item1 = new ScheduleItemContext(
-                p1Id, "Bảo tàng Chăm", 16.05, 108.22, PlaceType.INDOOR,
-                LocalTime.of(8, 0), LocalTime.of(17, 0),
-                date.atTime(17, 30), 60, 0.0, 0
+            p1Id,
+            "Bảo tàng Chăm",
+            16.05,
+            108.22,
+            PlaceType.INDOOR,
+            LocalTime.of(8, 0),
+            LocalTime.of(17, 0),
+            date.atTime(17, 30),
+            60,
+            0.0,
+            0
         );
 
         DetectedIssue issue = new DetectedIssue(
-                p1Id, "Bảo tàng Chăm", date.atTime(17, 30),
-                IssueCategory.CLOSING_TIME_CONFLICT, IssueSeverity.CRITICAL,
-                "Đến sau giờ đóng cửa", "Đảo thứ tự lên trước", Map.of()
+            p1Id,
+            "Bảo tàng Chăm",
+            date.atTime(17, 30),
+            IssueCategory.CLOSING_TIME_CONFLICT,
+            IssueSeverity.CRITICAL,
+            "Đến sau giờ đóng cửa",
+            "Đảo thứ tự lên trước",
+            Map.of()
         );
 
         AiCopilotPromptContext context = new AiCopilotPromptContext(
-                "Đà Nẵng", date, List.of(item1), List.of(issue),
-                "Nhiệt độ 28-32°C, có mưa rào chiều", "Đi cùng gia đình"
+            "Đà Nẵng",
+            date,
+            List.of(item1),
+            List.of(issue),
+            "Nhiệt độ 28-32°C, có mưa rào chiều",
+            "Đi cùng gia đình"
         );
 
         String prompt = contextBuilder.buildUserPrompt(context);

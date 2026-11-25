@@ -2,14 +2,12 @@ package com.travel.weather.provider;
 
 import com.travel.weather.model.CurrentWeather;
 import com.travel.weather.model.WeatherForecastResult;
-
 import java.time.LocalDate;
 
 /**
  * Interface hợp đồng chung cho mọi Weather Provider (Open-Meteo, OpenWeatherMap, Mock...)
  */
 public interface WeatherProvider {
-
     /**
      * Lấy dự báo thời tiết theo tọa độ GPS và khoảng ngày
      *

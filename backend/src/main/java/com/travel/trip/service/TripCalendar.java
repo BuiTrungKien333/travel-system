@@ -12,8 +12,7 @@ public final class TripCalendar {
 
     public static final ZoneId ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
 
-    private TripCalendar() {
-    }
+    private TripCalendar() {}
 
     public static LocalDate today(Clock clock) {
         return LocalDate.now(clock.withZone(ZONE));

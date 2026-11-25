@@ -2,14 +2,13 @@ package com.travel.place.entity;
 
 import com.travel.place.enums.PlaceType;
 import jakarta.persistence.*;
-import lombok.*;
-import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.jpa.domain.support.AuditingEntityListener;
-
 import java.time.Instant;
 import java.time.LocalTime;
 import java.util.Objects;
 import java.util.UUID;
+import lombok.*;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 @Entity
 @Table(name = "places")

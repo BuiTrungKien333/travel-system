@@ -1,7 +1,7 @@
 package com.travel.auth.dto.request;
 
-import io.swagger.v3.oas.annotations.media.Schema;
 import com.travel.common.validation.Utf8ByteLength;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -31,6 +31,11 @@ public class RegisterRequest {
     @NotBlank(message = "Password is required")
     @Size(min = 8, max = 50, message = "Password must be between 8 and 50 characters")
     @Utf8ByteLength
-    @Schema(description = "Account password (8–50 characters, at most 72 UTF-8 bytes)", example = "Password123@", minLength = 8, maxLength = 50)
+    @Schema(
+        description = "Account password (8–50 characters, at most 72 UTF-8 bytes)",
+        example = "Password123@",
+        minLength = 8,
+        maxLength = 50
+    )
     String password;
 }

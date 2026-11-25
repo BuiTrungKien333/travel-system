@@ -3,11 +3,10 @@ package com.travel.user.dto.response;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.travel.user.enums.Role;
 import io.swagger.v3.oas.annotations.media.Schema;
-import lombok.*;
-import lombok.experimental.FieldDefaults;
-
 import java.time.Instant;
 import java.util.UUID;
+import lombok.*;
+import lombok.experimental.FieldDefaults;
 
 @Getter
 @Setter

@@ -3,13 +3,11 @@ package com.travel.weather.service;
 import com.travel.weather.model.CurrentWeather;
 import com.travel.weather.model.HourlyWeather;
 import com.travel.weather.model.WeatherForecastResult;
-
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
 public interface WeatherService {
-
     /**
      * Lấy dự báo thời tiết tổng thể cho tọa độ trong khoảng ngày
      */

@@ -7,6 +7,7 @@ import {
   envelope,
   type AccountChange,
 } from "@/lib/contracts";
+
 export function useAccounts(
   owner: string | undefined,
   q: string,
@@ -21,14 +22,17 @@ export function useAccounts(
         await apiRequest(`/users?${params}`, { signal }),
       );
       if (!parsed.success) throw new ApiError("INVALID_RESPONSE", 502);
+
       return parsed.data.data;
     },
     enabled,
     staleTime: 10000,
   });
 }
+
 export function useChangeAccount(owner: string) {
   const cache = useQueryClient();
+
   return useMutation({
     mutationFn: ({ id, change }: { id: string; change: AccountChange }) =>
       apiRequest(`/users/${id}`, { method: "PATCH", body: change }),

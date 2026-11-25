@@ -19,10 +19,12 @@ import { Banner, Button, RoleBadge } from "@/components/ui";
 import { useSession } from "@/features/auth/api";
 import { useAccounts } from "./api";
 import { AccountDialog } from "./account-dialog";
+
 const date = new Intl.DateTimeFormat("vi-VN", {
   dateStyle: "medium",
   timeZone: "Asia/Ho_Chi_Minh",
 });
+
 export function UsersScreen() {
   const session = useSession();
   const [q, setQ] = useState("");
@@ -34,20 +36,24 @@ export function UsersScreen() {
   const { register, handleSubmit, setValue } = useForm<{ search: string }>({
     defaultValues: { search: "" },
   });
+
   const totalPages = Math.max(
     1,
     Math.ceil((query.data?.totalElements ?? 0) / 20),
   );
+
   if (!canManage)
     return (
       <Banner error>
         Tài khoản quản trị hiện tại chưa được cấp quyền quản lý tài khoản.
       </Banner>
     );
+
   function closeDialog() {
     setSelected(undefined);
     void query.refetch();
   }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-5">

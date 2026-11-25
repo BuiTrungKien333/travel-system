@@ -11,11 +11,13 @@ import {
 import { ApiError, errorMessage } from "@/lib/errors";
 import { Banner, Button, RoleBadge } from "@/components/ui";
 import { useChangeAccount } from "./api";
+
 const roleNames = {
   USER: "Người dùng",
   ADMIN: "Quản trị viên",
   GUEST: "Khách",
 };
+
 export function AccountDialog({
   account,
   owner,
@@ -47,6 +49,7 @@ export function AccountDialog({
     node?.showModal();
     return () => node?.close();
   }, []);
+
   return (
     <dialog
       ref={dialog}

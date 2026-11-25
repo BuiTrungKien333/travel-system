@@ -7,7 +7,6 @@ import com.travel.auth.dto.response.AuthResponse;
 import com.travel.auth.dto.response.RegistrationResponse;
 
 public interface AuthService {
-
     /**
      * Registers a new user account.
      *

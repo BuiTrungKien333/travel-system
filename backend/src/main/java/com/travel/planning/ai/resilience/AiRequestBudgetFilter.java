@@ -2,15 +2,15 @@ package com.travel.planning.ai.resilience;
 
 import jakarta.servlet.*;
 import jakarta.servlet.http.*;
+import java.io.IOException;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-import java.io.IOException;
-
 @Component
-@Profile({"dev", "rag-demo", "planning-ai"})
+@Profile({ "dev", "rag-demo", "planning-ai" })
 public class AiRequestBudgetFilter extends OncePerRequestFilter {
+
     private final AiRequestContext context;
 
     public AiRequestBudgetFilter(AiRequestContext context) {
@@ -24,7 +24,8 @@ public class AiRequestBudgetFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
-            throws ServletException, IOException {
+        throws ServletException, IOException
+    {
         try (var scope = context.ensure()) {
             chain.doFilter(request, response);
         }

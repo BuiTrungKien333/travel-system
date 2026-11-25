@@ -12,15 +12,13 @@ import com.travel.planning.dto.request.TspLocationRequest;
 import com.travel.planning.dto.response.TspLegResponse;
 import com.travel.planning.dto.response.TspLocationResponse;
 import com.travel.planning.dto.response.TspOptimizeResponse;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -31,19 +29,19 @@ public class TspOptimizationService {
     private final HeldKarpSolver heldKarpSolver;
 
     public TspOptimizeResponse optimize(OptimizeRouteRequest request) {
-        log.info("Received TSP route optimization request with {} locations, roundTrip={}",
-                request.locations().size(), request.isRoundTrip());
+        log.info(
+            "Received TSP route optimization request with {} locations, roundTrip={}",
+            request.locations().size(),
+            request.isRoundTrip()
+        );
 
         // 1. Chuyển đổi danh sách DTO thành List<Place>
         List<Place> places = new ArrayList<>();
         for (TspLocationRequest loc : request.locations()) {
             UUID placeId = loc.id() != null ? loc.id() : UUID.randomUUID();
-            places.add(Place.builder()
-                    .id(placeId)
-                    .name(loc.name())
-                    .latitude(loc.latitude())
-                    .longitude(loc.longitude())
-                    .build());
+            places.add(
+                Place.builder().id(placeId).name(loc.name()).latitude(loc.latitude()).longitude(loc.longitude()).build()
+            );
         }
 
         // 2. Xác định điểm bắt đầu (startPlaceId)
@@ -68,46 +66,41 @@ public class TspOptimizationService {
 
         // 4. Giải bài toán TSP bằng Held-Karp
         TspRequest tspRequest = TspRequest.builder()
-                .places(places)
-                .startPlaceId(startPlaceId)
-                .endPlaceId(endPlaceId)
-                .roundTrip(request.isRoundTrip())
-                .build();
+            .places(places)
+            .startPlaceId(startPlaceId)
+            .endPlaceId(endPlaceId)
+            .roundTrip(request.isRoundTrip())
+            .build();
 
         TspResult result = heldKarpSolver.solve(tspRequest);
 
         // 5. Chuyển đổi kết quả sang Response DTO
-        List<TspLocationResponse> orderedPlaces = result.getOrderedPlaces().stream()
-                .map(this::toLocationResponse)
-                .toList();
+        List<TspLocationResponse> orderedPlaces = result
+            .getOrderedPlaces()
+            .stream()
+            .map(this::toLocationResponse)
+            .toList();
 
-        List<TspLegResponse> legs = result.getLegs().stream()
-                .map(this::toLegResponse)
-                .toList();
+        List<TspLegResponse> legs = result.getLegs().stream().map(this::toLegResponse).toList();
 
         double totalDistKm = round(result.getTotalDistanceMeters() / 1000.0, 2);
         long totalDurationMinutes = Math.round(result.getTotalDurationSeconds() / 60.0);
 
         TspOptimizeResponse response = new TspOptimizeResponse(
-                orderedPlaces,
-                legs,
-                result.getTotalDistanceMeters(),
-                totalDistKm,
-                result.getTotalDurationSeconds(),
-                totalDurationMinutes,
-                result.isRoundTrip()
+            orderedPlaces,
+            legs,
+            result.getTotalDistanceMeters(),
+            totalDistKm,
+            result.getTotalDurationSeconds(),
+            totalDurationMinutes,
+            result.isRoundTrip()
         );
 
         return response;
     }
 
     private TspLocationResponse toLocationResponse(Place place) {
-        return new TspLocationResponse(
-                place.getId(),
-                place.getName(),
-                place.getLatitude(),
-                place.getLongitude()
-        );
+        return new TspLocationResponse(place.getId(), place.getName(), place.getLatitude(), place.getLongitude());
     }
 
     private TspLegResponse toLegResponse(RouteLeg leg) {
@@ -115,12 +108,12 @@ public class TspOptimizationService {
         long durMinutes = Math.round(leg.getDurationSeconds() / 60.0);
 
         return new TspLegResponse(
-                toLocationResponse(leg.getFromPlace()),
-                toLocationResponse(leg.getToPlace()),
-                leg.getDistanceMeters(),
-                distKm,
-                leg.getDurationSeconds(),
-                durMinutes
+            toLocationResponse(leg.getFromPlace()),
+            toLocationResponse(leg.getToPlace()),
+            leg.getDistanceMeters(),
+            distKm,
+            leg.getDurationSeconds(),
+            durMinutes
         );
     }
 

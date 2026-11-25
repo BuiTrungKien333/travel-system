@@ -10,10 +10,13 @@ import org.springframework.web.servlet.HandlerExceptionResolver;
 
 @Component
 public class ApiAccessDeniedHandler implements AccessDeniedHandler {
+
     private final HandlerExceptionResolver resolver;
+
     public ApiAccessDeniedHandler(@Qualifier("handlerExceptionResolver") HandlerExceptionResolver resolver) {
         this.resolver = resolver;
     }
+
     @Override
     public void handle(HttpServletRequest request, HttpServletResponse response, AccessDeniedException exception) {
         resolver.resolveException(request, response, null, exception);

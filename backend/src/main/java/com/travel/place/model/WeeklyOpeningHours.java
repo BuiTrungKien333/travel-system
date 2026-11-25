@@ -2,7 +2,6 @@ package com.travel.place.model;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import io.swagger.v3.oas.annotations.media.Schema;
-
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -13,8 +12,7 @@ import java.util.Map;
 @Schema(description = "Lịch hoạt động cả tuần của địa điểm (Thứ Hai đến Chủ Nhật)")
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record WeeklyOpeningHours(
-        @Schema(description = "Bản đồ lịch hoạt động theo từng thứ trong tuần")
-        Map<DayOfWeek, DaySchedule> schedules
+    @Schema(description = "Bản đồ lịch hoạt động theo từng thứ trong tuần") Map<DayOfWeek, DaySchedule> schedules
 ) {
     public WeeklyOpeningHours {
         schedules = schedules != null ? new EnumMap<>(schedules) : new EnumMap<>(DayOfWeek.class);

@@ -1,12 +1,11 @@
 package com.travel.auth.mail;
 
+import java.time.Clock;
+import java.util.concurrent.*;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionalEventListener;
-
-import java.time.Clock;
-import java.util.concurrent.*;
 
 @Component
 @Slf4j
@@ -31,7 +30,11 @@ public class AuthEmailListener {
                     sender.send(email);
                 } catch (RuntimeException failure) {
                     // SMTP exceptions may contain recipients/URLs/credentials; do not log them.
-                    log.warn("Auth email delivery failed; purpose={}, cause={}", email.purpose(), failure.getClass().getSimpleName());
+                    log.warn(
+                        "Auth email delivery failed; purpose={}, cause={}",
+                        email.purpose(),
+                        failure.getClass().getSimpleName()
+                    );
                 }
             });
         } catch (RejectedExecutionException failure) {

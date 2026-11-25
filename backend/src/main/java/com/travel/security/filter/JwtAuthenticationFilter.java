@@ -11,6 +11,8 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.util.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -20,9 +22,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-
-import java.io.IOException;
-import java.util.*;
 
 @Component
 @RequiredArgsConstructor
@@ -37,7 +36,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
-            throws ServletException, IOException {
+        throws ServletException, IOException
+    {
         final String requestUri = request.getRequestURI();
         final String authHeader = request.getHeader("Authorization");
 
@@ -73,11 +73,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             UUID userId = userIdStr != null ? UUID.fromString(userIdStr) : null;
 
             Long version = claims.get("sessionVersion", Long.class);
-            var activeUser = userId == null ? java.util.Optional.<UserRepository.AuthState>empty() : userRepository.findAuthStateById(userId)
-                    .filter(user -> user.getDeletedAt() == null && user.getLockedAt() == null && user.getEmailVerifiedAt() != null)
-                    .filter(user -> user.getEmail().equals(username))
-                    .filter(user -> user.getSessionVersion() == (version == null ? 0 : version))
-                    .filter(user -> user.getRole() != null);
+            var activeUser =
+                userId == null
+                    ? java.util.Optional.<UserRepository.AuthState>empty()
+                    : userRepository
+                          .findAuthStateById(userId)
+                          .filter(
+                              user ->
+                                  user.getDeletedAt() == null &&
+                                  user.getLockedAt() == null &&
+                                  user.getEmailVerifiedAt() != null
+                          )
+                          .filter(user -> user.getEmail().equals(username))
+                          .filter(user -> user.getSessionVersion() == (version == null ? 0 : version))
+                          .filter(user -> user.getRole() != null);
             if (activeUser.isEmpty()) {
                 filterChain.doFilter(request, response);
                 return;
@@ -92,8 +101,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             CustomUserDetails userDetails = new CustomUserDetails(userId, username, role, authorities);
 
-            UsernamePasswordAuthenticationToken authentication =
-                    new UsernamePasswordAuthenticationToken(userDetails, null, authorities);
+            UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                userDetails,
+                null,
+                authorities
+            );
 
             authentication.setDetails(DETAILS_SOURCE.buildDetails(request));
 

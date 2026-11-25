@@ -2,19 +2,19 @@ package com.travel.trip.entity;
 
 import com.travel.place.entity.Place;
 import jakarta.persistence.*;
+import java.time.Instant;
+import java.util.Objects;
+import java.util.UUID;
 import lombok.*;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
-import java.time.Instant;
-import java.util.Objects;
-import java.util.UUID;
-
 @Entity
-@Table(name = "trip_places", uniqueConstraints = {
-        @UniqueConstraint(name = "uk_trip_places", columnNames = {"trip_id", "place_id"})
-})
+@Table(
+    name = "trip_places",
+    uniqueConstraints = { @UniqueConstraint(name = "uk_trip_places", columnNames = { "trip_id", "place_id" }) }
+)
 @EntityListeners(AuditingEntityListener.class)
 @Getter
 @Setter

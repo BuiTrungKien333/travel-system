@@ -6,6 +6,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.travel.common.exception.AppException;
 import com.travel.common.exception.ErrorCode;
 import com.travel.place.dto.PlaceDiscovery.Location;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
@@ -15,12 +20,6 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.util.UriComponentsBuilder;
-
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-import java.util.Set;
 
 /**
  * Temporary address preview; no POI enrichment, persistence, shared cache, or automatic retry.
@@ -35,10 +34,10 @@ public class MapboxAddressService {
 
     @Autowired
     public MapboxAddressService(
-            @Value("${application.maps.mapbox.geocoding-enabled:false}") boolean enabled,
-            @Value("${application.maps.mapbox.access-token:}") String token,
-            @Value("${application.maps.mapbox.timeout-seconds:5}") int timeout,
-            ObjectMapper json
+        @Value("${application.maps.mapbox.geocoding-enabled:false}") boolean enabled,
+        @Value("${application.maps.mapbox.access-token:}") String token,
+        @Value("${application.maps.mapbox.timeout-seconds:5}") int timeout,
+        ObjectMapper json
     ) {
         this(enabled, token, client(timeout), json);
     }
@@ -64,25 +63,28 @@ public class MapboxAddressService {
     }
 
     public record Address(
-            String providerPlaceId,
-            String name,
-            String formattedAddress,
-            Location location,
-            String featureType
+        String providerPlaceId,
+        String name,
+        String formattedAddress,
+        Location location,
+        String featureType
     ) {}
 
-    public record Results(
-            List<Address> items,
-            String provider,
-            String storage,
-            String attribution
-    ) {}
+    public record Results(List<Address> items, String provider, String storage, String attribution) {}
 
     public Results search(String query, Double latitude, Double longitude, String locale) {
         String q = query == null ? "" : query.trim();
-        if (q.length() < 3 || q.length() > 200 || !Set.of("vi", "en").contains(locale)
-                || (latitude == null) != (longitude == null)
-                || (latitude != null && (!Double.isFinite(latitude) || Math.abs(latitude) > 90 || !Double.isFinite(longitude) || Math.abs(longitude) > 180))) {
+        if (
+            q.length() < 3 ||
+            q.length() > 200 ||
+            !Set.of("vi", "en").contains(locale) ||
+            (latitude == null) != (longitude == null) ||
+            (latitude != null &&
+                (!Double.isFinite(latitude) ||
+                    Math.abs(latitude) > 90 ||
+                    !Double.isFinite(longitude) ||
+                    Math.abs(longitude) > 180))
+        ) {
             throw new AppException(ErrorCode.VALIDATION_ERROR);
         }
         if (!enabled) {
@@ -90,13 +92,13 @@ public class MapboxAddressService {
         }
 
         var uri = UriComponentsBuilder.fromUriString("https://api.mapbox.com/search/geocode/v6/forward")
-                .queryParam("q", q)
-                .queryParam("country", "vn")
-                .queryParam("language", locale)
-                .queryParam("limit", 5)
-                .queryParam("autocomplete", true)
-                .queryParam("permanent", false)
-                .queryParam("access_token", token);
+            .queryParam("q", q)
+            .queryParam("country", "vn")
+            .queryParam("language", locale)
+            .queryParam("limit", 5)
+            .queryParam("autocomplete", true)
+            .queryParam("permanent", false)
+            .queryParam("access_token", token);
 
         if (latitude != null) {
             uri.queryParam("proximity", longitude + "," + latitude);
@@ -114,9 +116,11 @@ public class MapboxAddressService {
             throw new AppException(ErrorCode.PLACE_PROVIDER_INVALID_RESPONSE);
         } catch (RestClientException error) {
             // Never propagate a URL (which contains the access token), provider body, or stacktrace.
-            throw new AppException(error instanceof ResourceAccessException || error instanceof RestClientResponseException
+            throw new AppException(
+                error instanceof ResourceAccessException || error instanceof RestClientResponseException
                     ? ErrorCode.PLACE_PROVIDER_UNAVAILABLE
-                    : ErrorCode.PLACE_PROVIDER_INVALID_RESPONSE);
+                    : ErrorCode.PLACE_PROVIDER_INVALID_RESPONSE
+            );
         }
 
         if (result == null || !result.isObject() || !result.path("features").isArray()) {
@@ -136,9 +140,18 @@ public class MapboxAddressService {
                 address = context == null ? name : name == null ? context : name + ", " + context;
             }
 
-            if (id == null || name == null || name.length() > 255 || id.length() > 512 || (address != null && address.length() > 2000)
-                    || !"Point".equals(text(feature.path("geometry"), "type")) || !coordinates.isArray() || coordinates.size() != 2
-                    || !coordinates.get(0).isNumber() || !coordinates.get(1).isNumber()) {
+            if (
+                id == null ||
+                name == null ||
+                name.length() > 255 ||
+                id.length() > 512 ||
+                (address != null && address.length() > 2000) ||
+                !"Point".equals(text(feature.path("geometry"), "type")) ||
+                !coordinates.isArray() ||
+                coordinates.size() != 2 ||
+                !coordinates.get(0).isNumber() ||
+                !coordinates.get(1).isNumber()
+            ) {
                 invalid();
             }
 

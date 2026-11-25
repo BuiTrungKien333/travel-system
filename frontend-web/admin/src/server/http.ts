@@ -6,20 +6,24 @@ export const cookieNames = {
   access: "wego_admin_access",
   refresh: "wego_admin_refresh",
 };
+
 export function json(value: unknown, status = 200) {
   return NextResponse.json(value, {
     status,
     headers: { "Cache-Control": "no-store, private", Pragma: "no-cache" },
   });
 }
+
 export function failure(error: unknown) {
   const safe =
     error instanceof ApiError ? error : new ApiError("UPSTREAM", 503);
+
   return json(
     { success: false, code: safe.code, message: errorMessage(safe) },
     safe.status,
   );
 }
+
 export function assertSameOrigin(request: NextRequest) {
   if (
     request.headers.get("origin") !== serverConfig().origin ||
@@ -27,6 +31,7 @@ export function assertSameOrigin(request: NextRequest) {
   )
     throw new ApiError("CSRF", 403);
 }
+
 export async function readBody(request: NextRequest) {
   if (
     !request.headers
@@ -56,6 +61,7 @@ export async function readBody(request: NextRequest) {
       body.set(part, offset);
       offset += part.length;
     }
+
     return JSON.parse(new TextDecoder().decode(body)) as unknown;
   } catch (error) {
     if (error instanceof ApiError) throw error;
@@ -64,6 +70,7 @@ export async function readBody(request: NextRequest) {
     reader.releaseLock();
   }
 }
+
 export function clearSession(response: NextResponse) {
   for (const name of Object.values(cookieNames))
     response.cookies.set(name, "", {
@@ -73,8 +80,10 @@ export function clearSession(response: NextResponse) {
       path: "/admin",
       maxAge: 0,
     });
+
   return response;
 }
+
 export function setSession(
   response: NextResponse,
   auth: { accessToken: string; refreshToken: string; expiresIn: number },
@@ -85,17 +94,21 @@ export function setSession(
     sameSite: "strict" as const,
     path: "/admin",
   };
+
   response.cookies.set(cookieNames.access, auth.accessToken, {
     ...options,
     maxAge: Math.max(1, Math.floor(auth.expiresIn / 1000)),
   });
+
   // The upstream refresh JWT remains authoritative; the cookie cannot extend its validity.
   response.cookies.set(cookieNames.refresh, auth.refreshToken, {
     ...options,
     maxAge: 7 * 86400,
   });
+
   return response;
 }
+
 export function accessToken(request: NextRequest) {
   const token = request.cookies.get(cookieNames.access)?.value;
   if (!token || token.length > 8192) throw new ApiError("AUTH_001", 401);

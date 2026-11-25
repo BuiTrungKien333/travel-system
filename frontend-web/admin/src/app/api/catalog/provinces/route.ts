@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
         }),
       );
     if (!result.success) throw new ApiError("INVALID_RESPONSE", 502);
+
     return json(result.data);
   } catch (error) {
     return failure(error);

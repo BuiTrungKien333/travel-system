@@ -12,6 +12,8 @@ import com.travel.planning.ai.dto.request.gemini.GeminiContent;
 import com.travel.planning.ai.dto.request.gemini.GeminiGenerationConfig;
 import com.travel.planning.ai.dto.request.gemini.GeminiRequest;
 import com.travel.planning.ai.dto.request.gemini.GeminiResponse;
+import java.time.Duration;
+import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -22,9 +24,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestClient;
-
-import java.time.Duration;
-import java.util.List;
 
 @Component("geminiAiProvider")
 @Slf4j
@@ -38,10 +37,10 @@ public class GeminiAiProvider implements AiProvider {
 
     @Autowired
     public GeminiAiProvider(
-            AiConfigProperties aiConfig,
-            ObjectMapper objectMapper,
-            AiCopilotContextBuilder copilotContextBuilder,
-            FallbackAiCopilotGenerator fallbackCopilotGenerator
+        AiConfigProperties aiConfig,
+        ObjectMapper objectMapper,
+        AiCopilotContextBuilder copilotContextBuilder,
+        FallbackAiCopilotGenerator fallbackCopilotGenerator
     ) {
         this.aiConfig = aiConfig;
         this.objectMapper = objectMapper;
@@ -53,18 +52,16 @@ public class GeminiAiProvider implements AiProvider {
         factory.setConnectTimeout(Duration.ofSeconds(10));
         factory.setReadTimeout(Duration.ofSeconds(timeoutSeconds > 0 ? timeoutSeconds : 30));
 
-        this.restClient = RestClient.builder()
-                .requestFactory(factory)
-                .build();
+        this.restClient = RestClient.builder().requestFactory(factory).build();
     }
 
     // Constructor phục vụ riêng cho Unit Test khi cần mock RestClient
     public GeminiAiProvider(
-            AiConfigProperties aiConfig,
-            ObjectMapper objectMapper,
-            AiCopilotContextBuilder copilotContextBuilder,
-            FallbackAiCopilotGenerator fallbackCopilotGenerator,
-            RestClient restClient
+        AiConfigProperties aiConfig,
+        ObjectMapper objectMapper,
+        AiCopilotContextBuilder copilotContextBuilder,
+        FallbackAiCopilotGenerator fallbackCopilotGenerator,
+        RestClient restClient
     ) {
         this.aiConfig = aiConfig;
         this.objectMapper = objectMapper;
@@ -84,25 +81,31 @@ public class GeminiAiProvider implements AiProvider {
         }
 
         String model = config.getModel() != null ? config.getModel() : "gemini-3.5-flash";
-        String baseUrl = config.getBaseUrl() != null ? config.getBaseUrl() : "https://generativelanguage.googleapis.com/v1beta";
+        String baseUrl =
+            config.getBaseUrl() != null ? config.getBaseUrl() : "https://generativelanguage.googleapis.com/v1beta";
         String endpoint = String.format("%s/models/%s:generateContent?key=%s", baseUrl, model, apiKey);
 
-        log.info("[GEMINI_COPILOT] Requesting AI copilot critique using model={}, destination={}, issuesCount={}",
-                model, context.destination(), context.detectedIssues().size());
+        log.info(
+            "[GEMINI_COPILOT] Requesting AI copilot critique using model={}, destination={}, issuesCount={}",
+            model,
+            context.destination(),
+            context.detectedIssues().size()
+        );
 
         GeminiRequest requestPayload = new GeminiRequest(
-                GeminiContent.system(copilotContextBuilder.buildSystemInstruction()),
-                List.of(GeminiContent.user(copilotContextBuilder.buildUserPrompt(context))),
-                GeminiGenerationConfig.jsonConfig(config.getTemperature(), config.getMaxOutputTokens())
+            GeminiContent.system(copilotContextBuilder.buildSystemInstruction()),
+            List.of(GeminiContent.user(copilotContextBuilder.buildUserPrompt(context))),
+            GeminiGenerationConfig.jsonConfig(config.getTemperature(), config.getMaxOutputTokens())
         );
 
         try {
-            ResponseEntity<GeminiResponse> response = restClient.post()
-                    .uri(endpoint)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(requestPayload)
-                    .retrieve()
-                    .toEntity(GeminiResponse.class);
+            ResponseEntity<GeminiResponse> response = restClient
+                .post()
+                .uri(endpoint)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(requestPayload)
+                .retrieve()
+                .toEntity(GeminiResponse.class);
 
             GeminiResponse geminiResponse = response.getBody();
             if (geminiResponse == null) {
@@ -120,29 +123,40 @@ public class GeminiAiProvider implements AiProvider {
             AiCopilotAnalysisResult parsedResponse = objectMapper.readValue(cleanedJson, AiCopilotAnalysisResult.class);
 
             return new AiCopilotAnalysisResult(
-                    parsedResponse.greetingAndCaringReminder(),
-                    parsedResponse.recommendationCards(),
-                    model
+                parsedResponse.greetingAndCaringReminder(),
+                parsedResponse.recommendationCards(),
+                model
             );
-
         } catch (HttpClientErrorException ex) {
             if (ex.getStatusCode() == HttpStatus.UNAUTHORIZED || ex.getStatusCode() == HttpStatus.FORBIDDEN) {
                 log.error("[GEMINI_COPILOT] Gemini API key rejected ({}): {}", ex.getStatusCode(), ex.getMessage());
                 throw new AppException(ErrorCode.AI_API_KEY_INVALID);
             }
             if (ex.getStatusCode() == HttpStatus.TOO_MANY_REQUESTS) {
-                log.warn("[GEMINI_COPILOT] Rate limit or quota exceeded (429). Activating graceful fallback: {}", ex.getMessage());
+                log.warn(
+                    "[GEMINI_COPILOT] Rate limit or quota exceeded (429). Activating graceful fallback: {}",
+                    ex.getMessage()
+                );
                 return fallbackCopilotGenerator.generateFallback(context);
             }
-            log.error("[GEMINI_COPILOT] Client error calling Gemini API: status={}, message={}. Activating graceful fallback.",
-                    ex.getStatusCode(), ex.getMessage());
+            log.error(
+                "[GEMINI_COPILOT] Client error calling Gemini API: status={}, message={}. Activating graceful fallback.",
+                ex.getStatusCode(),
+                ex.getMessage()
+            );
             return fallbackCopilotGenerator.generateFallback(context);
         } catch (HttpServerErrorException ex) {
-            log.warn("[GEMINI_COPILOT] Gemini server temporarily unavailable ({}) - high demand/spikes. Activating graceful fallback.",
-                    ex.getStatusCode());
+            log.warn(
+                "[GEMINI_COPILOT] Gemini server temporarily unavailable ({}) - high demand/spikes. Activating graceful fallback.",
+                ex.getStatusCode()
+            );
             return fallbackCopilotGenerator.generateFallback(context);
         } catch (Exception ex) {
-            log.error("[GEMINI_COPILOT] Exception calling Gemini API: {}. Activating graceful fallback.", ex.getMessage(), ex);
+            log.error(
+                "[GEMINI_COPILOT] Exception calling Gemini API: {}. Activating graceful fallback.",
+                ex.getMessage(),
+                ex
+            );
             return fallbackCopilotGenerator.generateFallback(context);
         }
     }

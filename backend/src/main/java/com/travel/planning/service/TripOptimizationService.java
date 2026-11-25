@@ -10,7 +10,6 @@ import com.travel.planning.dto.response.TripOptimizationResponse;
  * Service đầu não điều phối toàn diện: Held-Karp TSP + Live Weather + Rule Evaluator + Gemini AI Copilot (HITL)
  */
 public interface TripOptimizationService {
-
     /**
      * Tối ưu hóa thứ tự tham quan bằng Held-Karp cho một ngày, đồng bộ thời tiết, thẩm định quy tắc xác định
      * và kích hoạt AI Copilot phản biện nếu phát hiện xung đột (Silent by default nếu All Clear).

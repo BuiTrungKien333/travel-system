@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ApiError } from "@/lib/errors";
 import { invalidateClientSession, openClientSession } from "@/lib/client";
+
 export function Providers({ children }: { children: React.ReactNode }) {
   const [client] = useState(
     () =>
@@ -17,6 +18,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         },
       }),
   );
+
   useEffect(() => {
     if (typeof BroadcastChannel === "undefined") return;
     const channel = new BroadcastChannel("wego-admin-session");
@@ -30,7 +32,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
         event.data === "logout" ? "/admin/login" : "/admin/dashboard",
       );
     };
+
     return () => channel.close();
   }, [client]);
+
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }

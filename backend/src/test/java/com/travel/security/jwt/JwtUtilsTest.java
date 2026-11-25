@@ -1,21 +1,20 @@
 package com.travel.security.jwt;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 import com.travel.security.model.CustomUserDetails;
 import com.travel.user.entity.User;
 import com.travel.user.enums.Role;
 import io.jsonwebtoken.Claims;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.springframework.test.util.ReflectionTestUtils;
-
 import java.util.Base64;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
 class JwtUtilsTest {
 
@@ -23,10 +22,10 @@ class JwtUtilsTest {
 
     // Chuẩn Base64 cho khóa bí mật tối thiểu 256 bits (32 bytes)
     private static final String BASE64_SECRET = Base64.getEncoder().encodeToString(
-            "my_super_secret_key_for_access_token_123456".getBytes()
+        "my_super_secret_key_for_access_token_123456".getBytes()
     );
     private static final String BASE64_REFRESH_SECRET = Base64.getEncoder().encodeToString(
-            "my_super_secret_key_for_refresh_token_12345".getBytes()
+        "my_super_secret_key_for_refresh_token_12345".getBytes()
     );
 
     private CustomUserDetails userDetails;
@@ -43,11 +42,11 @@ class JwtUtilsTest {
 
         userId = UUID.randomUUID();
         User user = User.builder()
-                .fullName("Nguyen Van Test")
-                .email("test@travel.com")
-                .passwordHash("hashed_pwd")
-                .role(Role.USER)
-                .build();
+            .fullName("Nguyen Van Test")
+            .email("test@travel.com")
+            .passwordHash("hashed_pwd")
+            .role(Role.USER)
+            .build();
         ReflectionTestUtils.setField(user, "id", userId);
 
         userDetails = new CustomUserDetails(user, Set.of("trip:read", "trip:create"));
@@ -95,8 +94,9 @@ class JwtUtilsTest {
         ReflectionTestUtils.setField(jwtUtils, "refreshKey", BASE64_SECRET);
         ReflectionTestUtils.invokeMethod(jwtUtils, "initKeys");
         String token = jwtUtils.generateAccessToken(userDetails);
-        assertThatThrownBy(() -> jwtUtils.extractAllClaims(token, TokenType.REFRESH_TOKEN))
-                .isInstanceOf(io.jsonwebtoken.JwtException.class);
+        assertThatThrownBy(() -> jwtUtils.extractAllClaims(token, TokenType.REFRESH_TOKEN)).isInstanceOf(
+            io.jsonwebtoken.JwtException.class
+        );
     }
 
     @Test
@@ -105,11 +105,11 @@ class JwtUtilsTest {
         String token = jwtUtils.generateAccessToken(userDetails);
 
         User anotherUser = User.builder()
-                .fullName("Another User")
-                .email("another@travel.com")
-                .passwordHash("pwd")
-                .role(Role.USER)
-                .build();
+            .fullName("Another User")
+            .email("another@travel.com")
+            .passwordHash("pwd")
+            .role(Role.USER)
+            .build();
         CustomUserDetails anotherDetails = new CustomUserDetails(anotherUser);
 
         assertThat(jwtUtils.isTokenValid(token, anotherDetails, TokenType.ACCESS_TOKEN)).isFalse();

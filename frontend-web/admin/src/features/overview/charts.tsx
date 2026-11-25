@@ -1,4 +1,5 @@
 "use client";
+
 import {
   ResponsiveContainer,
   BarChart,
@@ -16,6 +17,7 @@ import {
   Line,
 } from "recharts";
 import { labels, type Point } from "./data";
+
 const colors = [
   "#117B83",
   "#21B5C3",
@@ -24,11 +26,13 @@ const colors = [
   "#9BAEB6",
   "#93AED9",
 ];
+
 const tooltipProps = {
   contentStyle: { padding: "6px 8px", fontSize: 12 },
   labelStyle: { marginBottom: 2, fontSize: 12 },
   itemStyle: { paddingTop: 1, paddingBottom: 1, fontSize: 12 },
 };
+
 export function ChartCard({
   title,
   note,
@@ -55,6 +59,7 @@ export function ChartCard({
     </section>
   );
 }
+
 export function Bars({
   data,
   multiColor = false,
@@ -63,13 +68,23 @@ export function Bars({
   multiColor?: boolean;
 }) {
   const rows = data.map((p) => ({ ...p, name: labels[p.name] ?? p.name }));
-  const palette = ["#117B83", "#E9B56E", "#93AED9", "#81C9BB", "#9BAEB6", "#21B5C3"];
+  const palette = [
+    "#117B83",
+    "#E9B56E",
+    "#93AED9",
+    "#81C9BB",
+    "#9BAEB6",
+    "#21B5C3",
+  ];
+
   return (
     <>
       <div
         className={multiColor ? undefined : "h-72"}
         style={
-          multiColor ? { height: Math.max(rows.length * 44 + 40, 140) } : undefined
+          multiColor
+            ? { height: Math.max(rows.length * 44 + 40, 140) }
+            : undefined
         }
         role="img"
         aria-label={rows.map((p) => `${p.name}: ${p.value}`).join(", ")}
@@ -111,12 +126,14 @@ export function Bars({
     </>
   );
 }
+
 export function TopPlacesBars({ data }: { data: Point[] }) {
   const rows = data
     .slice(0, 10)
     .map((p) => ({ ...p, name: labels[p.name] ?? p.name }));
   const shorten = (value: string) =>
     value.length > 18 ? `${value.slice(0, 17)}…` : value;
+
   return (
     <div
       className="h-80"
@@ -167,17 +184,22 @@ export function TopPlacesBars({ data }: { data: Point[] }) {
     </div>
   );
 }
+
 export function TopProvincesBars({ data }: { data: Point[] }) {
   const rows = data.slice(0, 5);
   const max = Math.max(...rows.map((p) => p.value), 1);
+
   return (
     <ol
       className="space-y-3.5"
       role="img"
-      aria-label={rows.map((p, i) => `${i + 1}. ${p.name}: ${p.value}`).join(", ")}
+      aria-label={rows
+        .map((p, i) => `${i + 1}. ${p.name}: ${p.value}`)
+        .join(", ")}
     >
       {rows.map((p, index) => {
         const width = p.value > 0 ? Math.max((p.value / max) * 100, 4) : 0;
+
         return (
           <li key={`${p.name}-${index}`} className="flex items-center gap-3">
             <span className="w-5 shrink-0 text-right tabular-nums text-xs font-semibold text-muted">
@@ -209,6 +231,7 @@ export function TopProvincesBars({ data }: { data: Point[] }) {
     </ol>
   );
 }
+
 function ProvinceThumb({ name, index }: { name: string; index: number }) {
   const key = name.toLowerCase();
   const [bgTop, bgBottom, accent] = key.includes("đà nẵng")
@@ -223,6 +246,7 @@ function ProvinceThumb({ name, index }: { name: string; index: number }) {
             ? ["#EF4444", "#991B1B", "#FDE68A"]
             : [colors[index % colors.length], "#0F172A", "#E2E8F0"];
   const gradId = `prov-grad-${index}`;
+
   return (
     <div
       className="h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-line"
@@ -251,8 +275,10 @@ function ProvinceThumb({ name, index }: { name: string; index: number }) {
     </div>
   );
 }
+
 export function Donut({ data }: { data: Point[] }) {
   const rows = data.map((p) => ({ ...p, name: labels[p.name] ?? p.name }));
+
   return (
     <div
       className="h-72"
@@ -283,6 +309,7 @@ export function Donut({ data }: { data: Point[] }) {
     </div>
   );
 }
+
 export function Trend({
   data,
 }: {

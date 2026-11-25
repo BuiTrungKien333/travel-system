@@ -279,14 +279,12 @@ test("Mongo telemetry replaces sample AI charts and exposes an outage without fa
 }) => {
   await login(page);
   await page.getByRole("link", { name: "Dashboard", exact: true }).click();
-  const panel = page
-    .locator("section")
-    .filter({
-      has: page.getByRole("heading", {
-        name: "Kết quả tạo nháp AI",
-        exact: true,
-      }),
-    });
+  const panel = page.locator("section").filter({
+    has: page.getByRole("heading", {
+      name: "Kết quả tạo nháp AI",
+      exact: true,
+    }),
+  });
   await expect(
     panel.getByText("MongoDB kết nối", { exact: true }),
   ).toBeVisible();

@@ -1,10 +1,10 @@
 package com.travel.planning.algorithm;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 class DistanceCalculatorTest {
 
@@ -16,7 +16,9 @@ class DistanceCalculatorTest {
     }
 
     @Test
-    @DisplayName("calculateDistanceMeters between Dragon Bridge and Ba Na Hills should be around 25-28 km straight line")
+    @DisplayName(
+        "calculateDistanceMeters between Dragon Bridge and Ba Na Hills should be around 25-28 km straight line"
+    )
     void calculateDistanceMeters_dragonBridgeToBaNaHills_returnsAccurateDistance() {
         // Cầu Rồng: 16.0614, 108.2272
         // Bà Nà Hills: 15.9988, 107.9961

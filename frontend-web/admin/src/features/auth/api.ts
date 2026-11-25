@@ -12,6 +12,7 @@ import {
 import { ApiError } from "@/lib/errors";
 import { envelope, sessionSchema } from "@/lib/contracts";
 export const sessionKey = ["admin-session"] as const;
+
 export function useSession() {
   return useQuery({
     queryKey: sessionKey,
@@ -20,15 +21,18 @@ export function useSession() {
         await apiRequest("/auth/session", { signal }),
       );
       if (!parsed.success) throw new ApiError("INVALID_RESPONSE", 502);
+
       return parsed.data.data;
     },
     staleTime: 0,
     refetchInterval: 60000,
   });
 }
+
 export function useSignIn() {
   const cache = useQueryClient();
   const router = useRouter();
+
   return useMutation({
     mutationFn: async (values: { email: string; password: string }) => {
       const parsed = envelope(sessionSchema).safeParse(await signIn(values));
@@ -45,9 +49,11 @@ export function useSignIn() {
     },
   });
 }
+
 export function useSignOut() {
   const cache = useQueryClient();
   const router = useRouter();
+
   return useMutation({
     mutationFn: signOut,
     onMutate: () => cache.cancelQueries(),

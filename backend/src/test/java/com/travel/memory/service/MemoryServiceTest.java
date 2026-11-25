@@ -1,5 +1,10 @@
 package com.travel.memory.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
 import com.travel.common.exception.AppException;
 import com.travel.common.exception.ErrorCode;
 import com.travel.media.dto.CreateMediaRequest;
@@ -11,8 +16,12 @@ import com.travel.memory.mapper.MemoryMapper;
 import com.travel.memory.repository.MemoryRepository;
 import com.travel.memory.service.impl.MemoryServiceImpl;
 import com.travel.trip.entity.Trip;
-import com.travel.trip.repository.TripRepository;
 import com.travel.trip.repository.TripPlaceRepository;
+import com.travel.trip.repository.TripRepository;
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -26,24 +35,17 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import java.time.Instant;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
-
 @ExtendWith(MockitoExtension.class)
 class MemoryServiceTest {
 
     @Mock
     private MemoryRepository memoryRepository;
 
-    @Mock private TripRepository tripRepository;
-    @Mock private TripPlaceRepository tripPlaceRepository;
+    @Mock
+    private TripRepository tripRepository;
+
+    @Mock
+    private TripPlaceRepository tripPlaceRepository;
 
     @Spy
     private MemoryMapper memoryMapper = new MemoryMapper();
@@ -66,24 +68,26 @@ class MemoryServiceTest {
     @DisplayName("Reject client-supplied media URLs before persistence")
     void createMemory_WithMedia_RejectsUntrustedUrls() {
         CreateMediaRequest mediaReq = CreateMediaRequest.builder()
-                .url("https://cdn.travel.com/photos/1.jpg")
-                .mimeType("image/jpeg")
-                .fileSize(1024L)
-                .width(1920)
-                .height(1080)
-                .displayOrder(0)
-                .build();
+            .url("https://cdn.travel.com/photos/1.jpg")
+            .mimeType("image/jpeg")
+            .fileSize(1024L)
+            .width(1920)
+            .height(1080)
+            .displayOrder(0)
+            .build();
 
         CreateMemoryRequest request = CreateMemoryRequest.builder()
-                .tripId(tripId)
-                .placeId(placeId)
-                .note("Great memory in Da Nang")
-                .experiencedAt(Instant.now())
-                .media(List.of(mediaReq))
-                .build();
+            .tripId(tripId)
+            .placeId(placeId)
+            .note("Great memory in Da Nang")
+            .experiencedAt(Instant.now())
+            .media(List.of(mediaReq))
+            .build();
 
-        assertThatThrownBy(() -> memoryService.createMemory(userId, request))
-                .isInstanceOfSatisfying(AppException.class, error -> assertThat(error.getErrorCode()).isEqualTo(ErrorCode.VALIDATION_ERROR));
+        assertThatThrownBy(() -> memoryService.createMemory(userId, request)).isInstanceOfSatisfying(
+            AppException.class,
+            error -> assertThat(error.getErrorCode()).isEqualTo(ErrorCode.VALIDATION_ERROR)
+        );
         verifyNoInteractions(memoryRepository, tripRepository);
     }
 
@@ -124,8 +128,8 @@ class MemoryServiceTest {
         when(memoryRepository.findByIdAndDeletedAtIsNull(memoryId)).thenReturn(Optional.of(memory));
 
         assertThatThrownBy(() -> memoryService.getMemoryById(memoryId, otherUserId))
-                .isInstanceOf(AppException.class)
-                .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(ErrorCode.MEMORY_ACCESS_DENIED));
+            .isInstanceOf(AppException.class)
+            .satisfies(ex -> assertThat(((AppException) ex).getErrorCode()).isEqualTo(ErrorCode.MEMORY_ACCESS_DENIED));
     }
 
     @Test
@@ -133,11 +137,17 @@ class MemoryServiceTest {
     void getMemoriesByTrip_Success() {
         Memory memory1 = Memory.create(userId, tripId, placeId, "Day 1", Instant.now());
         Memory memory2 = Memory.create(userId, tripId, placeId, "Day 2", Instant.now());
-        UUID first = UUID.randomUUID(); UUID second = UUID.randomUUID();
-        ReflectionTestUtils.setField(memory1, "id", first); ReflectionTestUtils.setField(memory2, "id", second);
+        UUID first = UUID.randomUUID();
+        UUID second = UUID.randomUUID();
+        ReflectionTestUtils.setField(memory1, "id", first);
+        ReflectionTestUtils.setField(memory2, "id", second);
         when(tripRepository.findByIdAndUserIdAndDeletedAtIsNull(tripId, userId)).thenReturn(Optional.of(new Trip()));
-        when(memoryRepository.ownerIds(eq(userId), eq(tripId), any())).thenReturn(new PageImpl<>(List.of(first, second)));
-        when(memoryRepository.findByIdInAndUserIdAndDeletedAtIsNull(List.of(first, second), userId)).thenReturn(List.of(memory2, memory1));
+        when(memoryRepository.ownerIds(eq(userId), eq(tripId), any())).thenReturn(
+            new PageImpl<>(List.of(first, second))
+        );
+        when(memoryRepository.findByIdInAndUserIdAndDeletedAtIsNull(List.of(first, second), userId)).thenReturn(
+            List.of(memory2, memory1)
+        );
 
         Page<MemoryResponse> result = memoryService.getMemoriesByTrip(tripId, userId, PageRequest.of(0, 10));
 

@@ -4,11 +4,10 @@ import com.travel.common.exception.AppException;
 import com.travel.common.exception.ErrorCode;
 import com.travel.place.entity.Place;
 import com.travel.planning.algorithm.model.*;
+import java.util.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-
-import java.util.*;
 
 @Component
 @RequiredArgsConstructor
@@ -63,28 +62,37 @@ public class HeldKarpSolver {
 
         log.debug("[HELD_KARP] Starting Held-Karp solver for N={}, roundTrip={}", n, request.isRoundTrip());
 
-        List<Integer> optimalPathIndices = solvePath(dist,
-                request.getStartPlaceId() != null || request.isRoundTrip(), request.isRoundTrip(), fixedEndIndex);
+        List<Integer> optimalPathIndices = solvePath(
+            dist,
+            request.getStartPlaceId() != null || request.isRoundTrip(),
+            request.isRoundTrip(),
+            fixedEndIndex
+        );
 
         return buildTspResult(places, optimalPathIndices, dist, request.isRoundTrip());
     }
 
     /** Minimize directed road costs with a fixed first node and an optional fixed terminal. */
     public List<Integer> solveFixedStart(double[][] costs, Integer fixedEndIndex) {
-        if (costs == null || costs.length < 2 || costs.length > MAX_LOCATIONS
-                || (fixedEndIndex != null && (fixedEndIndex <= 0 || fixedEndIndex >= costs.length)))
-            throw new AppException(ErrorCode.INVALID_TSP_LOCATIONS);
+        if (
+            costs == null ||
+            costs.length < 2 ||
+            costs.length > MAX_LOCATIONS ||
+            (fixedEndIndex != null && (fixedEndIndex <= 0 || fixedEndIndex >= costs.length))
+        ) throw new AppException(ErrorCode.INVALID_TSP_LOCATIONS);
         int n = costs.length;
         for (double[] row : costs) {
             if (row == null || row.length != n) throw new AppException(ErrorCode.INVALID_TSP_LOCATIONS);
-            for (double value : row) if (Double.isNaN(value) || value < 0)
-                throw new AppException(ErrorCode.INVALID_TSP_LOCATIONS);
+            for (double value : row)
+                if (Double.isNaN(value) || value < 0) throw new AppException(ErrorCode.INVALID_TSP_LOCATIONS);
         }
         var path = solvePath(costs, true, false, fixedEndIndex);
-        if (path.size() != n || path.getFirst() != 0 || new HashSet<>(path).size() != n)
-            throw new AppException(ErrorCode.RESOURCE_NOT_FOUND);
-        for (int i = 1; i < n; i++) if (!Double.isFinite(costs[path.get(i - 1)][path.get(i)]))
-            throw new AppException(ErrorCode.RESOURCE_NOT_FOUND);
+        if (path.size() != n || path.getFirst() != 0 || new HashSet<>(path).size() != n) throw new AppException(
+            ErrorCode.RESOURCE_NOT_FOUND
+        );
+        for (int i = 1; i < n; i++) if (!Double.isFinite(costs[path.get(i - 1)][path.get(i)])) throw new AppException(
+            ErrorCode.RESOURCE_NOT_FOUND
+        );
         return path;
     }
 
@@ -126,8 +134,8 @@ public class HeldKarpSolver {
 
         int fullMask = totalSubsets - 1;
         return roundTrip
-                ? reconstructRoundTripPath(n, fullMask, dp, parent, dist)
-                : reconstructOneWayPath(n, fullMask, dp, parent, fixedEndIndex);
+            ? reconstructRoundTripPath(n, fullMask, dp, parent, dist)
+            : reconstructOneWayPath(n, fullMask, dp, parent, fixedEndIndex);
     }
 
     private List<Place> arrangePlacesWithStartNode(List<Place> originalPlaces, UUID startPlaceId) {
@@ -181,7 +189,13 @@ public class HeldKarpSolver {
         return path;
     }
 
-    private List<Integer> reconstructOneWayPath(int n, int fullMask, double[] dp, byte[] parent, Integer fixedEndIndex) {
+    private List<Integer> reconstructOneWayPath(
+        int n,
+        int fullMask,
+        double[] dp,
+        byte[] parent,
+        Integer fixedEndIndex
+    ) {
         int bestEndNode;
 
         if (fixedEndIndex != null) {
@@ -208,15 +222,20 @@ public class HeldKarpSolver {
         while (curr != -1) {
             path.add(curr);
             int prev = parent[mask * n + curr]; // Xem ai dẫn đến curr
-            mask = mask ^ (1 << curr);     // Tắt bit của curr: loại curr khỏi tập mask
-            curr = prev;                   // Lùi bước về đỉnh trước đó
+            mask = mask ^ (1 << curr); // Tắt bit của curr: loại curr khỏi tập mask
+            curr = prev; // Lùi bước về đỉnh trước đó
         }
 
         Collections.reverse(path); // Đảo ngược lại để có thứ tự từ đầu đến cuối
         return path;
     }
 
-    private TspResult buildTspResult(List<Place> places, List<Integer> pathIndices, double[][] dist, boolean isRoundTrip) {
+    private TspResult buildTspResult(
+        List<Place> places,
+        List<Integer> pathIndices,
+        double[][] dist,
+        boolean isRoundTrip
+    ) {
         List<Place> orderedPlaces = new ArrayList<>(pathIndices.size());
         for (int idx : pathIndices) {
             orderedPlaces.add(places.get(idx));
@@ -233,48 +252,51 @@ public class HeldKarpSolver {
             double legDistance = dist[fromIdx][toIdx];
             long legDuration = DistanceCalculator.calculateDurationSeconds(legDistance);
 
-            legs.add(RouteLeg.builder()
+            legs.add(
+                RouteLeg.builder()
                     .fromPlace(places.get(fromIdx))
                     .toPlace(places.get(toIdx))
                     .distanceMeters(legDistance)
                     .durationSeconds(legDuration)
-                    .build());
+                    .build()
+            );
 
             totalDistance += legDistance;
             totalDuration += legDuration;
         }
 
         return TspResult.builder()
-                .orderedPlaces(orderedPlaces)
-                .totalDistanceMeters(totalDistance)
-                .totalDurationSeconds(totalDuration)
-                .legs(legs)
-                .roundTrip(isRoundTrip)
-                .build();
+            .orderedPlaces(orderedPlaces)
+            .totalDistanceMeters(totalDistance)
+            .totalDurationSeconds(totalDuration)
+            .legs(legs)
+            .roundTrip(isRoundTrip)
+            .build();
     }
 
     private TspResult handleSinglePlace(Place place, boolean isRoundTrip) {
         List<Place> ordered = isRoundTrip ? List.of(place, place) : List.of(place);
-        List<RouteLeg> legs = isRoundTrip ? List.of(RouteLeg.builder()
-                .fromPlace(place)
-                .toPlace(place)
-                .distanceMeters(0.0)
-                .durationSeconds(0L)
-                .build()) : List.of();
+        List<RouteLeg> legs = isRoundTrip
+            ? List.of(
+                  RouteLeg.builder().fromPlace(place).toPlace(place).distanceMeters(0.0).durationSeconds(0L).build()
+              )
+            : List.of();
 
         return TspResult.builder()
-                .orderedPlaces(ordered)
-                .totalDistanceMeters(0.0)
-                .totalDurationSeconds(0L)
-                .legs(legs)
-                .roundTrip(isRoundTrip)
-                .build();
+            .orderedPlaces(ordered)
+            .totalDistanceMeters(0.0)
+            .totalDurationSeconds(0L)
+            .legs(legs)
+            .roundTrip(isRoundTrip)
+            .build();
     }
 
     private TspResult handleTwoPlaces(Place p0, Place p1, boolean isRoundTrip, Integer fixedEndIndex) {
         double dist = DistanceCalculator.calculateDistanceMeters(
-                p0.getLatitude(), p0.getLongitude(),
-                p1.getLatitude(), p1.getLongitude()
+            p0.getLatitude(),
+            p0.getLongitude(),
+            p1.getLatitude(),
+            p1.getLongitude()
         );
         long dur = DistanceCalculator.calculateDurationSeconds(dist);
 
@@ -287,25 +309,29 @@ public class HeldKarpSolver {
 
         if (isRoundTrip) {
             return TspResult.builder()
-                    .orderedPlaces(List.of(p0, p1, p0))
-                    .totalDistanceMeters(dist * 2.0)
-                    .totalDurationSeconds(dur * 2)
-                    .legs(List.of(
-                            RouteLeg.builder().fromPlace(p0).toPlace(p1).distanceMeters(dist).durationSeconds(dur).build(),
-                            RouteLeg.builder().fromPlace(p1).toPlace(p0).distanceMeters(dist).durationSeconds(dur).build()
-                    ))
-                    .roundTrip(true)
-                    .build();
+                .orderedPlaces(List.of(p0, p1, p0))
+                .totalDistanceMeters(dist * 2.0)
+                .totalDurationSeconds(dur * 2)
+                .legs(
+                    List.of(
+                        RouteLeg.builder().fromPlace(p0).toPlace(p1).distanceMeters(dist).durationSeconds(dur).build(),
+                        RouteLeg.builder().fromPlace(p1).toPlace(p0).distanceMeters(dist).durationSeconds(dur).build()
+                    )
+                )
+                .roundTrip(true)
+                .build();
         } else {
             return TspResult.builder()
-                    .orderedPlaces(List.of(p0, p1))
-                    .totalDistanceMeters(dist)
-                    .totalDurationSeconds(dur)
-                    .legs(List.of(
-                            RouteLeg.builder().fromPlace(p0).toPlace(p1).distanceMeters(dist).durationSeconds(dur).build()
-                    ))
-                    .roundTrip(false)
-                    .build();
+                .orderedPlaces(List.of(p0, p1))
+                .totalDistanceMeters(dist)
+                .totalDurationSeconds(dur)
+                .legs(
+                    List.of(
+                        RouteLeg.builder().fromPlace(p0).toPlace(p1).distanceMeters(dist).durationSeconds(dur).build()
+                    )
+                )
+                .roundTrip(false)
+                .build();
         }
     }
 }

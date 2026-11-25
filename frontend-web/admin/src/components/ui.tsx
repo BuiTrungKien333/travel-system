@@ -4,6 +4,7 @@ import type {
   InputHTMLAttributes,
   ReactNode,
 } from "react";
+
 export function Button({
   children,
   busy = false,
@@ -29,9 +30,11 @@ export function Button({
     </button>
   );
 }
+
 export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={`input ${props.className ?? ""}`} />;
 }
+
 export function Banner({
   children,
   error = false,
@@ -48,6 +51,7 @@ export function Banner({
     </div>
   );
 }
+
 export function RoleBadge({ role }: { role: "USER" | "ADMIN" | "GUEST" }) {
   return (
     <span
@@ -61,6 +65,7 @@ export function RoleBadge({ role }: { role: "USER" | "ADMIN" | "GUEST" }) {
     </span>
   );
 }
+
 export function Brand({ light = false }: { light?: boolean }) {
   return (
     <div

@@ -2,6 +2,9 @@ package com.travel.media.entity;
 
 import com.travel.memory.entity.Memory;
 import jakarta.persistence.*;
+import java.time.Instant;
+import java.util.Objects;
+import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -9,10 +12,6 @@ import lombok.Setter;
 import org.hibernate.Hibernate;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
-
-import java.time.Instant;
-import java.util.Objects;
-import java.util.UUID;
 
 @Entity
 @Table(name = "media")
@@ -71,7 +70,14 @@ public class Media {
     /**
      * Factory method to create a new Media entity instance.
      */
-    public static Media create(String url, String mimeType, Long fileSize, Integer width, Integer height, Integer displayOrder) {
+    public static Media create(
+        String url,
+        String mimeType,
+        Long fileSize,
+        Integer width,
+        Integer height,
+        Integer displayOrder
+    ) {
         Media media = new Media();
         media.url = url;
         media.mimeType = mimeType;

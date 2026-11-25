@@ -19,7 +19,8 @@ public record DraftTravelMatrix(Map<UUID, Integer> indices, RoadMatrix matrix, S
 
     public static DraftTravelMatrix estimated(Origin origin, List<PlaceCandidate> candidates, String reason) {
         int size = candidates.size() + 1;
-        double[][] distances = new double[size][size], durations = new double[size][size];
+        double[][] distances = new double[size][size],
+            durations = new double[size][size];
         for (int from = 0; from < size; from++) {
             double lat = from == 0 ? origin.latitude() : candidates.get(from - 1).latitude();
             double lon = from == 0 ? origin.longitude() : candidates.get(from - 1).longitude();
@@ -45,10 +46,16 @@ public record DraftTravelMatrix(Map<UUID, Integer> indices, RoadMatrix matrix, S
         int size = dayIndices.size();
         double[][] result = new double[size][size];
         for (int from = 0; from < size; from++) for (int to = 0; to < size; to++) {
-            int globalFrom = dayIndices.get(from), globalTo = dayIndices.get(to);
-            double distance = matrix.distances()[globalFrom][globalTo], duration = matrix.durations()[globalFrom][globalTo];
-            result[from][to] = Double.isFinite(distance) && Double.isFinite(duration)
-                    ? ROAD.equals(source) ? duration : distance : Double.POSITIVE_INFINITY;
+            int globalFrom = dayIndices.get(from),
+                globalTo = dayIndices.get(to);
+            double distance = matrix.distances()[globalFrom][globalTo],
+                duration = matrix.durations()[globalFrom][globalTo];
+            result[from][to] =
+                Double.isFinite(distance) && Double.isFinite(duration)
+                    ? ROAD.equals(source)
+                        ? duration
+                        : distance
+                    : Double.POSITIVE_INFINITY;
         }
         return result;
     }

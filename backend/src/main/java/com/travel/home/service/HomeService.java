@@ -6,13 +6,12 @@ import com.travel.security.util.SecurityUtils;
 import com.travel.trip.dto.TripResponses;
 import com.travel.trip.service.TripCalendar;
 import com.travel.trip.service.TripCrudService;
+import java.time.Clock;
+import java.time.temporal.ChronoUnit;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.time.Clock;
-import java.time.temporal.ChronoUnit;
 
 @Service
 @RequiredArgsConstructor
@@ -27,9 +26,10 @@ public class HomeService {
         var owner = SecurityUtils.getCurrentUserId();
         var now = clock.instant();
         var today = TripCalendar.today(Clock.fixed(now, TripCalendar.ZONE));
-        var selected = repository.selectedTrip(owner, today)
-                .map(id -> trips.getAt(id, now))
-                .orElse(null);
+        var selected = repository
+            .selectedTrip(owner, today)
+            .map(id -> trips.getAt(id, now))
+            .orElse(null);
 
         String state = "NEW";
         Integer dayIndex = null;
@@ -39,9 +39,11 @@ public class HomeService {
             state = switch (trip.mode()) {
                 case "LIVE" -> "LIVE";
                 case "RECAP" -> "RETURNING";
-                default -> trip.startDate() != null && trip.startDate().isAfter(today) && !trip.startDate().isAfter(today.plusDays(7))
-                        ? "UPCOMING"
-                        : "PLANNING";
+                default -> trip.startDate() != null &&
+                trip.startDate().isAfter(today) &&
+                !trip.startDate().isAfter(today.plusDays(7))
+                    ? "UPCOMING"
+                    : "PLANNING";
             };
             if (state.equals("LIVE")) {
                 dayIndex = Math.toIntExact(ChronoUnit.DAYS.between(trip.startDate(), today));
@@ -52,15 +54,15 @@ public class HomeService {
         boolean live = state.equals("LIVE");
 
         return new HomeDashboard(
-                state,
-                selected,
-                dayIndex,
-                live ? repository.todayCount(id, today) : 0,
-                live ? repository.nextStop(id, today) : null,
-                state.equals("PLANNING") || state.equals("UPCOMING") ? repository.firstEmptyDay(id) : null,
-                repository.footprint(owner, today),
-                repository.photos(owner, live ? id : null, today),
-                new TripResponses.Context(now, today)
+            state,
+            selected,
+            dayIndex,
+            live ? repository.todayCount(id, today) : 0,
+            live ? repository.nextStop(id, today) : null,
+            state.equals("PLANNING") || state.equals("UPCOMING") ? repository.firstEmptyDay(id) : null,
+            repository.footprint(owner, today),
+            repository.photos(owner, live ? id : null, today),
+            new TripResponses.Context(now, today)
         );
     }
 }

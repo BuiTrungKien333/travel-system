@@ -21,11 +21,6 @@ import com.travel.trip.dto.TripResponses.Readiness;
 import com.travel.trip.dto.TripResponses.Summary;
 import com.travel.trip.dto.UpdateTripRequest;
 import com.travel.trip.repository.TripCrudRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Isolation;
-import org.springframework.transaction.annotation.Transactional;
-
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -41,6 +36,10 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -115,8 +114,12 @@ public class TripCrudService {
      */
     @Transactional(readOnly = true)
     public Read getAt(UUID id, Instant evaluatedAt) {
-        return read(repository.find(SecurityUtils.getCurrentUserId(), id)
-                .orElseThrow(() -> new AppException(ErrorCode.TRIP_NOT_FOUND)), evaluatedAt);
+        return read(
+            repository
+                .find(SecurityUtils.getCurrentUserId(), id)
+                .orElseThrow(() -> new AppException(ErrorCode.TRIP_NOT_FOUND)),
+            evaluatedAt
+        );
     }
 
     @Transactional
@@ -139,25 +142,39 @@ public class TripCrudService {
         }
 
         var before = new TripCrudRepository.Metadata(
-                row.title(), row.destination(), row.provinceId(), row.start(), row.end(),
-                row.budget(), row.preferences(), row.accommodation(), row.notes()
+            row.title(),
+            row.destination(),
+            row.provinceId(),
+            row.start(),
+            row.end(),
+            row.budget(),
+            row.preferences(),
+            row.accommodation(),
+            row.notes()
         );
 
         String nextPreferences = request.has("preferences") ? write(request.preferences()) : row.preferences();
-        if (request.has("preferences") && preferences(row.preferences()).equals(request.preferences().stream().map(Enum::name).toList())) {
+        if (
+            request.has("preferences") &&
+            preferences(row.preferences()).equals(request.preferences().stream().map(Enum::name).toList())
+        ) {
             nextPreferences = row.preferences();
         }
 
         var next = new TripCrudRepository.Metadata(
-                request.has("title") ? request.title() : row.title(),
-                request.has("destination") ? request.destination().name() : row.destination(),
-                request.has("destination") ? request.destination().provinceId() : row.provinceId(),
-                request.has("startDate") ? request.startDate() : row.start(),
-                request.has("endDate") ? request.endDate() : row.end(),
-                request.has("budget") ? (request.budget() == null ? null : request.budget().amount().longValueExact()) : row.budget(),
-                nextPreferences,
-                request.has("accommodation") ? request.accommodation() : row.accommodation(),
-                request.has("notes") ? request.notes() : row.notes()
+            request.has("title") ? request.title() : row.title(),
+            request.has("destination") ? request.destination().name() : row.destination(),
+            request.has("destination") ? request.destination().provinceId() : row.provinceId(),
+            request.has("startDate") ? request.startDate() : row.start(),
+            request.has("endDate") ? request.endDate() : row.end(),
+            request.has("budget")
+                ? request.budget() == null
+                    ? null
+                    : request.budget().amount().longValueExact()
+                : row.budget(),
+            nextPreferences,
+            request.has("accommodation") ? request.accommodation() : row.accommodation(),
+            request.has("notes") ? request.notes() : row.notes()
         );
 
         if (next.start() != null || next.end() != null) {
@@ -185,8 +202,9 @@ public class TripCrudService {
 
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public DateImpact previewDates(UUID id, TripDateChangeRequest request) {
-        var row = repository.find(SecurityUtils.getCurrentUserId(), id)
-                .orElseThrow(() -> new AppException(ErrorCode.TRIP_NOT_FOUND));
+        var row = repository
+            .find(SecurityUtils.getCurrentUserId(), id)
+            .orElseThrow(() -> new AppException(ErrorCode.TRIP_NOT_FOUND));
         requireWritable(row);
         requireVersion(row, request.version());
         validateRange(request.startDate(), request.endDate());
@@ -230,8 +248,9 @@ public class TripCrudService {
     }
 
     private TripCrudRepository.Row ownedLocked(UUID id) {
-        return repository.lockOwned(SecurityUtils.getCurrentUserId(), id)
-                .orElseThrow(() -> new AppException(ErrorCode.TRIP_NOT_FOUND));
+        return repository
+            .lockOwned(SecurityUtils.getCurrentUserId(), id)
+            .orElseThrow(() -> new AppException(ErrorCode.TRIP_NOT_FOUND));
     }
 
     private void requireWritable(TripCrudRepository.Row row) {
@@ -250,7 +269,12 @@ public class TripCrudService {
     }
 
     private void validateRange(LocalDate start, LocalDate end) {
-        if (start == null || end == null || TripCalendar.days(start, end) < 1 || ChronoUnit.DAYS.between(start, end) >= 365) {
+        if (
+            start == null ||
+            end == null ||
+            TripCalendar.days(start, end) < 1 ||
+            ChronoUnit.DAYS.between(start, end) >= 365
+        ) {
             invalid("endDate");
         }
     }
@@ -262,14 +286,20 @@ public class TripCrudService {
         var previous = new HashSet<>(existing);
         long moved = repository.movedToPoolCount(row.id(), start, end);
         return new DateImpact(
-                row.version(),
-                start,
-                end,
-                desired.size(),
-                existing.stream().filter(date -> !kept.contains(date)).toList(),
-                desired.stream().filter(date -> !previous.contains(date)).toList(),
-                moved,
-                moved > 0
+            row.version(),
+            start,
+            end,
+            desired.size(),
+            existing
+                .stream()
+                .filter(date -> !kept.contains(date))
+                .toList(),
+            desired
+                .stream()
+                .filter(date -> !previous.contains(date))
+                .toList(),
+            moved,
+            moved > 0
         );
     }
 
@@ -287,9 +317,12 @@ public class TripCrudService {
 
         String[] parts = sort.split(",", -1);
         Map<String, String> columns = Map.of(
-                "createdAt", "t.created_at",
-                "updatedAt", "t.updated_at",
-                "startDate", "t.start_date"
+            "createdAt",
+            "t.created_at",
+            "updatedAt",
+            "t.updated_at",
+            "startDate",
+            "t.start_date"
         );
         if (parts.length != 2 || !columns.containsKey(parts[0]) || !Set.of("asc", "desc").contains(parts[1])) {
             invalid("sort");
@@ -302,12 +335,15 @@ public class TripCrudService {
         long total = repository.count(filter);
         var rows = repository.list(filter, order, size, (long) page * size);
         return new Page<>(
-                rows.stream().map(r -> summary(r, context.evaluatedDate())).toList(),
-                page,
-                size,
-                total,
-                (total + size - 1) / size,
-                context
+            rows
+                .stream()
+                .map(r -> summary(r, context.evaluatedDate()))
+                .toList(),
+            page,
+            size,
+            total,
+            (total + size - 1) / size,
+            context
         );
     }
 
@@ -318,22 +354,22 @@ public class TripCrudService {
     private Summary summary(TripCrudRepository.Row r, LocalDate today) {
         int count = TripCalendar.days(r.start(), r.end());
         return new Summary(
-                r.id(),
-                r.title(),
-                new Destination(r.destination(), r.provinceId()),
-                r.start(),
-                r.end(),
-                r.zone(),
-                r.status(),
-                TripCalendar.mode(r.status(), r.start(), r.end(), today),
-                new Readiness(count > 0, r.stopCount() > 0, r.unscheduledCount()),
-                count,
-                r.stopCount(),
-                r.memoryCount(),
-                r.coverImage(),
-                r.version(),
-                r.created(),
-                r.updated()
+            r.id(),
+            r.title(),
+            new Destination(r.destination(), r.provinceId()),
+            r.start(),
+            r.end(),
+            r.zone(),
+            r.status(),
+            TripCalendar.mode(r.status(), r.start(), r.end(), today),
+            new Readiness(count > 0, r.stopCount() > 0, r.unscheduledCount()),
+            count,
+            r.stopCount(),
+            r.memoryCount(),
+            r.coverImage(),
+            r.version(),
+            r.created(),
+            r.updated()
         );
     }
 
@@ -341,27 +377,27 @@ public class TripCrudService {
         Context context = context(now);
         Summary s = summary(r, context.evaluatedDate());
         Detail detail = new Detail(
-                s.id(),
-                s.title(),
-                s.destination(),
-                s.startDate(),
-                s.endDate(),
-                s.timeZone(),
-                s.status(),
-                s.mode(),
-                s.readiness(),
-                s.dayCount(),
-                s.stopCount(),
-                s.memoryCount(),
-                s.coverImageUrl(),
-                s.version(),
-                s.createdAt(),
-                s.updatedAt(),
-                r.budget() == null ? null : new Budget(r.budget(), "VND"),
-                preferences(r.preferences()),
-                r.accommodation(),
-                r.notes(),
-                repository.days(r.id(), r.start())
+            s.id(),
+            s.title(),
+            s.destination(),
+            s.startDate(),
+            s.endDate(),
+            s.timeZone(),
+            s.status(),
+            s.mode(),
+            s.readiness(),
+            s.dayCount(),
+            s.stopCount(),
+            s.memoryCount(),
+            s.coverImageUrl(),
+            s.version(),
+            s.createdAt(),
+            s.updatedAt(),
+            r.budget() == null ? null : new Budget(r.budget(), "VND"),
+            preferences(r.preferences()),
+            r.accommodation(),
+            r.notes(),
+            repository.days(r.id(), r.start())
         );
         return new Read(detail, context);
     }
@@ -392,8 +428,7 @@ public class TripCrudService {
 
         try {
             return HexFormat.of().formatHex(
-                    MessageDigest.getInstance("SHA-256")
-                            .digest(write(normalized).getBytes(StandardCharsets.UTF_8))
+                MessageDigest.getInstance("SHA-256").digest(write(normalized).getBytes(StandardCharsets.UTF_8))
             );
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException(e);

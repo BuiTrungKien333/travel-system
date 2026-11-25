@@ -2,11 +2,10 @@ package com.travel.common.response;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import io.swagger.v3.oas.annotations.media.Schema;
-import lombok.Builder;
-import lombok.Getter;
-
 import java.time.Instant;
 import java.util.Map;
+import lombok.Builder;
+import lombok.Getter;
 
 @Getter
 @Builder

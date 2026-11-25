@@ -14,5 +14,5 @@ public enum PlaceType {
     HYBRID,
 
     @Schema(description = "Chưa xác định")
-    UNSPECIFIED
+    UNSPECIFIED,
 }

@@ -13,16 +13,15 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
 @JsonAutoDetect(
-        fieldVisibility = JsonAutoDetect.Visibility.ANY,
-        getterVisibility = JsonAutoDetect.Visibility.NONE,
-        isGetterVisibility = JsonAutoDetect.Visibility.NONE
+    fieldVisibility = JsonAutoDetect.Visibility.ANY,
+    getterVisibility = JsonAutoDetect.Visibility.NONE,
+    isGetterVisibility = JsonAutoDetect.Visibility.NONE
 )
 public final class CreateTripRequest {
 
@@ -130,10 +129,7 @@ public final class CreateTripRequest {
         throw new IllegalArgumentException("Unknown trip field");
     }
 
-    public record Destination(
-            @NotBlank @Size(max = 120) String name,
-            UUID provinceId
-    ) {
+    public record Destination(@NotBlank @Size(max = 120) String name, UUID provinceId) {
         public Destination {
             name = name == null ? null : name.trim();
         }
@@ -145,9 +141,8 @@ public final class CreateTripRequest {
     }
 
     public record Budget(
-            @NotNull @DecimalMin("0") @DecimalMax("1000000000000")
-            @Digits(integer = 13, fraction = 0) BigDecimal amount,
-            @NotNull @Pattern(regexp = "VND") String currency
+        @NotNull @DecimalMin("0") @DecimalMax("1000000000000") @Digits(integer = 13, fraction = 0) BigDecimal amount,
+        @NotNull @Pattern(regexp = "VND") String currency
     ) {
         @JsonAnySetter
         public void rejectUnknown(String field, Object value) {
@@ -156,7 +151,14 @@ public final class CreateTripRequest {
     }
 
     public enum Preference {
-        nature, food, culture, relaxation, photography, adventure, shopping, beach;
+        nature,
+        food,
+        culture,
+        relaxation,
+        photography,
+        adventure,
+        shopping,
+        beach;
 
         @JsonCreator
         public static Preference from(String value) {

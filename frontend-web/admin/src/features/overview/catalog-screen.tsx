@@ -4,7 +4,12 @@ import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { Banner, Button } from "@/components/ui";
 import { useSession } from "@/features/auth/api";
 import { errorMessage } from "@/lib/errors";
-import { useKnowledge, useCatalogAction, useRagSearch, useCatalogProvinces } from "./hooks";
+import {
+  useKnowledge,
+  useCatalogAction,
+  useRagSearch,
+  useCatalogProvinces,
+} from "./hooks";
 import { labels, type Entry } from "./data";
 
 const retrievalTags = [
@@ -31,7 +36,10 @@ export function CatalogScreen({ knowledge = false }: { knowledge?: boolean }) {
   const [ragQuery, setRagQuery] = useState("");
   const [excludedTags, setExcludedTags] = useState<string[]>([]);
   const [indexSuccessDismissed, setIndexSuccessDismissed] = useState(false);
-  const [knowledgeFilters, setKnowledgeFilters] = useState({ provinceCode: "", indexStatus: "" });
+  const [knowledgeFilters, setKnowledgeFilters] = useState({
+    provinceCode: "",
+    indexStatus: "",
+  });
   const allowed = !!session.data?.permissions.includes("admin:catalog");
   const canTestRag = !!session.data?.permissions.includes("admin:ai:index");
   const q = useKnowledge(session.data?.id, page, allowed, knowledgeFilters);
@@ -50,6 +58,7 @@ export function CatalogScreen({ knowledge = false }: { knowledge?: boolean }) {
     });
   }
   if (!allowed) return <Banner error>Chưa có quyền quản lý catalog.</Banner>;
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -149,15 +158,17 @@ export function CatalogScreen({ knowledge = false }: { knowledge?: boolean }) {
         action.data.failed > 0 ? (
           <Banner error>
             <p role="status" aria-live="polite" className="font-medium">
-              Index hoàn tất nhưng còn địa điểm lỗi: cập nhật {action.data.updated},
-              bỏ qua {action.data.skipped}, lỗi {action.data.failed} · Model {action.data.model}.
+              Index hoàn tất nhưng còn địa điểm lỗi: cập nhật{" "}
+              {action.data.updated}, bỏ qua {action.data.skipped}, lỗi{" "}
+              {action.data.failed} · Model {action.data.model}.
             </p>
           </Banner>
         ) : (
           <div className="flex items-start justify-between gap-4 border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
             <p role="status" aria-live="polite" className="font-medium">
               Đã cập nhật index thành công: cập nhật {action.data.updated}, giữ
-              nguyên {action.data.skipped}, lỗi {action.data.failed} · Model {action.data.model}.
+              nguyên {action.data.skipped}, lỗi {action.data.failed} · Model{" "}
+              {action.data.model}.
             </p>
             <button
               type="button"
@@ -172,12 +183,16 @@ export function CatalogScreen({ knowledge = false }: { knowledge?: boolean }) {
         )
       ) : action.isSuccess ? (
         <Banner>
-          <p role="status" aria-live="polite">Đã cập nhật trạng thái công khai.</p>
+          <p role="status" aria-live="polite">
+            Đã cập nhật trạng thái công khai.
+          </p>
         </Banner>
       ) : null}
       {q.isPending ? <p role="status">Đang tải catalog…</p> : null}
       {q.isError ? <Banner error>{errorMessage(q.error)}</Banner> : null}
-      {knowledge && provinces.isError ? <Banner error>{errorMessage(provinces.error)}</Banner> : null}
+      {knowledge && provinces.isError ? (
+        <Banner error>{errorMessage(provinces.error)}</Banner>
+      ) : null}
       {q.data ? (
         <>
           <Banner>
@@ -186,22 +201,61 @@ export function CatalogScreen({ knowledge = false }: { knowledge?: boolean }) {
               : "Duyệt sẽ công khai hồ sơ. Hãy kiểm tra nguồn tham khảo, tọa độ và giờ hoạt động trước khi xác nhận."}
           </Banner>
           {knowledge ? (
-            <section aria-label="Lọc kho tri thức AI" className="grid gap-3 border-y border-line py-4 sm:grid-cols-2">
+            <section
+              aria-label="Lọc kho tri thức AI"
+              className="grid gap-3 border-y border-line py-4 sm:grid-cols-2"
+            >
               <div className="space-y-1.5">
-                <label htmlFor="knowledge-province" className="label">Tỉnh/thành</label>
-                <select id="knowledge-province" className="input w-full" value={knowledgeFilters.provinceCode} onChange={(event) => { setKnowledgeFilters((current) => ({ ...current, provinceCode: event.target.value })); setPage(0); }}>
+                <label htmlFor="knowledge-province" className="label">
+                  Tỉnh/thành
+                </label>
+                <select
+                  id="knowledge-province"
+                  className="input w-full"
+                  value={knowledgeFilters.provinceCode}
+                  onChange={(event) => {
+                    setKnowledgeFilters((current) => ({
+                      ...current,
+                      provinceCode: event.target.value,
+                    }));
+                    setPage(0);
+                  }}
+                >
                   <option value="">Tất cả tỉnh/thành</option>
-                  {(provinces.data ?? []).map((province) => <option key={province.code} value={province.code}>{province.name}</option>)}
+                  {(provinces.data ?? []).map((province) => (
+                    <option key={province.code} value={province.code}>
+                      {province.name}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div className="space-y-1.5">
-                <label htmlFor="knowledge-status" className="label">Trạng thái embedding</label>
-                <select id="knowledge-status" className="input w-full" value={knowledgeFilters.indexStatus} onChange={(event) => { setKnowledgeFilters((current) => ({ ...current, indexStatus: event.target.value })); setPage(0); }}>
+                <label htmlFor="knowledge-status" className="label">
+                  Trạng thái embedding
+                </label>
+                <select
+                  id="knowledge-status"
+                  className="input w-full"
+                  value={knowledgeFilters.indexStatus}
+                  onChange={(event) => {
+                    setKnowledgeFilters((current) => ({
+                      ...current,
+                      indexStatus: event.target.value,
+                    }));
+                    setPage(0);
+                  }}
+                >
                   <option value="">Tất cả trạng thái</option>
-                  <option value="CURRENT">Hiện hành</option><option value="STALE">Cần cập nhật</option><option value="MISSING">Chưa index</option><option value="OUT_OF_SCOPE">Ngoài phạm vi RAG</option>
+                  <option value="CURRENT">Hiện hành</option>
+                  <option value="STALE">Cần cập nhật</option>
+                  <option value="MISSING">Chưa index</option>
+                  <option value="OUT_OF_SCOPE">Ngoài phạm vi RAG</option>
                 </select>
               </div>
-              <p className="text-xs text-muted sm:col-span-2">Mọi địa điểm nội bộ đã duyệt và chưa lưu trữ đều có thể được index, kể cả dữ liệu demo.</p>
+              <p className="text-xs text-muted sm:col-span-2">
+                Mọi địa điểm nội bộ đã duyệt và chưa lưu trữ đều có thể được
+                index, kể cả dữ liệu demo.
+              </p>
             </section>
           ) : null}
           {knowledge && canTestRag ? (
@@ -475,17 +529,21 @@ export function CatalogScreen({ knowledge = false }: { knowledge?: boolean }) {
                 aria-label={`Phân trang ${knowledge ? "kho tri thức AI" : "địa điểm"}`}
                 className="flex items-center gap-1"
               >
-              <Button
-                variant="secondary"
-                aria-label="Trang trước"
-                disabled={page === 0 || q.isFetching}
-                onClick={() => setPage(page - 1)}
-              >
+                <Button
+                  variant="secondary"
+                  aria-label="Trang trước"
+                  disabled={page === 0 || q.isFetching}
+                  onClick={() => setPage(page - 1)}
+                >
                   <ChevronLeft size={15} />
-              </Button>
+                </Button>
                 {paginationPages(page, totalPages).map((pageNumber, index) =>
                   pageNumber === "ellipsis" ? (
-                    <span key={`ellipsis-${index}`} className="px-1" aria-hidden="true">
+                    <span
+                      key={`ellipsis-${index}`}
+                      className="px-1"
+                      aria-hidden="true"
+                    >
                       …
                     </span>
                   ) : (
@@ -514,17 +572,21 @@ export function CatalogScreen({ knowledge = false }: { knowledge?: boolean }) {
           </section>
         </>
       ) : null}
-
     </div>
   );
 }
 
 function paginationPages(current: number, total: number) {
-  const visible = [...new Set([0, total - 1, current - 1, current, current + 1])]
+  const visible = [
+    ...new Set([0, total - 1, current - 1, current, current + 1]),
+  ]
     .filter((page) => page >= 0 && page < total)
     .sort((a, b) => a - b);
+
   return visible.flatMap((page, index) => [
-    ...(index > 0 && page - visible[index - 1] > 1 ? (["ellipsis"] as const) : []),
+    ...(index > 0 && page - visible[index - 1] > 1
+      ? (["ellipsis"] as const)
+      : []),
     page,
   ]);
 }
@@ -535,5 +597,6 @@ function retrievalModeLabel(mode: string) {
     return "Chỉ từ khóa · chưa có embedding hiện hành";
   if (mode === "LEXICAL_FALLBACK_EMBEDDING_UNAVAILABLE")
     return "Dự phòng từ khóa · embedding không khả dụng";
+
   return mode;
 }

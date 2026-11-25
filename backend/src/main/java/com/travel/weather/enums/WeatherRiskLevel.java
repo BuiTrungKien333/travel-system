@@ -20,8 +20,13 @@ public enum WeatherRiskLevel {
         if (condition.isSevere() || rainProbability >= 80 || temperature >= 40.0) {
             return HAZARDOUS;
         }
-        if (condition == WeatherCondition.RAINY || condition == WeatherCondition.LIGHT_RAIN
-                || rainProbability >= 50 || temperature >= 35.0 || temperature <= 10.0) {
+        if (
+            condition == WeatherCondition.RAINY ||
+            condition == WeatherCondition.LIGHT_RAIN ||
+            rainProbability >= 50 ||
+            temperature >= 35.0 ||
+            temperature <= 10.0
+        ) {
             return CAUTION;
         }
         return SAFE;

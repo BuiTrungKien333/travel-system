@@ -26,14 +26,17 @@ async function current(token: string) {
     await backendRequest("/api/v1/admin/session", { token }),
   );
   if (!result.success) throw new ApiError("INVALID_RESPONSE", 502);
+
   return result.data.data;
 }
+
 async function revoke(refreshToken: string) {
   await backendRequest("/api/v1/auth/logout", {
     method: "POST",
     body: { refreshToken },
   });
 }
+
 export async function login(request: NextRequest) {
   try {
     assertSameOrigin(request);
@@ -65,6 +68,7 @@ export async function login(request: NextRequest) {
     return failure(error);
   }
 }
+
 export async function session(request: NextRequest) {
   try {
     return json({ success: true, data: await current(accessToken(request)) });
@@ -72,6 +76,7 @@ export async function session(request: NextRequest) {
     return failure(error);
   }
 }
+
 export async function refresh(request: NextRequest) {
   try {
     assertSameOrigin(request);
@@ -96,6 +101,7 @@ export async function refresh(request: NextRequest) {
     const auth = result.data.data;
     try {
       if (auth.user.role !== "ADMIN") throw new ApiError("AUTH_002", 403);
+
       return setSession(
         json({ success: true, data: await current(auth.accessToken) }),
         auth,
@@ -112,6 +118,7 @@ export async function refresh(request: NextRequest) {
     }
   } catch (error) {
     const response = failure(error);
+
     return error instanceof ApiError &&
       [401, 403].includes(error.status) &&
       error.code !== "CSRF"
@@ -119,6 +126,7 @@ export async function refresh(request: NextRequest) {
       : response;
   }
 }
+
 export async function logout(request: NextRequest) {
   try {
     assertSameOrigin(request);
@@ -131,11 +139,13 @@ export async function logout(request: NextRequest) {
         revoked = false;
       }
     }
+
     return clearSession(json({ success: true, data: { revoked } }));
   } catch (error) {
     return failure(error);
   }
 }
+
 export async function listAccounts(request: NextRequest) {
   try {
     const input = request.nextUrl.searchParams;
@@ -150,22 +160,26 @@ export async function listAccounts(request: NextRequest) {
       ![20, 50, 100].includes(size)
     )
       throw new ApiError("COMMON_003", 400);
+
     const query = new URLSearchParams({
       q,
       page: String(page),
       size: String(size),
     });
+
     const result = envelope(accountPageSchema).safeParse(
       await backendRequest(`/api/v1/admin/users?${query}`, {
         token: accessToken(request),
       }),
     );
     if (!result.success) throw new ApiError("INVALID_RESPONSE", 502);
+
     return json({ success: true, data: result.data.data });
   } catch (error) {
     return failure(error);
   }
 }
+
 export async function changeAccount(request: NextRequest, id: string) {
   try {
     assertSameOrigin(request);
@@ -177,6 +191,7 @@ export async function changeAccount(request: NextRequest, id: string) {
       token: accessToken(request),
       body: result.data,
     });
+
     return json({ success: true });
   } catch (error) {
     return failure(error);

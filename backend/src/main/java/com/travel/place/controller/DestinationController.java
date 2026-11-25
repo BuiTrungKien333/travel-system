@@ -14,13 +14,15 @@ import org.springframework.web.bind.annotation.*;
 @Tag(name = "Destinations")
 @SecurityRequirement(name = "bearerAuth")
 public class DestinationController {
+
     private final DestinationCatalogService service;
 
     @GetMapping
     public ApiResponse<DestinationPage> list(
-            @RequestParam(required = false) String q,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+        @RequestParam(required = false) String q,
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "20") int size
+    ) {
         return ApiResponse.success(service.list(q, page, size));
     }
 }

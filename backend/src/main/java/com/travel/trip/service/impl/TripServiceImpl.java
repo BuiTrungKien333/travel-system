@@ -18,13 +18,6 @@ import com.travel.trip.enums.TripStatus;
 import com.travel.trip.repository.TripPlaceRepository;
 import com.travel.trip.repository.TripRepository;
 import com.travel.trip.service.TripService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionTemplate;
-
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -33,6 +26,12 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
 @RequiredArgsConstructor
@@ -54,22 +53,26 @@ public class TripServiceImpl implements TripService {
         ensureMutable(trip);
         Place place;
         if (request.placeId() != null) {
-            place = places.findVisible(request.placeId(), userId)
-                    .orElseThrow(() -> new AppException(ErrorCode.PLACE_NOT_FOUND));
+            place = places
+                .findVisible(request.placeId(), userId)
+                .orElseThrow(() -> new AppException(ErrorCode.PLACE_NOT_FOUND));
         } else {
             place = Place.builder()
-                    .source("USER")
-                    .ownerId(userId)
-                    .name(request.name().trim())
-                    .address(trim(request.address()))
-                    .providerPlaceId(trim(request.providerPlaceId()))
-                    .latitude(request.latitude())
-                    .longitude(request.longitude())
-                    .category(trim(request.category()))
-                    .build();
+                .source("USER")
+                .ownerId(userId)
+                .name(request.name().trim())
+                .address(trim(request.address()))
+                .providerPlaceId(trim(request.providerPlaceId()))
+                .latitude(request.latitude())
+                .longitude(request.longitude())
+                .category(trim(request.category()))
+                .build();
             if (request.provinceId() != null) {
-                place.setProvince(provinces.findById(request.provinceId())
-                        .orElseThrow(() -> new AppException(ErrorCode.PROVINCE_NOT_FOUND)));
+                place.setProvince(
+                    provinces
+                        .findById(request.provinceId())
+                        .orElseThrow(() -> new AppException(ErrorCode.PROVINCE_NOT_FOUND))
+                );
             }
             place = places.save(place);
         }
@@ -79,12 +82,12 @@ public class TripServiceImpl implements TripService {
         }
 
         TripPlace link = TripPlace.builder()
-                .trip(trip)
-                .place(place)
-                .priority(request.priority() == null ? 0 : request.priority())
-                .estimatedDuration(request.estimatedDuration())
-                .notes(trim(request.notes()))
-                .build();
+            .trip(trip)
+            .place(place)
+            .priority(request.priority() == null ? 0 : request.priority())
+            .estimatedDuration(request.estimatedDuration())
+            .notes(trim(request.notes()))
+            .build();
         tripPlaces.saveAndFlush(link);
         movePlace(link, request.plannedOrder());
         tripPlaces.flush();
@@ -95,37 +98,53 @@ public class TripServiceImpl implements TripService {
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public List<TripPlaceResponse> addPlaces(UUID userId, UUID tripId, AddTripPlacesRequest request) {
         // Resolve route I/O first; append and computed arrivals then commit together.
-        var schedule = request.date() == null
+        var schedule =
+            request.date() == null
                 ? null
                 : daySchedules.prepareAppend(userId, tripId, request.date(), request.placeIds());
-        return new TransactionTemplate(transactions).execute(status -> addPlacesAtomically(userId, tripId, request, schedule));
+        return new TransactionTemplate(transactions).execute(status ->
+            addPlacesAtomically(userId, tripId, request, schedule)
+        );
     }
 
     private List<TripPlaceResponse> addPlacesAtomically(
-            UUID userId,
-            UUID tripId,
-            AddTripPlacesRequest request,
-            com.travel.itinerary.dto.request.SaveItineraryDayRequest schedule
+        UUID userId,
+        UUID tripId,
+        AddTripPlacesRequest request,
+        com.travel.itinerary.dto.request.SaveItineraryDayRequest schedule
     ) {
         Trip trip = lockedTrip(userId, tripId);
         ensureMutable(trip);
-        if (schedule != null && (!Objects.equals(schedule.expectedTripVersion(), trip.getVersion())
-                || !Objects.equals(schedule.expectedUpdatedAt(), itineraryService.get(userId, tripId).updatedAt()))) {
+        if (
+            schedule != null &&
+            (!Objects.equals(schedule.expectedTripVersion(), trip.getVersion()) ||
+                !Objects.equals(schedule.expectedUpdatedAt(), itineraryService.get(userId, tripId).updatedAt()))
+        ) {
             throw new AppException(ErrorCode.ITINERARY_CHANGED);
         }
         if (new HashSet<>(request.placeIds()).size() != request.placeIds().size()) {
             throw new AppException(ErrorCode.VALIDATION_ERROR);
         }
 
-        var visible = places.findVisibleByIds(request.placeIds(), userId).stream()
-                .collect(Collectors.toMap(Place::getId, Function.identity()));
+        var visible = places
+            .findVisibleByIds(request.placeIds(), userId)
+            .stream()
+            .collect(Collectors.toMap(Place::getId, Function.identity()));
         if (visible.size() != request.placeIds().size()) {
             throw new AppException(ErrorCode.PLACE_NOT_FOUND);
         }
 
         var ordered = orderedPlaces(tripId);
-        Map<UUID, TripPlace> links = ordered.stream().collect(Collectors.toMap(item -> item.getPlace().getId(), Function.identity()));
-        int nextOrder = ordered.stream().map(TripPlace::getPlannedOrder).filter(Objects::nonNull).max(Integer::compareTo).orElse(-1) + 1;
+        Map<UUID, TripPlace> links = ordered
+            .stream()
+            .collect(Collectors.toMap(item -> item.getPlace().getId(), Function.identity()));
+        int nextOrder =
+            ordered
+                .stream()
+                .map(TripPlace::getPlannedOrder)
+                .filter(Objects::nonNull)
+                .max(Integer::compareTo)
+                .orElse(-1) + 1;
         List<TripPlace> additions = new ArrayList<>();
         for (UUID id : request.placeIds()) {
             if (!links.containsKey(id)) {
@@ -142,16 +161,26 @@ public class TripServiceImpl implements TripService {
         }
         if (schedule != null) {
             var appended = itineraryService.get(userId, tripId);
-            itineraryService.saveDay(userId, tripId, request.date(), new SaveItineraryDayRequest(
-                    trip.getVersion(), appended.updatedAt(), schedule.stops(), schedule.settings()));
+            itineraryService.saveDay(
+                userId,
+                tripId,
+                request.date(),
+                new SaveItineraryDayRequest(
+                    trip.getVersion(),
+                    appended.updatedAt(),
+                    schedule.stops(),
+                    schedule.settings()
+                )
+            );
         }
         return selected.stream().map(this::placeResponse).toList();
     }
 
     @Override
     public List<TripPlaceResponse> listPlaces(UUID userId, UUID tripId) {
-        Trip trip = trips.findByIdAndUserIdAndDeletedAtIsNull(tripId, userId)
-                .orElseThrow(() -> new AppException(ErrorCode.TRIP_NOT_FOUND));
+        Trip trip = trips
+            .findByIdAndUserIdAndDeletedAtIsNull(tripId, userId)
+            .orElseThrow(() -> new AppException(ErrorCode.TRIP_NOT_FOUND));
         return orderedPlaces(trip.getId()).stream().map(this::placeResponse).toList();
     }
 
@@ -201,8 +230,9 @@ public class TripServiceImpl implements TripService {
     }
 
     private TripPlace linkedPlace(UUID tripId, UUID placeId) {
-        return tripPlaces.findByTripIdAndPlaceId(tripId, placeId)
-                .orElseThrow(() -> new AppException(ErrorCode.TRIP_PLACE_NOT_FOUND));
+        return tripPlaces
+            .findByTripIdAndPlaceId(tripId, placeId)
+            .orElseThrow(() -> new AppException(ErrorCode.TRIP_PLACE_NOT_FOUND));
     }
 
     private List<TripPlace> orderedPlaces(UUID tripId) {
@@ -226,29 +256,29 @@ public class TripServiceImpl implements TripService {
         Place place = link.getPlace();
         var province = place.getProvince();
         var details = new TripPlaceResponse.PlaceResponse(
-                place.getId(),
-                place.getProviderPlaceId(),
-                place.getName(),
-                place.getAddress(),
-                place.getLatitude(),
-                place.getLongitude(),
-                province == null ? null : province.getId(),
-                province == null ? null : province.getName(),
-                place.getCategory(),
-                place.getCreatedAt()
+            place.getId(),
+            place.getProviderPlaceId(),
+            place.getName(),
+            place.getAddress(),
+            place.getLatitude(),
+            place.getLongitude(),
+            province == null ? null : province.getId(),
+            province == null ? null : province.getName(),
+            place.getCategory(),
+            place.getCreatedAt()
         );
         return new TripPlaceResponse(
-                link.getId(),
-                link.getTrip().getId(),
-                place.getId(),
-                details,
-                link.getPriority(),
-                link.getEstimatedDuration(),
-                link.getNotes(),
-                link.getPlannedOrder(),
-                link.isVisited(),
-                link.getCreatedAt(),
-                link.getUpdatedAt()
+            link.getId(),
+            link.getTrip().getId(),
+            place.getId(),
+            details,
+            link.getPriority(),
+            link.getEstimatedDuration(),
+            link.getNotes(),
+            link.getPlannedOrder(),
+            link.isVisited(),
+            link.getCreatedAt(),
+            link.getUpdatedAt()
         );
     }
 

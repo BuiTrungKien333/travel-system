@@ -7,6 +7,7 @@ import { invalidateClientSession } from "@/lib/client";
 import { Banner, Button } from "@/components/ui";
 import { useSession } from "./api";
 import { AdminShell } from "@/components/admin-shell";
+
 export function SessionGate({ children }: { children: React.ReactNode }) {
   const query = useSession();
   const router = useRouter();
@@ -22,6 +23,7 @@ export function SessionGate({ children }: { children: React.ReactNode }) {
       router.refresh();
     }
   }, [invalid, router, cache]);
+
   if (query.isPending || invalid)
     return (
       <main className="grid min-h-dvh place-items-center bg-canvas">
@@ -33,6 +35,7 @@ export function SessionGate({ children }: { children: React.ReactNode }) {
         </div>
       </main>
     );
+
   if (query.isError)
     return (
       <main className="mx-auto max-w-lg space-y-4 px-6 py-24">
@@ -40,5 +43,6 @@ export function SessionGate({ children }: { children: React.ReactNode }) {
         <Button onClick={() => void query.refetch()}>Thử kết nối lại</Button>
       </main>
     );
+
   return <AdminShell session={query.data}>{children}</AdminShell>;
 }

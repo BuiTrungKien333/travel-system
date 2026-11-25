@@ -1,5 +1,10 @@
 package com.travel.common.exception;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import com.travel.common.response.ErrorResponse;
@@ -18,12 +23,6 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
-
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class GlobalExceptionHandlerTest {
@@ -48,10 +47,17 @@ class GlobalExceptionHandlerTest {
     void handleMethodArgumentTypeMismatchException_returns400WithDetails() {
         MethodParameter methodParameter = mock(MethodParameter.class);
         MethodArgumentTypeMismatchException ex = new MethodArgumentTypeMismatchException(
-                "a", double.class, "longitude", methodParameter, new NumberFormatException("For input string: \"a\"")
+            "a",
+            double.class,
+            "longitude",
+            methodParameter,
+            new NumberFormatException("For input string: \"a\"")
         );
 
-        ResponseEntity<ErrorResponse> response = exceptionHandler.handleMethodArgumentTypeMismatchException(ex, request);
+        ResponseEntity<ErrorResponse> response = exceptionHandler.handleMethodArgumentTypeMismatchException(
+            ex,
+            request
+        );
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(response.getBody()).isNotNull();
@@ -59,8 +65,8 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody().getCode()).isEqualTo("COMMON_008");
         assertThat(response.getBody().getErrors()).containsKey("longitude");
         assertThat(response.getBody().getErrors().get("longitude"))
-                .contains("Tham số 'longitude' nhận giá trị không hợp lệ: 'a'")
-                .contains("Kiểu dữ liệu yêu cầu là 'double'");
+            .contains("Tham số 'longitude' nhận giá trị không hợp lệ: 'a'")
+            .contains("Kiểu dữ liệu yêu cầu là 'double'");
     }
 
     @Test
@@ -68,22 +74,29 @@ class GlobalExceptionHandlerTest {
     void handleMissingServletRequestParameterException_returns400WithDetails() {
         MissingServletRequestParameterException ex = new MissingServletRequestParameterException("latitude", "double");
 
-        ResponseEntity<ErrorResponse> response = exceptionHandler.handleMissingServletRequestParameterException(ex, request);
+        ResponseEntity<ErrorResponse> response = exceptionHandler.handleMissingServletRequestParameterException(
+            ex,
+            request
+        );
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().isSuccess()).isFalse();
         assertThat(response.getBody().getCode()).isEqualTo("COMMON_009");
         assertThat(response.getBody().getErrors()).containsKey("latitude");
-        assertThat(response.getBody().getErrors().get("latitude"))
-                .contains("Yêu cầu thiếu tham số bắt buộc 'latitude'");
+        assertThat(response.getBody().getErrors().get("latitude")).contains(
+            "Yêu cầu thiếu tham số bắt buộc 'latitude'"
+        );
     }
 
     @Test
     @DisplayName("Should extract field details for HttpMessageNotReadableException with InvalidFormatException")
     void handleHttpMessageNotReadableException_withInvalidFormat_returnsFieldDetails() {
         InvalidFormatException cause = new InvalidFormatException(
-                null, "Cannot deserialize value", "not-a-number", Double.class
+            null,
+            "Cannot deserialize value",
+            "not-a-number",
+            Double.class
         );
         cause.prependPath(new JsonMappingException.Reference(null, "latitude"));
 

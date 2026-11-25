@@ -8,27 +8,36 @@ import com.travel.planning.draft.model.DraftAllocation;
 import com.travel.planning.draft.model.DraftLimits;
 import com.travel.planning.draft.provider.GeminiDraftClient;
 import com.travel.planning.retrieval.model.PlaceCandidate;
+import java.time.LocalDate;
+import java.util.*;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDate;
-import java.util.*;
-
 @Service
-@Profile({"dev", "rag-demo", "planning-ai"})
+@Profile({ "dev", "rag-demo", "planning-ai" })
 public class DraftAllocationService {
+
     private final GeminiDraftClient client;
 
     public DraftAllocationService(GeminiDraftClient client) {
         this.client = client;
     }
 
-    public DraftAllocation allocate(List<PlaceCandidate> candidates, Set<UUID> required, TravelIntent intent, LocalDate startDate) {
+    public DraftAllocation allocate(
+        List<PlaceCandidate> candidates,
+        Set<UUID> required,
+        TravelIntent intent,
+        LocalDate startDate
+    ) {
         try {
             return client.allocate(candidates, required, intent, startDate);
         } catch (AppException ex) {
-            String reason = ex instanceof AiCallFailure failure ? failure.reason()
-                    : ex.getErrorCode() == ErrorCode.AI_VALIDATION_FAILED ? "INVALID_RESPONSE" : "AI_UNAVAILABLE";
+            String reason =
+                ex instanceof AiCallFailure failure
+                    ? failure.reason()
+                    : ex.getErrorCode() == ErrorCode.AI_VALIDATION_FAILED
+                      ? "INVALID_RESPONSE"
+                      : "AI_UNAVAILABLE";
             return new DraftAllocation(fallback(candidates, required, intent), Map.of(), "RULE_BASED_FALLBACK", reason);
         }
     }
@@ -45,8 +54,11 @@ public class DraftAllocationService {
             if (!mandatory && Collections.disjoint(place.tags(), intent.interests())) continue;
             int best = -1;
             for (int day = 0; day < load.length; day++) {
-                if (groups.get(day).size() < DraftLimits.MAX_STOPS_PER_DAY
-                        && (mandatory || groups.get(day).size() < target) && (best < 0 || load[day] < load[best])) best = day;
+                if (
+                    groups.get(day).size() < DraftLimits.MAX_STOPS_PER_DAY &&
+                    (mandatory || groups.get(day).size() < target) &&
+                    (best < 0 || load[day] < load[best])
+                ) best = day;
             }
             if (best >= 0) {
                 groups.get(best).add(place.placeId());

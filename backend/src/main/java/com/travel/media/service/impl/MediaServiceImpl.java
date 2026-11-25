@@ -3,23 +3,22 @@ package com.travel.media.service.impl;
 import com.cloudinary.Cloudinary;
 import com.travel.common.exception.AppException;
 import com.travel.common.exception.ErrorCode;
-import com.travel.media.dto.UploadResponse;
 import com.travel.media.dto.BatchUploadResponse;
-import com.travel.media.service.MediaService;
+import com.travel.media.dto.UploadResponse;
 import com.travel.media.service.MediaDeletionService;
+import com.travel.media.service.MediaService;
 import com.travel.media.util.CloudinaryPathBuilder;
-import com.travel.media.util.MediaPersistenceHelper;
 import com.travel.media.util.ImageUploadPolicy;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.web.multipart.MultipartFile;
-
+import com.travel.media.util.MediaPersistenceHelper;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 @RequiredArgsConstructor
@@ -30,6 +29,7 @@ public class MediaServiceImpl implements MediaService {
     private final MediaPersistenceHelper mediaPersistenceHelper;
     private final MediaDeletionService deletion;
     private static final int MAX_FILES_PER_REQUEST = 10;
+
     @Override
     public UploadResponse uploadImage(MultipartFile file, UUID userId, UUID tripId, UUID memoryId) {
         var image = ImageUploadPolicy.inspect(file);
@@ -45,6 +45,7 @@ public class MediaServiceImpl implements MediaService {
             throw failure;
         }
     }
+
     @Override
     public BatchUploadResponse uploadImages(List<MultipartFile> files, UUID userId, UUID tripId, UUID memoryId) {
         validateFileList(files);
@@ -78,13 +79,18 @@ public class MediaServiceImpl implements MediaService {
     @Override
     public UploadResponse uploadPlaceImage(MultipartFile file) {
         var image = ImageUploadPolicy.inspect(file);
-        return doUpload(image, CloudinaryPathBuilder.placeImageFolder(), CloudinaryPathBuilder.generatePlaceImageFileName());
+        return doUpload(
+            image,
+            CloudinaryPathBuilder.placeImageFolder(),
+            CloudinaryPathBuilder.generatePlaceImageFileName()
+        );
     }
 
     @Override
     public void deleteMedia(UUID mediaId, UUID requestUserId) {
         deletion.delete(mediaId, requestUserId);
     }
+
     private Cloudinary requireCloudinary() {
         Cloudinary client = cloudinaryProvider.getIfAvailable();
         if (client == null) throw new AppException(ErrorCode.MEDIA_STORAGE_UNAVAILABLE);
@@ -102,17 +108,22 @@ public class MediaServiceImpl implements MediaService {
         Cloudinary cloudinary = requireCloudinary();
         try {
             Map<String, Object> uploadParams = Map.of(
-                    "folder", folder,
-                    "public_id", publicId,
-                    "resource_type", "image",
-                    "overwrite", false,
-                    "unique_filename", false
+                "folder",
+                folder,
+                "public_id",
+                publicId,
+                "resource_type",
+                "image",
+                "overwrite",
+                false,
+                "unique_filename",
+                false
             );
 
             Map<?, ?> result = cloudinary.uploader().upload(image.bytes(), uploadParams);
             // Some existing-asset responses omit metadata; recover it without uploading another object.
-            if (Boolean.TRUE.equals(result.get("existing")) && !(result.get("secure_url") instanceof String))
-                result = cloudinary.api().resource(folder + "/" + publicId, Map.of("resource_type", "image"));
+            if (Boolean.TRUE.equals(result.get("existing")) && !(result.get("secure_url") instanceof String)) result =
+                cloudinary.api().resource(folder + "/" + publicId, Map.of("resource_type", "image"));
 
             String secureUrl = (String) result.get("secure_url");
             String resultPublicId = (String) result.get("public_id");
@@ -120,18 +131,19 @@ public class MediaServiceImpl implements MediaService {
             Number width = (Number) result.get("width");
             Number height = (Number) result.get("height");
             String mimeType = image.mimeType();
-            if (secureUrl == null || !secureUrl.startsWith("https://") || resultPublicId == null)
-                throw new AppException(ErrorCode.UPLOAD_FAILED);
+            if (
+                secureUrl == null || !secureUrl.startsWith("https://") || resultPublicId == null
+            ) throw new AppException(ErrorCode.UPLOAD_FAILED);
 
             log.info("Image uploaded: size={} bytes", bytes);
             return UploadResponse.builder()
-                    .url(secureUrl)
-                    .publicId(resultPublicId)
-                    .mimeType(mimeType)
-                    .fileSize(bytes != null ? bytes.longValue() : (long) image.bytes().length)
-                    .width(width != null ? width.intValue() : image.width())
-                    .height(height != null ? height.intValue() : image.height())
-                    .build();
+                .url(secureUrl)
+                .publicId(resultPublicId)
+                .mimeType(mimeType)
+                .fileSize(bytes != null ? bytes.longValue() : (long) image.bytes().length)
+                .width(width != null ? width.intValue() : image.width())
+                .height(height != null ? height.intValue() : image.height())
+                .build();
         } catch (AppException error) {
             throw error;
         } catch (Exception error) {

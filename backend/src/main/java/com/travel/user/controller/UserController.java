@@ -30,50 +30,50 @@ public class UserController {
     private final UserService userService;
 
     @Operation(
-            summary = "Get current user profile",
-            description = "Retrieve detailed profile information of the currently authenticated user identified via JWT token"
+        summary = "Get current user profile",
+        description = "Retrieve detailed profile information of the currently authenticated user identified via JWT token"
     )
     @ApiResponses({
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                    responseCode = "200",
-                    description = "User profile retrieved successfully"
-            ),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                    responseCode = "401",
-                    description = "Unauthorized - Missing or invalid JWT token",
-                    content = @Content(
-                            mediaType = MediaType.APPLICATION_JSON_VALUE,
-                            schema = @Schema(implementation = ErrorResponse.class),
-                            examples = @ExampleObject(
-                                    name = "Unauthorized Error",
-                                    value = "{\"success\": false, \"code\": \"AUTH_001\", \"message\": \"Unauthorized access\", \"timestamp\": \"2026-09-07T12:00:00Z\"}"
-                            )
-                    )
-            ),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                    responseCode = "403",
-                    description = "Forbidden - Account has been locked or deactivated",
-                    content = @Content(
-                            mediaType = MediaType.APPLICATION_JSON_VALUE,
-                            schema = @Schema(implementation = ErrorResponse.class),
-                            examples = @ExampleObject(
-                                    name = "Forbidden Error",
-                                    value = "{\"success\": false, \"code\": \"AUTH_007\", \"message\": \"Account has been locked or deactivated\", \"timestamp\": \"2026-09-07T12:00:00Z\"}"
-                            )
-                    )
-            ),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                    responseCode = "404",
-                    description = "User not found in the system",
-                    content = @Content(
-                            mediaType = MediaType.APPLICATION_JSON_VALUE,
-                            schema = @Schema(implementation = ErrorResponse.class),
-                            examples = @ExampleObject(
-                                    name = "Not Found Error",
-                                    value = "{\"success\": false, \"code\": \"AUTH_006\", \"message\": \"User not found\", \"timestamp\": \"2026-09-07T12:00:00Z\"}"
-                            )
-                    )
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "User profile retrieved successfully"
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - Missing or invalid JWT token",
+            content = @Content(
+                mediaType = MediaType.APPLICATION_JSON_VALUE,
+                schema = @Schema(implementation = ErrorResponse.class),
+                examples = @ExampleObject(
+                    name = "Unauthorized Error",
+                    value = "{\"success\": false, \"code\": \"AUTH_001\", \"message\": \"Unauthorized access\", \"timestamp\": \"2026-09-07T12:00:00Z\"}"
+                )
             )
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "403",
+            description = "Forbidden - Account has been locked or deactivated",
+            content = @Content(
+                mediaType = MediaType.APPLICATION_JSON_VALUE,
+                schema = @Schema(implementation = ErrorResponse.class),
+                examples = @ExampleObject(
+                    name = "Forbidden Error",
+                    value = "{\"success\": false, \"code\": \"AUTH_007\", \"message\": \"Account has been locked or deactivated\", \"timestamp\": \"2026-09-07T12:00:00Z\"}"
+                )
+            )
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "404",
+            description = "User not found in the system",
+            content = @Content(
+                mediaType = MediaType.APPLICATION_JSON_VALUE,
+                schema = @Schema(implementation = ErrorResponse.class),
+                examples = @ExampleObject(
+                    name = "Not Found Error",
+                    value = "{\"success\": false, \"code\": \"AUTH_006\", \"message\": \"User not found\", \"timestamp\": \"2026-09-07T12:00:00Z\"}"
+                )
+            )
+        ),
     })
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<UserProfileResponse>> getCurrentProfile() {
@@ -82,65 +82,67 @@ public class UserController {
     }
 
     @Operation(
-            summary = "Update current user profile",
-            description = "Update display name and avatar URL of the currently authenticated user identified via JWT token"
+        summary = "Update current user profile",
+        description = "Update display name and avatar URL of the currently authenticated user identified via JWT token"
     )
     @ApiResponses({
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                    responseCode = "200",
-                    description = "User profile updated successfully"
-            ),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                    responseCode = "400",
-                    description = "Validation failure on input fields",
-                    content = @Content(
-                            mediaType = MediaType.APPLICATION_JSON_VALUE,
-                            schema = @Schema(implementation = ErrorResponse.class),
-                            examples = @ExampleObject(
-                                    name = "Validation Error",
-                                    value = "{\"success\": false, \"code\": \"COMMON_003\", \"message\": \"Validation failed\", \"errors\": {\"fullName\": \"Full name is required\"}, \"timestamp\": \"2026-09-07T12:00:00Z\"}"
-                            )
-                    )
-            ),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                    responseCode = "401",
-                    description = "Unauthorized - Missing or invalid JWT token",
-                    content = @Content(
-                            mediaType = MediaType.APPLICATION_JSON_VALUE,
-                            schema = @Schema(implementation = ErrorResponse.class),
-                            examples = @ExampleObject(
-                                    name = "Unauthorized Error",
-                                    value = "{\"success\": false, \"code\": \"AUTH_001\", \"message\": \"Unauthorized access\", \"timestamp\": \"2026-09-07T12:00:00Z\"}"
-                            )
-                    )
-            ),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                    responseCode = "403",
-                    description = "Forbidden - Account has been locked or deactivated",
-                    content = @Content(
-                            mediaType = MediaType.APPLICATION_JSON_VALUE,
-                            schema = @Schema(implementation = ErrorResponse.class),
-                            examples = @ExampleObject(
-                                    name = "Forbidden Error",
-                                    value = "{\"success\": false, \"code\": \"AUTH_007\", \"message\": \"Account has been locked or deactivated\", \"timestamp\": \"2026-09-07T12:00:00Z\"}"
-                            )
-                    )
-            ),
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(
-                    responseCode = "404",
-                    description = "User not found in the system",
-                    content = @Content(
-                            mediaType = MediaType.APPLICATION_JSON_VALUE,
-                            schema = @Schema(implementation = ErrorResponse.class),
-                            examples = @ExampleObject(
-                                    name = "Not Found Error",
-                                    value = "{\"success\": false, \"code\": \"AUTH_006\", \"message\": \"User not found\", \"timestamp\": \"2026-09-07T12:00:00Z\"}"
-                            )
-                    )
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "User profile updated successfully"
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "400",
+            description = "Validation failure on input fields",
+            content = @Content(
+                mediaType = MediaType.APPLICATION_JSON_VALUE,
+                schema = @Schema(implementation = ErrorResponse.class),
+                examples = @ExampleObject(
+                    name = "Validation Error",
+                    value = "{\"success\": false, \"code\": \"COMMON_003\", \"message\": \"Validation failed\", \"errors\": {\"fullName\": \"Full name is required\"}, \"timestamp\": \"2026-09-07T12:00:00Z\"}"
+                )
             )
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - Missing or invalid JWT token",
+            content = @Content(
+                mediaType = MediaType.APPLICATION_JSON_VALUE,
+                schema = @Schema(implementation = ErrorResponse.class),
+                examples = @ExampleObject(
+                    name = "Unauthorized Error",
+                    value = "{\"success\": false, \"code\": \"AUTH_001\", \"message\": \"Unauthorized access\", \"timestamp\": \"2026-09-07T12:00:00Z\"}"
+                )
+            )
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "403",
+            description = "Forbidden - Account has been locked or deactivated",
+            content = @Content(
+                mediaType = MediaType.APPLICATION_JSON_VALUE,
+                schema = @Schema(implementation = ErrorResponse.class),
+                examples = @ExampleObject(
+                    name = "Forbidden Error",
+                    value = "{\"success\": false, \"code\": \"AUTH_007\", \"message\": \"Account has been locked or deactivated\", \"timestamp\": \"2026-09-07T12:00:00Z\"}"
+                )
+            )
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "404",
+            description = "User not found in the system",
+            content = @Content(
+                mediaType = MediaType.APPLICATION_JSON_VALUE,
+                schema = @Schema(implementation = ErrorResponse.class),
+                examples = @ExampleObject(
+                    name = "Not Found Error",
+                    value = "{\"success\": false, \"code\": \"AUTH_006\", \"message\": \"User not found\", \"timestamp\": \"2026-09-07T12:00:00Z\"}"
+                )
+            )
+        ),
     })
     @PutMapping("/me")
-    public ResponseEntity<ApiResponse<UserProfileResponse>> updateProfile(@Valid @RequestBody UpdateProfileRequest request) {
+    public ResponseEntity<ApiResponse<UserProfileResponse>> updateProfile(
+        @Valid @RequestBody UpdateProfileRequest request
+    ) {
         UserProfileResponse response = userService.updateProfile(request);
         return ResponseEntity.ok(ApiResponse.success("Profile updated successfully", response));
     }

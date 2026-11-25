@@ -6,32 +6,52 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.travel.common.exception.AppException;
 import com.travel.common.exception.ErrorCode;
 import com.travel.planning.ai.intent.model.TravelIntent;
-import org.springframework.context.annotation.Profile;
-import org.springframework.stereotype.Component;
-
 import java.time.LocalTime;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import org.springframework.context.annotation.Profile;
+import org.springframework.stereotype.Component;
 
 @Component
-@Profile({"dev", "rag-demo", "planning-ai"})
+@Profile({ "dev", "rag-demo", "planning-ai" })
 public class TravelIntentValidator {
 
     public static final Set<String> TAGS = Set.of(
-            "MUSEUM", "HISTORY", "CULTURE", "ART", "LOCAL",
-            "MARKET", "SHOPPING", "BEACH", "SCENERY", "RELAX",
-            "OUTDOOR", "PARK", "ARCHITECTURE", "TEMPLE"
+        "MUSEUM",
+        "HISTORY",
+        "CULTURE",
+        "ART",
+        "LOCAL",
+        "MARKET",
+        "SHOPPING",
+        "BEACH",
+        "SCENERY",
+        "RELAX",
+        "OUTDOOR",
+        "PARK",
+        "ARCHITECTURE",
+        "TEMPLE"
     );
 
     private static final Set<String> ARRAYS = Set.of(
-            "interests", "excludedTags", "mustVisitNames", "excludedPlaceNames"
+        "interests",
+        "excludedTags",
+        "mustVisitNames",
+        "excludedPlaceNames"
     );
 
     private static final Set<String> FIELDS = Set.of(
-            "destination", "numberOfDays", "interests", "excludedTags",
-            "dailyStartTime", "dailyEndTime", "travelPace", "mustVisitNames", "excludedPlaceNames"
+        "destination",
+        "numberOfDays",
+        "interests",
+        "excludedTags",
+        "dailyStartTime",
+        "dailyEndTime",
+        "travelPace",
+        "mustVisitNames",
+        "excludedPlaceNames"
     );
 
     private final ObjectMapper mapper;
@@ -68,19 +88,29 @@ public class TravelIntentValidator {
                         if (!item.isTextual() || item.asText().isBlank() || item.asText().length() > 160) {
                             throw invalid();
                         }
-                        if ((field.equals("interests") || field.equals("excludedTags")) && !TAGS.contains(item.asText())) {
+                        if (
+                            (field.equals("interests") || field.equals("excludedTags")) && !TAGS.contains(item.asText())
+                        ) {
                             throw invalid();
                         }
                     }
                     supplied = !value.isEmpty();
                 } else if (field.equals("numberOfDays")) {
-                    if (!value.isNull() && (!value.isIntegralNumber() || !value.canConvertToInt()
-                            || value.intValue() < 1 || value.intValue() > 30)) {
+                    if (
+                        !value.isNull() &&
+                        (!value.isIntegralNumber() ||
+                            !value.canConvertToInt() ||
+                            value.intValue() < 1 ||
+                            value.intValue() > 30)
+                    ) {
                         throw invalid();
                     }
                     supplied = !value.isNull();
                 } else {
-                    if (!value.isNull() && (!value.isTextual() || value.asText().isBlank() || value.asText().length() > 160)) {
+                    if (
+                        !value.isNull() &&
+                        (!value.isTextual() || value.asText().isBlank() || value.asText().length() > 160)
+                    ) {
                         throw invalid();
                     }
                     supplied = !value.isNull();
@@ -108,16 +138,16 @@ public class TravelIntentValidator {
             }
 
             return new TravelIntent(
-                    intent.destination(),
-                    intent.numberOfDays(),
-                    unique(intent.interests()),
-                    unique(intent.excludedTags()),
-                    intent.dailyStartTime(),
-                    intent.dailyEndTime(),
-                    intent.travelPace(),
-                    unique(intent.mustVisitNames()),
-                    unique(intent.excludedPlaceNames()),
-                    intent.evidence()
+                intent.destination(),
+                intent.numberOfDays(),
+                unique(intent.interests()),
+                unique(intent.excludedTags()),
+                intent.dailyStartTime(),
+                intent.dailyEndTime(),
+                intent.travelPace(),
+                unique(intent.mustVisitNames()),
+                unique(intent.excludedPlaceNames()),
+                intent.evidence()
             );
         } catch (AppException ex) {
             throw ex;

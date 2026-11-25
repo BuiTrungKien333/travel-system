@@ -2,13 +2,12 @@ package com.travel.auth.service;
 
 import com.travel.auth.token.ActionTokenCodec;
 import com.travel.common.exception.*;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.security.oauth2.jwt.*;
-import org.springframework.stereotype.Service;
-
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Locale;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.security.oauth2.jwt.*;
+import org.springframework.stereotype.Service;
 
 /**
  * Only trusted decoded Google claims cross the provider boundary. Never accept client profile data.
@@ -34,18 +33,35 @@ public class GoogleIdTokenVerifier {
 
         try {
             String nonce = jwt.getClaimAsString("nonce");
-            String subject = jwt.getSubject(), email = jwt.getClaimAsString("email");
+            String subject = jwt.getSubject(),
+                email = jwt.getClaimAsString("email");
 
-            if (nonce == null || !MessageDigest.isEqual(ActionTokenCodec.hash(nonce).getBytes(StandardCharsets.US_ASCII),
-                    expectedNonceHash.getBytes(StandardCharsets.US_ASCII)) || subject == null || subject.isBlank() || subject.length() > 255
-                    || email == null || email.length() > 255 || !email.contains("@") || !Boolean.TRUE.equals(jwt.getClaimAsBoolean("email_verified")))
-                throw invalid();
+            if (
+                nonce == null ||
+                !MessageDigest.isEqual(
+                    ActionTokenCodec.hash(nonce).getBytes(StandardCharsets.US_ASCII),
+                    expectedNonceHash.getBytes(StandardCharsets.US_ASCII)
+                ) ||
+                subject == null ||
+                subject.isBlank() ||
+                subject.length() > 255 ||
+                email == null ||
+                email.length() > 255 ||
+                !email.contains("@") ||
+                !Boolean.TRUE.equals(jwt.getClaimAsBoolean("email_verified"))
+            ) throw invalid();
 
             email = email.trim().toLowerCase(Locale.ROOT);
             String domain = jwt.getClaimAsString("hd");
             boolean authoritative = email.endsWith("@gmail.com") || (domain != null && !domain.isBlank());
 
-            return new Identity(subject, email, jwt.getClaimAsString("name"), jwt.getClaimAsString("picture"), authoritative);
+            return new Identity(
+                subject,
+                email,
+                jwt.getClaimAsString("name"),
+                jwt.getClaimAsString("picture"),
+                authoritative
+            );
         } catch (IllegalArgumentException exception) {
             throw invalid();
         }

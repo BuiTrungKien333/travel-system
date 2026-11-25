@@ -1,10 +1,9 @@
 package com.travel.planning.algorithm.model;
 
 import com.travel.place.entity.Place;
-import lombok.*;
-
 import java.util.List;
 import java.util.UUID;
+import lombok.*;
 
 @Getter
 @Setter
@@ -22,5 +21,4 @@ public class TspRequest {
     private UUID startPlaceId;
 
     private UUID endPlaceId;
-
 }

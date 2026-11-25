@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('ADMIN') and hasAuthority('admin:system:read')")
 public class AdminIntegrationHealthController {
+
     private final AdminIntegrationHealthService service;
 
     @GetMapping

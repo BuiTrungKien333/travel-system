@@ -9,6 +9,7 @@ import { useSession } from "@/features/auth/api";
 import { Banner, Button } from "@/components/ui";
 import { Bars, ChartCard } from "./charts";
 const count = z.number().nonnegative();
+
 const stage = z.object({
   stage: z.string(),
   source: z.string(),
@@ -19,6 +20,7 @@ const stage = z.object({
   elapsedMillis: count,
   reason: z.string().nullish(),
 });
+
 export const telemetrySchema = z
   .object({
     status: z.enum(["AVAILABLE", "UNAVAILABLE", "DISABLED"]),
@@ -56,8 +58,10 @@ export const telemetrySchema = z
     (v) => v.status !== "AVAILABLE" || !!v.data,
     "Available telemetry must contain data",
   );
+
 export function useTelemetry(days: number, page = 0) {
   const session = useSession();
+
   return useQuery({
     queryKey: ["ai-telemetry", session.data?.id, days, page],
     enabled: !!session.data?.permissions.includes("admin:system:read"),
@@ -68,10 +72,12 @@ export function useTelemetry(days: number, page = 0) {
         await apiRequest(`/telemetry?days=${days}&page=${page}`, { signal }),
       );
       if (!parsed.success) throw new ApiError("INVALID_RESPONSE", 502);
+
       return parsed.data.data;
     },
   });
 }
+
 export function TelemetryPanel({
   days = 30,
   detailed = false,
@@ -86,6 +92,7 @@ export function TelemetryPanel({
   const data = q.isError ? undefined : q.data?.data;
   const seconds = (v: number | null | undefined) =>
     v == null ? "—" : `${(v / 1000).toFixed(1)} s`;
+
   return (
     <ChartCard
       title={detailed ? "Nhật ký thực thi AI" : "Kết quả tạo nháp AI"}
@@ -234,8 +241,8 @@ export function TelemetryPanel({
       ) : null}
       <p className="mt-4 text-xs leading-5 text-muted">
         Chỉ ghi nhận từ khi cài outbox; không sao chép lịch sử cũ. Dữ liệu
-        MongoDB đồng bộ bất đồng bộ; khi có lỗi, số liệu chậm hơn do retry. Thời lượng tính toàn
-        luồng; p95 dùng ước lượng MongoDB.
+        MongoDB đồng bộ bất đồng bộ; khi có lỗi, số liệu chậm hơn do retry. Thời
+        lượng tính toàn luồng; p95 dùng ước lượng MongoDB.
       </p>
     </ChartCard>
   );

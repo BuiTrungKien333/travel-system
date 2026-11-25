@@ -1,5 +1,8 @@
 package com.travel.security.filter;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.*;
+
 import com.travel.security.jwt.JwtUtils;
 import com.travel.security.jwt.TokenType;
 import com.travel.security.model.CustomUserDetails;
@@ -11,6 +14,9 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -23,20 +29,17 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 
-import java.io.IOException;
-import java.util.List;
-import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.*;
-
 @ExtendWith(MockitoExtension.class)
 class JwtAuthenticationFilterTest {
 
     @Mock
     private JwtUtils jwtUtils;
-    @Mock private UserRepository users;
-    @Mock private com.travel.user.repository.RolePermissionRepository permissions;
+
+    @Mock
+    private UserRepository users;
+
+    @Mock
+    private com.travel.user.repository.RolePermissionRepository permissions;
 
     @Mock
     private HttpServletRequest request;
@@ -82,8 +85,9 @@ class JwtAuthenticationFilterTest {
         String invalidToken = "invalid_token_123";
         when(request.getRequestURI()).thenReturn("/api/v1/trips");
         when(request.getHeader("Authorization")).thenReturn("Bearer " + invalidToken);
-        when(jwtUtils.extractAllClaims(invalidToken, TokenType.ACCESS_TOKEN))
-                .thenThrow(new JwtException("Token expired"));
+        when(jwtUtils.extractAllClaims(invalidToken, TokenType.ACCESS_TOKEN)).thenThrow(
+            new JwtException("Token expired")
+        );
 
         jwtAuthenticationFilter.doFilterInternal(request, response, filterChain);
 
@@ -125,9 +129,7 @@ class JwtAuthenticationFilterTest {
         assertThat(userDetails.getUsername()).isEqualTo(username);
         assertThat(userDetails.getRole()).isEqualTo(Role.USER);
 
-        List<String> authorityNames = auth.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority)
-                .toList();
+        List<String> authorityNames = auth.getAuthorities().stream().map(GrantedAuthority::getAuthority).toList();
         assertThat(authorityNames).containsExactlyInAnyOrder("ROLE_USER", "trip:read", "trip:create");
 
         verify(filterChain).doFilter(request, response);

@@ -2,14 +2,12 @@ package com.travel.planning.rule.checker;
 
 import com.travel.planning.rule.model.DetectedIssue;
 import com.travel.planning.rule.model.ScheduleItemContext;
-
 import java.util.List;
 
 /**
  * Hợp đồng chung cho các bộ thẩm định quy tắc xác định trong lịch trình
  */
 public interface ScheduleRuleChecker {
-
     /**
      * Thẩm định danh sách các điểm trong lịch trình và trả về các vấn đề phát hiện được
      *

@@ -2,19 +2,19 @@ package com.travel.user.entity;
 
 import com.travel.user.enums.Role;
 import jakarta.persistence.*;
+import java.time.Instant;
+import java.util.Objects;
+import java.util.UUID;
 import lombok.*;
 import org.hibernate.Hibernate;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
-import java.time.Instant;
-import java.util.Objects;
-import java.util.UUID;
-
 @Entity
-@Table(name = "role_permissions", uniqueConstraints = {
-        @UniqueConstraint(name = "uk_role_permissions", columnNames = {"role", "permission_id"})
-})
+@Table(
+    name = "role_permissions",
+    uniqueConstraints = { @UniqueConstraint(name = "uk_role_permissions", columnNames = { "role", "permission_id" }) }
+)
 @EntityListeners(AuditingEntityListener.class)
 @Getter
 @Setter

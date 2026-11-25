@@ -4,9 +4,8 @@ import com.travel.common.persistence.BaseEntity;
 import com.travel.trip.enums.TripStatus;
 import com.travel.user.entity.User;
 import jakarta.persistence.*;
-import lombok.*;
-
 import java.time.LocalDate;
+import lombok.*;
 
 @Entity
 @Table(name = "trips")

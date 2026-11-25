@@ -1,11 +1,10 @@
 package com.travel.auth.entity;
 
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-
 import java.time.Instant;
 import java.util.UUID;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 /**
  * Chỉ lưu SHA-256 của refresh token, không lưu bearer token có thể sử dụng lại.

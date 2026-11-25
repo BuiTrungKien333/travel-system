@@ -7,6 +7,7 @@ import type { AdminSession } from "@/lib/contracts";
 import { errorMessage } from "@/lib/errors";
 import { useSignOut } from "@/features/auth/api";
 import { Brand, Button, Banner } from "./ui";
+
 export function AdminShell({
   session,
   children,
@@ -23,6 +24,7 @@ export function AdminShell({
     { href: "/knowledge", label: "Quản lý kho tri thức AI", icon: Database },
   ];
   const current = menu.find((m) => path.endsWith(m.href)) ?? menu[0];
+
   return (
     <div className="min-h-dvh bg-canvas lg:pl-64">
       <a

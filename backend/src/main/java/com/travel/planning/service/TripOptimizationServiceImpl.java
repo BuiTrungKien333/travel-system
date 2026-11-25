@@ -29,13 +29,12 @@ import com.travel.planning.timeline.TimelineEngine;
 import com.travel.weather.model.DailyWeatherSummary;
 import com.travel.weather.model.WeatherForecastResult;
 import com.travel.weather.service.WeatherService;
-import lombok.extern.slf4j.Slf4j;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.*;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
@@ -52,17 +51,28 @@ public class TripOptimizationServiceImpl implements TripOptimizationService {
 
     @Override
     public TripOptimizationResponse optimizeAndAuditItinerary(OptimizeAndAuditRequest request) {
-        log.info("[TRIP_OPTIMIZER] Starting optimization & audit pipeline for destination='{}', {} locations, date={}, hasOrigin={}",
-                request.destination(), request.locations().size(), request.tripDate(), request.originPlace() != null);
+        log.info(
+            "[TRIP_OPTIMIZER] Starting optimization & audit pipeline for destination='{}', {} locations, date={}, hasOrigin={}",
+            request.destination(),
+            request.locations().size(),
+            request.tripDate(),
+            request.originPlace() != null
+        );
 
         Map<UUID, TspLocationRequest> requestMap = new HashMap<>();
         List<Place> visitPlaces = new ArrayList<>();
-        var placeIds = request.locations().stream().map(TspLocationRequest::id)
-                .filter(Objects::nonNull).distinct().toList();
+        var placeIds = request
+            .locations()
+            .stream()
+            .map(TspLocationRequest::id)
+            .filter(Objects::nonNull)
+            .distinct()
+            .toList();
         Map<UUID, Place> internalPlaces = new HashMap<>();
         if (!placeIds.isEmpty()) {
-            placeRepository.findByIdInAndSource(placeIds, "INTERNAL")
-                    .forEach(place -> internalPlaces.put(place.getId(), place));
+            placeRepository
+                .findByIdInAndSource(placeIds, "INTERNAL")
+                .forEach(place -> internalPlaces.put(place.getId(), place));
         }
 
         // 1. Chuyển đổi DTO sang List<Place> và tra cứu CSDL (Place) nếu có
@@ -89,7 +99,8 @@ public class TripOptimizationServiceImpl implements TripOptimizationService {
                 }
             }
 
-            visitPlaces.add(Place.builder()
+            visitPlaces.add(
+                Place.builder()
                     .id(placeId)
                     .name(loc.name())
                     .latitude(loc.latitude())
@@ -97,15 +108,18 @@ public class TripOptimizationServiceImpl implements TripOptimizationService {
                     .placeType(placeType)
                     .openingTime(open)
                     .closingTime(close)
-                    .build());
+                    .build()
+            );
         }
 
         // 2. Xử lý In-progress Re-optimization hoặc Full Optimization
         List<Place> orderedPlaces;
         List<com.travel.planning.algorithm.model.RouteLeg> legs = null;
 
-        boolean hasProgress = request.locations().stream()
-                .anyMatch(l -> l.visitStatus() == VisitStatus.COMPLETED || l.visitStatus() == VisitStatus.IN_PROGRESS);
+        boolean hasProgress = request
+            .locations()
+            .stream()
+            .anyMatch(l -> l.visitStatus() == VisitStatus.COMPLETED || l.visitStatus() == VisitStatus.IN_PROGRESS);
 
         if (hasProgress) {
             orderedPlaces = solveInProgressReOptimization(request, visitPlaces, requestMap);
@@ -118,10 +132,10 @@ public class TripOptimizationServiceImpl implements TripOptimizationService {
         } else {
             // Không có điểm neo xuất phát riêng: Tối ưu tự do hoặc theo startPlaceId
             TspRequest tspRequest = TspRequest.builder()
-                    .places(visitPlaces)
-                    .startPlaceId(request.startPlaceId())
-                    .roundTrip(request.isRoundTrip())
-                    .build();
+                .places(visitPlaces)
+                .startPlaceId(request.startPlaceId())
+                .roundTrip(request.isRoundTrip())
+                .build();
             TspResult tspResult = heldKarpSolver.solve(tspRequest);
             orderedPlaces = tspResult.getOrderedPlaces();
             legs = tspResult.getLegs();
@@ -131,7 +145,13 @@ public class TripOptimizationServiceImpl implements TripOptimizationService {
         LocalDate tripDate = request.tripDate();
         LocalTime startTime = request.startTime();
         List<ScheduleItemContext> scheduleItems = timelineEngine.buildTimelineForDay(
-                tripDate, startTime, request.originPlace(), orderedPlaces, requestMap, legs);
+            tripDate,
+            startTime,
+            request.originPlace(),
+            orderedPlaces,
+            requestMap,
+            legs
+        );
 
         // 4. Thẩm định quy tắc xác định bằng RuleEvaluatorService (Gatekeeper)
         ItineraryEvaluationResult evaluationResult = ruleEvaluatorService.evaluateItinerary(scheduleItems);
@@ -140,69 +160,77 @@ public class TripOptimizationServiceImpl implements TripOptimizationService {
         long totalTransitMin;
 
         if (legs != null && !legs.isEmpty()) {
-            double meters = legs.stream().mapToDouble(com.travel.planning.algorithm.model.RouteLeg::getDistanceMeters).sum();
+            double meters = legs
+                .stream()
+                .mapToDouble(com.travel.planning.algorithm.model.RouteLeg::getDistanceMeters)
+                .sum();
             totalDistKm = Math.round((meters / 1000.0) * 10.0) / 10.0;
-            long seconds = legs.stream().mapToLong(com.travel.planning.algorithm.model.RouteLeg::getDurationSeconds).sum();
+            long seconds = legs
+                .stream()
+                .mapToLong(com.travel.planning.algorithm.model.RouteLeg::getDurationSeconds)
+                .sum();
             totalTransitMin = Math.round(seconds / 60.0);
         } else {
-            totalDistKm = scheduleItems.stream()
-                    .mapToDouble(ScheduleItemContext::transitDistanceKmFromPrev)
-                    .sum();
+            totalDistKm = scheduleItems.stream().mapToDouble(ScheduleItemContext::transitDistanceKmFromPrev).sum();
             totalDistKm = Math.round(totalDistKm * 10.0) / 10.0;
 
-            totalTransitMin = scheduleItems.stream()
-                    .mapToLong(ScheduleItemContext::transitMinutesFromPrev)
-                    .sum();
+            totalTransitMin = scheduleItems.stream().mapToLong(ScheduleItemContext::transitMinutesFromPrev).sum();
         }
 
         // 5. CỔNG QUYẾT ĐỊNH: SILENT BY DEFAULT NẾU ALL-CLEAR
         if (evaluationResult.isAllClear()) {
             log.info("[TRIP_OPTIMIZER] Itinerary is 100% ALL-CLEAR. AI Copilot remains SILENT (0 token consumed).");
             return new TripOptimizationResponse(
-                    "ALL_CLEAR",
-                    totalDistKm,
-                    totalTransitMin,
-                    scheduleItems,
-                    evaluationResult,
-                    null
+                "ALL_CLEAR",
+                totalDistKm,
+                totalTransitMin,
+                scheduleItems,
+                evaluationResult,
+                null
             );
         }
 
         // 6. KÍCH HOẠT AI COPILOT KHI PHÁT HIỆN XUNG ĐỘT
-        log.warn("[TRIP_OPTIMIZER] Detected {} issues. Invoking AI Copilot for human-in-the-loop critique.",
-                evaluationResult.issues().size());
+        log.warn(
+            "[TRIP_OPTIMIZER] Detected {} issues. Invoking AI Copilot for human-in-the-loop critique.",
+            evaluationResult.issues().size()
+        );
 
         Place firstPlaceForWeather = !orderedPlaces.isEmpty() ? orderedPlaces.getFirst() : null;
-        String weatherOverview = firstPlaceForWeather != null
+        String weatherOverview =
+            firstPlaceForWeather != null
                 ? fetchWeatherOverview(firstPlaceForWeather, tripDate)
                 : "Không có dữ liệu thời tiết.";
 
         AiCopilotPromptContext copilotContext = new AiCopilotPromptContext(
-                request.destination(),
-                tripDate,
-                scheduleItems,
-                evaluationResult.issues(),
-                weatherOverview,
-                request.userNotes()
+            request.destination(),
+            tripDate,
+            scheduleItems,
+            evaluationResult.issues(),
+            weatherOverview,
+            request.userNotes()
         );
 
         AiProvider aiProvider = aiProviderFactory.getProvider();
         AiCopilotAnalysisResult copilotResult = aiProvider.analyzeAndRecommend(copilotContext);
 
         return new TripOptimizationResponse(
-                "CONFLICTS_DETECTED",
-                totalDistKm,
-                totalTransitMin,
-                scheduleItems,
-                evaluationResult,
-                copilotResult
+            "CONFLICTS_DETECTED",
+            totalDistKm,
+            totalTransitMin,
+            scheduleItems,
+            evaluationResult,
+            copilotResult
         );
     }
 
     @Override
     public MultiDayOptimizeAndAuditResponse optimizeAndAuditMultiDay(MultiDayOptimizeAndAuditRequest request) {
-        log.info("[TRIP_OPTIMIZER] Starting multi-day optimization pipeline for destination='{}', {} days",
-                request.destination(), request.days().size());
+        log.info(
+            "[TRIP_OPTIMIZER] Starting multi-day optimization pipeline for destination='{}', {} days",
+            request.destination(),
+            request.days().size()
+        );
 
         List<DayScheduleResponse> dailySchedules = new ArrayList<>();
         List<ScheduleItemContext> allTripItems = new ArrayList<>();
@@ -213,14 +241,14 @@ public class TripOptimizationServiceImpl implements TripOptimizationService {
         // 1. Tối ưu từng ngày độc lập
         for (DayPlanRequest dayPlan : request.days()) {
             OptimizeAndAuditRequest dayReq = new OptimizeAndAuditRequest(
-                    request.destination(),
-                    dayPlan.dayDate(),
-                    dayPlan.startTime(),
-                    null,
-                    dayPlan.originPlace(),
-                    dayPlan.isRoundTrip(),
-                    dayPlan.locations(),
-                    request.userNotes()
+                request.destination(),
+                dayPlan.dayDate(),
+                dayPlan.startTime(),
+                null,
+                dayPlan.originPlace(),
+                dayPlan.isRoundTrip(),
+                dayPlan.locations(),
+                request.userNotes()
             );
 
             TripOptimizationResponse dayResponse = optimizeAndAuditItinerary(dayReq);
@@ -232,14 +260,16 @@ public class TripOptimizationServiceImpl implements TripOptimizationService {
             totalTripDist += dayResponse.totalDistanceKm();
             totalTripTransit += dayResponse.totalTransitMinutes();
 
-            dailySchedules.add(new DayScheduleResponse(
+            dailySchedules.add(
+                new DayScheduleResponse(
                     dayPlan.dayDate(),
                     dayResponse.status(),
                     dayResponse.totalDistanceKm(),
                     dayResponse.totalTransitMinutes(),
                     dayResponse.schedule(),
                     dayResponse.evaluation()
-            ));
+                )
+            );
         }
 
         // 2. Thẩm định va chạm chồng lấn lịch trình giữa các ngày liên tiếp
@@ -255,12 +285,12 @@ public class TripOptimizationServiceImpl implements TripOptimizationService {
         if (allClear) {
             log.info("[TRIP_OPTIMIZER] Multi-day trip is ALL-CLEAR. AI Copilot remains SILENT.");
             return new MultiDayOptimizeAndAuditResponse(
-                    overallStatus,
-                    Math.round(totalTripDist * 10.0) / 10.0,
-                    totalTripTransit,
-                    dailySchedules,
-                    collisionIssues,
-                    null
+                overallStatus,
+                Math.round(totalTripDist * 10.0) / 10.0,
+                totalTripTransit,
+                dailySchedules,
+                collisionIssues,
+                null
             );
         }
 
@@ -269,31 +299,34 @@ public class TripOptimizationServiceImpl implements TripOptimizationService {
         LocalDate firstDate = !request.days().isEmpty() ? request.days().getFirst().dayDate() : LocalDate.now();
 
         AiCopilotPromptContext multiDayContext = new AiCopilotPromptContext(
-                request.destination(),
-                firstDate,
-                allTripItems,
-                allIssues,
-                "Chuyến đi nhiều ngày tại " + request.destination(),
-                request.userNotes()
+            request.destination(),
+            firstDate,
+            allTripItems,
+            allIssues,
+            "Chuyến đi nhiều ngày tại " + request.destination(),
+            request.userNotes()
         );
 
         AiProvider aiProvider = aiProviderFactory.getProvider();
         AiCopilotAnalysisResult copilotResult = aiProvider.analyzeAndRecommend(multiDayContext);
 
         return new MultiDayOptimizeAndAuditResponse(
-                overallStatus,
-                Math.round(totalTripDist * 10.0) / 10.0,
-                totalTripTransit,
-                dailySchedules,
-                collisionIssues,
-                copilotResult
+            overallStatus,
+            Math.round(totalTripDist * 10.0) / 10.0,
+            totalTripTransit,
+            dailySchedules,
+            collisionIssues,
+            copilotResult
         );
     }
 
     @Override
     public TripOptimizationResponse applyCopilotRecommendation(ApplyRecommendationRequest request) {
-        log.info("[TRIP_OPTIMIZER] Applying 1-click copilot action: type={}, cardId={}",
-                request.actionType(), request.cardId());
+        log.info(
+            "[TRIP_OPTIMIZER] Applying 1-click copilot action: type={}, cardId={}",
+            request.actionType(),
+            request.cardId()
+        );
 
         List<ScheduleItemContext> updatedSchedule = new ArrayList<>(request.currentSchedule());
         Map<String, Object> payload = request.actionPayload();
@@ -327,20 +360,16 @@ public class TripOptimizationServiceImpl implements TripOptimizationService {
         // Tái thẩm định toàn bộ lịch trình
         ItineraryEvaluationResult reEvaluation = ruleEvaluatorService.evaluateItinerary(updatedSchedule);
 
-        double totalDist = updatedSchedule.stream()
-                .mapToDouble(ScheduleItemContext::transitDistanceKmFromPrev)
-                .sum();
-        long totalTransit = updatedSchedule.stream()
-                .mapToLong(ScheduleItemContext::transitMinutesFromPrev)
-                .sum();
+        double totalDist = updatedSchedule.stream().mapToDouble(ScheduleItemContext::transitDistanceKmFromPrev).sum();
+        long totalTransit = updatedSchedule.stream().mapToLong(ScheduleItemContext::transitMinutesFromPrev).sum();
 
         return new TripOptimizationResponse(
-                reEvaluation.isAllClear() ? "ALL_CLEAR" : "UPDATED",
-                Math.round(totalDist * 10.0) / 10.0,
-                totalTransit,
-                updatedSchedule,
-                reEvaluation,
-                null
+            reEvaluation.isAllClear() ? "ALL_CLEAR" : "UPDATED",
+            Math.round(totalDist * 10.0) / 10.0,
+            totalTransit,
+            updatedSchedule,
+            reEvaluation,
+            null
         );
     }
 
@@ -349,21 +378,21 @@ public class TripOptimizationServiceImpl implements TripOptimizationService {
         UUID originId = originReq.id() != null ? originReq.id() : UUID.randomUUID();
 
         Place originPlace = Place.builder()
-                .id(originId)
-                .name(originReq.name())
-                .latitude(originReq.latitude())
-                .longitude(originReq.longitude())
-                .build();
+            .id(originId)
+            .name(originReq.name())
+            .latitude(originReq.latitude())
+            .longitude(originReq.longitude())
+            .build();
 
         List<Place> allPlaces = new ArrayList<>();
         allPlaces.add(originPlace);
         allPlaces.addAll(visitPlaces);
 
         TspRequest tspRequest = TspRequest.builder()
-                .places(allPlaces)
-                .startPlaceId(originId)
-                .roundTrip(request.isRoundTrip())
-                .build();
+            .places(allPlaces)
+            .startPlaceId(originId)
+            .roundTrip(request.isRoundTrip())
+            .build();
 
         return heldKarpSolver.solve(tspRequest);
     }
@@ -379,9 +408,9 @@ public class TripOptimizationServiceImpl implements TripOptimizationService {
     }
 
     private List<Place> solveInProgressReOptimization(
-            OptimizeAndAuditRequest request,
-            List<Place> visitPlaces,
-            Map<UUID, TspLocationRequest> requestMap
+        OptimizeAndAuditRequest request,
+        List<Place> visitPlaces,
+        Map<UUID, TspLocationRequest> requestMap
     ) {
         List<Place> completedPlaces = new ArrayList<>();
         Place anchorPlace = null;
@@ -415,10 +444,10 @@ public class TripOptimizationServiceImpl implements TripOptimizationService {
                 toSolve.addAll(notVisitedPlaces);
 
                 TspRequest tspReq = TspRequest.builder()
-                        .places(toSolve)
-                        .startPlaceId(anchorPlace.getId())
-                        .roundTrip(false)
-                        .build();
+                    .places(toSolve)
+                    .startPlaceId(anchorPlace.getId())
+                    .roundTrip(false)
+                    .build();
 
                 TspResult tspRes = heldKarpSolver.solve(tspReq);
                 for (Place p : tspRes.getOrderedPlaces()) {
@@ -428,9 +457,9 @@ public class TripOptimizationServiceImpl implements TripOptimizationService {
                 }
             } else {
                 TspRequest tspReq = TspRequest.builder()
-                        .places(notVisitedPlaces)
-                        .roundTrip(request.isRoundTrip())
-                        .build();
+                    .places(notVisitedPlaces)
+                    .roundTrip(request.isRoundTrip())
+                    .build();
                 TspResult tspRes = heldKarpSolver.solve(tspReq);
                 result.addAll(tspRes.getOrderedPlaces());
             }
@@ -442,14 +471,22 @@ public class TripOptimizationServiceImpl implements TripOptimizationService {
     private String fetchWeatherOverview(Place place, LocalDate tripDate) {
         try {
             WeatherForecastResult forecast = weatherService.getForecast(
-                    place.getLatitude(), place.getLongitude(), tripDate, tripDate);
+                place.getLatitude(),
+                place.getLongitude(),
+                tripDate,
+                tripDate
+            );
 
             if (forecast != null && !forecast.dailySummaries().isEmpty()) {
                 DailyWeatherSummary summary = forecast.dailySummaries().getFirst();
-                return String.format("Nhiệt độ: %.1f°C - %.1f°C, thời tiết chủ đạo: %s, xác suất mưa tối đa: %d%%, lượng mưa: %.1f mm",
-                        summary.minTemperature(), summary.maxTemperature(),
-                        summary.dominantCondition().getDescription(),
-                        summary.maxPrecipitationProbability(), summary.totalRainMm());
+                return String.format(
+                    "Nhiệt độ: %.1f°C - %.1f°C, thời tiết chủ đạo: %s, xác suất mưa tối đa: %d%%, lượng mưa: %.1f mm",
+                    summary.minTemperature(),
+                    summary.maxTemperature(),
+                    summary.dominantCondition().getDescription(),
+                    summary.maxPrecipitationProbability(),
+                    summary.totalRainMm()
+                );
             }
         } catch (Exception ex) {
             log.warn("[TRIP_OPTIMIZER] Failed to fetch weather overview: {}", ex.getMessage());

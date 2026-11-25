@@ -2,9 +2,6 @@ package com.travel.media.util;
 
 import com.travel.common.exception.AppException;
 import com.travel.common.exception.ErrorCode;
-import org.springframework.web.multipart.MultipartFile;
-
-import javax.imageio.ImageIO;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -13,6 +10,8 @@ import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.Locale;
 import java.util.Map;
+import javax.imageio.ImageIO;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
  * Reads dimensions from the image header, without allocating a decompressed bitmap.
@@ -23,13 +22,15 @@ public final class ImageUploadPolicy {
     public static final int MAX_PIXELS = 25_000_000;
     public static final int MAX_DIMENSION = 12_000;
     private static final Map<String, String> MIME = Map.of(
-            "JPEG", "image/jpeg",
-            "PNG", "image/png",
-            "GIF", "image/gif"
+        "JPEG",
+        "image/jpeg",
+        "PNG",
+        "image/png",
+        "GIF",
+        "image/gif"
     );
 
-    private ImageUploadPolicy() {
-    }
+    private ImageUploadPolicy() {}
 
     public record Limits(long maxFileBytes, int maxPixels, int maxDimension) {}
 
@@ -48,7 +49,12 @@ public final class ImageUploadPolicy {
         }
 
         String declared = file.getContentType();
-        if (declared == null || !java.util.Set.of("image/jpeg", "image/png", "image/gif", "image/webp").contains(declared.toLowerCase(Locale.ROOT))) {
+        if (
+            declared == null ||
+            !java.util.Set.of("image/jpeg", "image/png", "image/gif", "image/webp").contains(
+                declared.toLowerCase(Locale.ROOT)
+            )
+        ) {
             throw new AppException(ErrorCode.UPLOAD_INVALID_FILE_TYPE);
         }
 
@@ -64,17 +70,24 @@ public final class ImageUploadPolicy {
                 if (chunk.equals("VP8X")) {
                     width = 1 + little24(bytes, 24);
                     height = 1 + little24(bytes, 27);
-                } else if (chunk.equals("VP8 ") && (bytes[23] & 255) == 0x9d && (bytes[24] & 255) == 1 && (bytes[25] & 255) == 0x2a) {
-                    width = ((bytes[26] & 255) | (bytes[27] & 255) << 8) & 0x3fff;
-                    height = ((bytes[28] & 255) | (bytes[29] & 255) << 8) & 0x3fff;
+                } else if (
+                    chunk.equals("VP8 ") &&
+                    (bytes[23] & 255) == 0x9d &&
+                    (bytes[24] & 255) == 1 &&
+                    (bytes[25] & 255) == 0x2a
+                ) {
+                    width = ((bytes[26] & 255) | ((bytes[27] & 255) << 8)) & 0x3fff;
+                    height = ((bytes[28] & 255) | ((bytes[29] & 255) << 8)) & 0x3fff;
                 } else if (chunk.equals("VP8L") && (bytes[20] & 255) == 0x2f) {
-                    width = 1 + ((bytes[21] & 255) | (bytes[22] & 0x3f) << 8);
-                    height = 1 + ((bytes[22] & 0xc0) >> 6 | (bytes[23] & 255) << 2 | (bytes[24] & 15) << 10);
+                    width = 1 + ((bytes[21] & 255) | ((bytes[22] & 0x3f) << 8));
+                    height = 1 + (((bytes[22] & 0xc0) >> 6) | ((bytes[23] & 255) << 2) | ((bytes[24] & 15) << 10));
                 } else {
                     throw new AppException(ErrorCode.UPLOAD_INVALID_FILE_TYPE);
                 }
             } else {
-                try (var input = new javax.imageio.stream.MemoryCacheImageInputStream(new ByteArrayInputStream(bytes))) {
+                try (
+                    var input = new javax.imageio.stream.MemoryCacheImageInputStream(new ByteArrayInputStream(bytes))
+                ) {
                     var readers = ImageIO.getImageReaders(input);
                     if (!readers.hasNext()) {
                         throw new AppException(ErrorCode.UPLOAD_INVALID_FILE_TYPE);
@@ -112,6 +125,6 @@ public final class ImageUploadPolicy {
     }
 
     private static int little24(byte[] bytes, int offset) {
-        return (bytes[offset] & 255) | (bytes[offset + 1] & 255) << 8 | (bytes[offset + 2] & 255) << 16;
+        return (bytes[offset] & 255) | ((bytes[offset + 1] & 255) << 8) | ((bytes[offset + 2] & 255) << 16);
     }
 }

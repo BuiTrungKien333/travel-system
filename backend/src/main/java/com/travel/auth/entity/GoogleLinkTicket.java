@@ -1,10 +1,9 @@
 package com.travel.auth.entity;
 
 import jakarta.persistence.*;
-import lombok.*;
-
 import java.time.Instant;
 import java.util.UUID;
+import lombok.*;
 
 @Entity
 @Table(name = "auth_google_link_tickets")
@@ -37,7 +36,15 @@ public class GoogleLinkTicket {
     @Column(name = "expires_at", nullable = false)
     private Instant expiresAt;
 
-    public GoogleLinkTicket(UUID userId, String subject, String email, String hash, long version, Instant created, Instant expiry) {
+    public GoogleLinkTicket(
+        UUID userId,
+        String subject,
+        String email,
+        String hash,
+        long version,
+        Instant created,
+        Instant expiry
+    ) {
         this.userId = userId;
         this.googleSubject = subject;
         this.email = email;

@@ -10,8 +10,10 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 @Slf4j
 public class ExecutionPublisher {
+
     private final ExecutionOutbox outbox;
     private final MongoExecutionStore store;
+
     @Value("${telemetry.publish-enabled:true}")
     private boolean publishEnabled;
 

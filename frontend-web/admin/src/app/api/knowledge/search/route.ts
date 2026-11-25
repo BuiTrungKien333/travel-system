@@ -12,7 +12,10 @@ import {
 
 const requestSchema = z.object({
   positiveQuery: z.string().trim().min(1).max(1000),
-  provinceCode: z.string().regex(/^\d{2}$/).optional(),
+  provinceCode: z
+    .string()
+    .regex(/^\d{2}$/)
+    .optional(),
   excludedTags: z
     .array(z.string().regex(/^[A-Z_]{2,30}$/))
     .max(10)
@@ -25,6 +28,7 @@ export async function POST(request: NextRequest) {
     assertSameOrigin(request);
     const body = requestSchema.safeParse(await readBody(request));
     if (!body.success) throw new ApiError("COMMON_003", 400);
+
     return json(
       await backendRequest("/api/v1/admin/planning/retrieval/search", {
         method: "POST",

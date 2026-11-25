@@ -10,9 +10,10 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@Profile({"dev", "rag-demo"})
+@Profile({ "dev", "rag-demo" })
 @RequestMapping("/api/v1/public/planning")
 public class DraftController {
+
     private final DraftService service;
 
     public DraftController(DraftService service) {
@@ -20,9 +21,10 @@ public class DraftController {
     }
 
     @PostMapping("/generate-draft")
-    @Operation(summary = "Preview a 1–3 day itinerary from text or structured preferences, with AI/fallback provenance; no persistence")
+    @Operation(
+        summary = "Preview a 1–3 day itinerary from text or structured preferences, with AI/fallback provenance; no persistence"
+    )
     public ApiResponse<DraftResponse> generate(@Valid @RequestBody GenerateDraftRequest request) {
         return ApiResponse.success(service.generate(request));
     }
-
 }

@@ -2,10 +2,10 @@ package com.travel.common.validation;
 
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
-
 import java.nio.charset.StandardCharsets;
 
 public class Utf8ByteLengthValidator implements ConstraintValidator<Utf8ByteLength, String> {
+
     private int max;
 
     @Override

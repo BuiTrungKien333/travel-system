@@ -13,12 +13,14 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 @Slf4j
 public class MediaCleanupScheduler {
+
     private final MediaDeletionService deletion;
 
     @Scheduled(fixedDelay = 60000, initialDelay = 60000)
     public void clean() {
-        try { deletion.retryPending(); }
-        catch (RuntimeException failure) {
+        try {
+            deletion.retryPending();
+        } catch (RuntimeException failure) {
             log.warn("Media cleanup temporarily unavailable ({})", failure.getClass().getSimpleName());
         }
     }

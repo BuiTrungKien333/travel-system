@@ -1,10 +1,9 @@
 package com.travel.planning.algorithm;
 
 import com.travel.place.entity.Place;
+import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-
-import java.util.List;
 
 @Service
 @Slf4j(topic = "DISTANCE_MATRIX_SERVICE")
@@ -25,8 +24,10 @@ public class HaversineDistanceMatrixService {
             for (int j = i + 1; j < n; j++) {
                 Place p2 = places.get(j);
                 double distance = DistanceCalculator.calculateDistanceMeters(
-                        p1.getLatitude(), p1.getLongitude(),
-                        p2.getLatitude(), p2.getLongitude()
+                    p1.getLatitude(),
+                    p1.getLongitude(),
+                    p2.getLatitude(),
+                    p2.getLongitude()
                 );
                 matrix[i][j] = distance;
                 matrix[j][i] = distance; // Ma trận đối xứng cho khoảng cách chim bay

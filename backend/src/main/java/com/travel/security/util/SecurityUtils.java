@@ -3,11 +3,10 @@ package com.travel.security.util;
 import com.travel.common.exception.AppException;
 import com.travel.common.exception.ErrorCode;
 import com.travel.security.model.CustomUserDetails;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 public final class SecurityUtils {
 
@@ -29,8 +28,8 @@ public final class SecurityUtils {
      */
     public static UUID getCurrentUserId() {
         return getCurrentUserDetails()
-                .map(CustomUserDetails::getId)
-                .orElseThrow(() -> new AppException(ErrorCode.UNAUTHORIZED));
+            .map(CustomUserDetails::getId)
+            .orElseThrow(() -> new AppException(ErrorCode.UNAUTHORIZED));
     }
 
     /**
@@ -38,7 +37,7 @@ public final class SecurityUtils {
      */
     public static String getCurrentUserEmail() {
         return getCurrentUserDetails()
-                .map(CustomUserDetails::getEmail)
-                .orElseThrow(() -> new AppException(ErrorCode.UNAUTHORIZED));
+            .map(CustomUserDetails::getEmail)
+            .orElseThrow(() -> new AppException(ErrorCode.UNAUTHORIZED));
     }
 }

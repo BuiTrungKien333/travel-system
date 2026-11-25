@@ -24,6 +24,7 @@ public class AiConfigProperties {
     @Getter
     @Setter
     public static class GeminiConfig {
+
         /**
          * Google Gemini API Key
          */

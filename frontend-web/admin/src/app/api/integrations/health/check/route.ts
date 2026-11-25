@@ -5,6 +5,7 @@ import { accessToken, assertSameOrigin, failure, json } from "@/server/http";
 export async function POST(request: NextRequest) {
   try {
     assertSameOrigin(request);
+
     return json(
       await backendRequest("/api/v1/admin/integrations/health/check", {
         method: "POST",

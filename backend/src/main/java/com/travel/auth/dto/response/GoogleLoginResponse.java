@@ -4,8 +4,10 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record GoogleLoginResponse(Status status, AuthResponse auth, String email, Long resendAfterSeconds) {
-
-    public enum Status {AUTHENTICATED, VERIFICATION_REQUIRED}
+    public enum Status {
+        AUTHENTICATED,
+        VERIFICATION_REQUIRED,
+    }
 
     public static GoogleLoginResponse authenticated(AuthResponse auth) {
         return new GoogleLoginResponse(Status.AUTHENTICATED, auth, null, null);

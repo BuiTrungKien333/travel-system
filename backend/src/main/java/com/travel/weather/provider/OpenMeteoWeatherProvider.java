@@ -1,12 +1,11 @@
 package com.travel.weather.provider;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.travel.common.exception.AppException;
 import com.travel.common.exception.ErrorCode;
-import org.springframework.web.client.RestClientException;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.travel.weather.config.WeatherConfigProperties;
 import com.travel.weather.enums.WeatherCondition;
 import com.travel.weather.enums.WeatherRiskLevel;
@@ -14,20 +13,20 @@ import com.travel.weather.model.CurrentWeather;
 import com.travel.weather.model.DailyWeatherSummary;
 import com.travel.weather.model.HourlyWeather;
 import com.travel.weather.model.WeatherForecastResult;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.MediaType;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
-import org.springframework.stereotype.Component;
-import org.springframework.web.client.RestClient;
-import org.springframework.web.util.UriComponentsBuilder;
-
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.util.UriComponentsBuilder;
 
 @Component("openMeteoWeatherProvider")
 @Slf4j
@@ -47,9 +46,7 @@ public class OpenMeteoWeatherProvider implements WeatherProvider {
         factory.setConnectTimeout(Duration.ofSeconds(5));
         factory.setReadTimeout(Duration.ofSeconds(timeoutSeconds > 0 ? timeoutSeconds : 10));
 
-        this.restClient = RestClient.builder()
-                .requestFactory(factory)
-                .build();
+        this.restClient = RestClient.builder().requestFactory(factory).build();
     }
 
     // Constructor dành cho Unit Test để mock RestClient
@@ -60,24 +57,30 @@ public class OpenMeteoWeatherProvider implements WeatherProvider {
     }
 
     @Override
-    public WeatherForecastResult fetchForecast(double latitude, double longitude, LocalDate startDate, LocalDate endDate) {
+    public WeatherForecastResult fetchForecast(
+        double latitude,
+        double longitude,
+        LocalDate startDate,
+        LocalDate endDate
+    ) {
         LocalDate start = startDate != null ? startDate : LocalDate.now(com.travel.trip.service.TripCalendar.ZONE);
         LocalDate end = endDate != null ? endDate : start;
-        if (end.isBefore(start) || java.time.temporal.ChronoUnit.DAYS.between(start, end) > 15)
-            throw new AppException(ErrorCode.VALIDATION_ERROR);
+        if (end.isBefore(start) || java.time.temporal.ChronoUnit.DAYS.between(start, end) > 15) throw new AppException(
+            ErrorCode.VALIDATION_ERROR
+        );
 
         String baseUrl = weatherConfig.getOpenMeteo().getBaseUrl();
         String timezone = weatherConfig.getOpenMeteo().getDefaultTimezone();
 
         String uri = UriComponentsBuilder.fromUriString(baseUrl + "/forecast")
-                .queryParam("latitude", latitude)
-                .queryParam("longitude", longitude)
-                .queryParam("hourly", "temperature_2m,precipitation_probability,rain,weather_code")
-                .queryParam("start_date", start.toString())
-                .queryParam("end_date", end.toString())
-                .queryParam("timezone", timezone)
-                .build()
-                .toUriString();
+            .queryParam("latitude", latitude)
+            .queryParam("longitude", longitude)
+            .queryParam("hourly", "temperature_2m,precipitation_probability,rain,weather_code")
+            .queryParam("start_date", start.toString())
+            .queryParam("end_date", end.toString())
+            .queryParam("timezone", timezone)
+            .build()
+            .toUriString();
 
         log.debug("Requesting Open-Meteo forecast from {} to {}", start, end);
 
@@ -96,12 +99,15 @@ public class OpenMeteoWeatherProvider implements WeatherProvider {
         String timezone = weatherConfig.getOpenMeteo().getDefaultTimezone();
 
         String uri = UriComponentsBuilder.fromUriString(baseUrl + "/forecast")
-                .queryParam("latitude", latitude)
-                .queryParam("longitude", longitude)
-                .queryParam("current", "temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,rain,weather_code,wind_speed_10m")
-                .queryParam("timezone", timezone)
-                .build()
-                .toUriString();
+            .queryParam("latitude", latitude)
+            .queryParam("longitude", longitude)
+            .queryParam(
+                "current",
+                "temperature_2m,relative_humidity_2m,apparent_temperature,is_day,precipitation,rain,weather_code,wind_speed_10m"
+            )
+            .queryParam("timezone", timezone)
+            .build()
+            .toUriString();
 
         log.debug("Requesting current Open-Meteo weather");
 
@@ -153,11 +159,11 @@ public class OpenMeteoWeatherProvider implements WeatherProvider {
     }
 
     private WeatherForecastResult mapToForecastResult(
-            double latitude,
-            double longitude,
-            OpenMeteoApiResponse response,
-            LocalDate startDate,
-            LocalDate endDate
+        double latitude,
+        double longitude,
+        OpenMeteoApiResponse response,
+        LocalDate startDate,
+        LocalDate endDate
     ) {
         OpenMeteoHourlyDto hourlyDto = response.hourly();
         List<String> times = hourlyDto.time();
@@ -168,7 +174,9 @@ public class OpenMeteoWeatherProvider implements WeatherProvider {
 
         int size = times != null ? times.size() : 0;
         require(size > 0 && size <= 384);
-        require(hasSize(temps, size) && hasSize(rainProbs, size) && hasSize(rains, size) && hasSize(weatherCodes, size));
+        require(
+            hasSize(temps, size) && hasSize(rainProbs, size) && hasSize(rains, size) && hasSize(weatherCodes, size)
+        );
         List<HourlyWeather> allHourly = new ArrayList<>();
         LocalDateTime previous = null;
 
@@ -192,8 +200,9 @@ public class OpenMeteoWeatherProvider implements WeatherProvider {
 
         require(!allHourly.isEmpty());
         // Nhóm các giờ theo từng ngày (LocalDate)
-        Map<LocalDate, List<HourlyWeather>> groupedByDate = allHourly.stream()
-                .collect(Collectors.groupingBy(h -> h.time().toLocalDate(), LinkedHashMap::new, Collectors.toList()));
+        Map<LocalDate, List<HourlyWeather>> groupedByDate = allHourly
+            .stream()
+            .collect(Collectors.groupingBy(h -> h.time().toLocalDate(), LinkedHashMap::new, Collectors.toList()));
 
         List<DailyWeatherSummary> dailySummaries = new ArrayList<>();
         for (Map.Entry<LocalDate, List<HourlyWeather>> entry : groupedByDate.entrySet()) {
@@ -206,20 +215,24 @@ public class OpenMeteoWeatherProvider implements WeatherProvider {
             double totalRain = hours.stream().mapToDouble(HourlyWeather::rainMm).sum();
 
             // Tìm điều kiện thời tiết chủ đạo (xuất hiện nhiều nhất)
-            WeatherCondition dominant = hours.stream()
-                    .collect(Collectors.groupingBy(HourlyWeather::condition, Collectors.counting()))
-                    .entrySet().stream()
-                    .max(Map.Entry.comparingByValue())
-                    .map(Map.Entry::getKey)
-                    .orElse(WeatherCondition.CLEAR_SKY);
+            WeatherCondition dominant = hours
+                .stream()
+                .collect(Collectors.groupingBy(HourlyWeather::condition, Collectors.counting()))
+                .entrySet()
+                .stream()
+                .max(Map.Entry.comparingByValue())
+                .map(Map.Entry::getKey)
+                .orElse(WeatherCondition.CLEAR_SKY);
 
             // Tìm mức độ rủi ro cao nhất trong ngày
-            WeatherRiskLevel highestRisk = hours.stream()
-                    .map(HourlyWeather::riskLevel)
-                    .max(Comparator.comparingInt(Enum::ordinal))
-                    .orElse(WeatherRiskLevel.SAFE);
+            WeatherRiskLevel highestRisk = hours
+                .stream()
+                .map(HourlyWeather::riskLevel)
+                .max(Comparator.comparingInt(Enum::ordinal))
+                .orElse(WeatherRiskLevel.SAFE);
 
-            dailySummaries.add(new DailyWeatherSummary(
+            dailySummaries.add(
+                new DailyWeatherSummary(
                     date,
                     roundOneDecimal(minTemp),
                     roundOneDecimal(maxTemp),
@@ -228,50 +241,66 @@ public class OpenMeteoWeatherProvider implements WeatherProvider {
                     dominant,
                     highestRisk,
                     hours
-            ));
+                )
+            );
         }
 
         return new WeatherForecastResult(
-                latitude,
-                longitude,
-                response.timezone() != null ? response.timezone() : "Asia/Ho_Chi_Minh",
-                dailySummaries,
-                "open-meteo"
+            latitude,
+            longitude,
+            response.timezone() != null ? response.timezone() : "Asia/Ho_Chi_Minh",
+            dailySummaries,
+            "open-meteo"
         );
     }
 
     private CurrentWeather mapToCurrentWeather(double latitude, double longitude, OpenMeteoCurrentDto dto) {
-        require(dto.time() != null && dto.temperature2m() != null && dto.apparentTemperature() != null
-                && dto.relativeHumidity2m() != null && (dto.rain() != null || dto.precipitation() != null)
-                && dto.windSpeed10m() != null && dto.isDay() != null && dto.weatherCode() != null);
+        require(
+            dto.time() != null &&
+                dto.temperature2m() != null &&
+                dto.apparentTemperature() != null &&
+                dto.relativeHumidity2m() != null &&
+                (dto.rain() != null || dto.precipitation() != null) &&
+                dto.windSpeed10m() != null &&
+                dto.isDay() != null &&
+                dto.weatherCode() != null
+        );
         LocalDateTime time = LocalDateTime.parse(dto.time(), DateTimeFormatter.ISO_LOCAL_DATE_TIME);
         double temp = dto.temperature2m();
         double apparentTemp = dto.apparentTemperature();
         int humidity = dto.relativeHumidity2m();
         double rain = dto.rain() != null ? dto.rain() : dto.precipitation();
         double wind = dto.windSpeed10m();
-        require(temperature(temp) && temperature(apparentTemp) && humidity >= 0 && humidity <= 100
-                && Double.isFinite(rain) && rain >= 0 && Double.isFinite(wind) && wind >= 0
-                && (dto.isDay() == 0 || dto.isDay() == 1));
+        require(
+            temperature(temp) &&
+                temperature(apparentTemp) &&
+                humidity >= 0 &&
+                humidity <= 100 &&
+                Double.isFinite(rain) &&
+                rain >= 0 &&
+                Double.isFinite(wind) &&
+                wind >= 0 &&
+                (dto.isDay() == 0 || dto.isDay() == 1)
+        );
         boolean isDay = dto.isDay() == 1;
         int code = dto.weatherCode();
         WeatherCondition condition = WeatherCondition.fromWmoCode(code);
         WeatherRiskLevel risk = WeatherRiskLevel.evaluate(condition, temp, rain > 0 ? 80 : 10);
 
         return new CurrentWeather(
-                latitude,
-                longitude,
-                time,
-                temp,
-                apparentTemp,
-                humidity,
-                rain,
-                wind,
-                isDay,
-                code,
-                condition,
-                risk,
-                null
+            latitude,
+            longitude,
+            time,
+            temp,
+            apparentTemp,
+            humidity,
+            rain,
+            wind,
+            isDay,
+            code,
+            condition,
+            risk,
+            null
         );
     }
 
@@ -281,44 +310,32 @@ public class OpenMeteoWeatherProvider implements WeatherProvider {
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record OpenMeteoApiResponse(
-            Double latitude,
-            Double longitude,
-            String timezone,
-            OpenMeteoHourlyDto hourly,
-            OpenMeteoCurrentDto current
-    ) {
-    }
+        Double latitude,
+        Double longitude,
+        String timezone,
+        OpenMeteoHourlyDto hourly,
+        OpenMeteoCurrentDto current
+    ) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record OpenMeteoHourlyDto(
-            List<String> time,
-            @JsonProperty("temperature_2m")
-            List<Double> temperature2m,
-            @JsonProperty("precipitation_probability")
-            List<Integer> precipitationProbability,
-            List<Double> rain,
-            @JsonProperty("weather_code")
-            List<Integer> weatherCode
-    ) {
-    }
+        List<String> time,
+        @JsonProperty("temperature_2m") List<Double> temperature2m,
+        @JsonProperty("precipitation_probability") List<Integer> precipitationProbability,
+        List<Double> rain,
+        @JsonProperty("weather_code") List<Integer> weatherCode
+    ) {}
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record OpenMeteoCurrentDto(
-            String time,
-            @JsonProperty("temperature_2m")
-            Double temperature2m,
-            @JsonProperty("relative_humidity_2m")
-            Integer relativeHumidity2m,
-            @JsonProperty("apparent_temperature")
-            Double apparentTemperature,
-            @JsonProperty("is_day")
-            Integer isDay,
-            Double precipitation,
-            Double rain,
-            @JsonProperty("weather_code")
-            Integer weatherCode,
-            @JsonProperty("wind_speed_10m")
-            Double windSpeed10m
-    ) {
-    }
+        String time,
+        @JsonProperty("temperature_2m") Double temperature2m,
+        @JsonProperty("relative_humidity_2m") Integer relativeHumidity2m,
+        @JsonProperty("apparent_temperature") Double apparentTemperature,
+        @JsonProperty("is_day") Integer isDay,
+        Double precipitation,
+        Double rain,
+        @JsonProperty("weather_code") Integer weatherCode,
+        @JsonProperty("wind_speed_10m") Double windSpeed10m
+    ) {}
 }

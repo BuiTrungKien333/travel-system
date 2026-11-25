@@ -3,16 +3,15 @@ package com.travel.memory.dto.request;
 import com.travel.media.dto.CreateMediaRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Size;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
 
 @Getter
 @Setter

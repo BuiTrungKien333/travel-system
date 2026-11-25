@@ -11,5 +11,5 @@ public enum PlaceOpeningStatus {
     CLOSED,
 
     @Schema(description = "Chưa có số liệu / chưa xác minh được giờ hoạt động")
-    UNVERIFIED
+    UNVERIFIED,
 }

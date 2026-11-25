@@ -7,7 +7,6 @@ import com.travel.planning.ai.copilot.model.AiCopilotPromptContext;
  * Interface hợp đồng chung cho mọi AI Provider (Gemini, OpenAI, Claude, Mock...)
  */
 public interface AiProvider {
-
     /**
      * Phân tích phản biện lịch trình và tạo thẻ đề xuất hành động (Human-in-the-loop)
      *

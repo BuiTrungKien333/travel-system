@@ -1,14 +1,13 @@
 package com.travel.weather.provider;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.travel.weather.model.DailyWeatherSummary;
 import com.travel.weather.model.WeatherForecastResult;
+import java.time.LocalDate;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-
-import java.time.LocalDate;
-
-import static org.assertj.core.api.Assertions.assertThat;
 
 class MockWeatherProviderTest {
 

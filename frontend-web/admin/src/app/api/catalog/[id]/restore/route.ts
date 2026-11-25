@@ -15,6 +15,7 @@ export async function POST(
     const version = Number(request.nextUrl.searchParams.get("version"));
     if (!Number.isSafeInteger(version) || version < 1)
       throw new ApiError("COMMON_003", 400);
+
     return json(
       await backendRequest(
         `/api/v1/admin/catalog/${id}/restore?version=${version}`,

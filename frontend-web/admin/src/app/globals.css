@@ -78,11 +78,21 @@ select {
     @apply border-teal-700 bg-teal-700 font-semibold text-white hover:bg-teal-700;
   }
 }
-.button { border-radius: var(--admin-radius-lg); }
-.input { border-radius: var(--admin-radius-xl); }
-.rounded-lg { border-radius: var(--admin-radius-lg); }
-.rounded-xl { border-radius: var(--admin-radius-xl); }
-.rounded-2xl { border-radius: var(--admin-radius-2xl); }
+.button {
+  border-radius: var(--admin-radius-lg);
+}
+.input {
+  border-radius: var(--admin-radius-xl);
+}
+.rounded-lg {
+  border-radius: var(--admin-radius-lg);
+}
+.rounded-xl {
+  border-radius: var(--admin-radius-xl);
+}
+.rounded-2xl {
+  border-radius: var(--admin-radius-2xl);
+}
 .shadow-panel,
 .shadow-2xl {
   box-shadow: none;

@@ -8,12 +8,11 @@ import com.travel.user.dto.response.UserProfileResponse;
 import com.travel.user.entity.User;
 import com.travel.user.repository.UserRepository;
 import com.travel.user.service.UserService;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -54,11 +53,10 @@ public class UserServiceImpl implements UserService {
     }
 
     private User getUserOrThrow(UUID userId, String action) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> {
-                    log.warn("[USER] {} failed: User not found in DB - userId={}", action, userId);
-                    return new AppException(ErrorCode.USER_NOT_FOUND);
-                });
+        User user = userRepository.findById(userId).orElseThrow(() -> {
+            log.warn("[USER] {} failed: User not found in DB - userId={}", action, userId);
+            return new AppException(ErrorCode.USER_NOT_FOUND);
+        });
 
         if (user.isDeleted() || user.getLockedAt() != null) {
             log.warn("[USER] {} failed: Account deactivated/deleted - userId={}", action, userId);
@@ -70,13 +68,13 @@ public class UserServiceImpl implements UserService {
 
     private UserProfileResponse mapToUserProfileResponse(User user) {
         return UserProfileResponse.builder()
-                .id(user.getId())
-                .email(user.getEmail())
-                .fullName(user.getFullName())
-                .role(user.getRole())
-                .avatarUrl(user.getAvatarUrl())
-                .createdAt(user.getCreatedAt())
-                .updatedAt(user.getUpdatedAt())
-                .build();
+            .id(user.getId())
+            .email(user.getEmail())
+            .fullName(user.getFullName())
+            .role(user.getRole())
+            .avatarUrl(user.getAvatarUrl())
+            .createdAt(user.getCreatedAt())
+            .updatedAt(user.getUpdatedAt())
+            .build();
     }
 }

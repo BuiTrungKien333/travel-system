@@ -1,23 +1,23 @@
 package com.travel.health;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
-import org.slf4j.LoggerFactory;
-
-import java.util.concurrent.atomic.AtomicBoolean;
-
-import static org.assertj.core.api.Assertions.assertThat;
 
 @ExtendWith(OutputCaptureExtension.class)
 class ConnectionCheckLogFilterTest {
+
     private final ConnectionCheckLogFilter filter = new ConnectionCheckLogFilter();
     private final Logger logger = (Logger) LoggerFactory.getLogger(ConnectionCheckLogFilter.class);
     private Level previousLevel;
@@ -42,15 +42,19 @@ class ConnectionCheckLogFilterTest {
         var response = new MockHttpServletResponse();
         filter.doFilter(request, response, (req, res) -> response.setStatus(503));
         assertThat(response.getStatus()).isEqualTo(503);
-        assertThat(output.getAll()).contains("client=HTTP_CLIENT", "status=503", "completed=true")
-                .doesNotContain("test-only-do-not-log", "Authorization", "token=");
+        assertThat(output.getAll())
+            .contains("client=HTTP_CLIENT", "status=503", "completed=true")
+            .doesNotContain("test-only-do-not-log", "Authorization", "token=");
     }
 
     @Test
     void doesNotLogOrBlockOtherEndpoints(CapturedOutput output) throws Exception {
         var called = new AtomicBoolean();
-        filter.doFilter(new MockHttpServletRequest("POST", "/api/v1/auth/login"),
-                new MockHttpServletResponse(), (req, res) -> called.set(true));
+        filter.doFilter(
+            new MockHttpServletRequest("POST", "/api/v1/auth/login"),
+            new MockHttpServletResponse(),
+            (req, res) -> called.set(true)
+        );
         assertThat(called).isTrue();
         assertThat(output.getAll()).doesNotContain("CONNECTION-CHECK");
     }

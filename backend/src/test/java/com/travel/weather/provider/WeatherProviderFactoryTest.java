@@ -1,21 +1,20 @@
 package com.travel.weather.provider;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.when;
+
+import com.travel.common.exception.AppException;
+import com.travel.common.exception.ErrorCode;
 import com.travel.weather.config.WeatherConfigProperties;
+import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.util.List;
-import java.util.Optional;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import com.travel.common.exception.AppException;
-import com.travel.common.exception.ErrorCode;
-import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class WeatherProviderFactoryTest {
@@ -55,8 +54,9 @@ class WeatherProviderFactoryTest {
         properties.setActiveProvider("open-meteo");
         when(openMeteoProvider.isAvailable()).thenReturn(false);
 
-        assertThatThrownBy(factory::getProvider).isInstanceOfSatisfying(AppException.class,
-                e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.WEATHER_UNAVAILABLE));
+        assertThatThrownBy(factory::getProvider).isInstanceOfSatisfying(AppException.class, e ->
+            assertThat(e.getErrorCode()).isEqualTo(ErrorCode.WEATHER_UNAVAILABLE)
+        );
     }
 
     @Test

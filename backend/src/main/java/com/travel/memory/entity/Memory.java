@@ -3,13 +3,12 @@ package com.travel.memory.entity;
 import com.travel.common.persistence.BaseEntity;
 import com.travel.media.entity.Media;
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 @Entity
 @Table(name = "memories")

@@ -14,8 +14,7 @@ import java.util.UUID;
 public final class CloudinaryPathBuilder {
 
     private static final String ROOT = "travel-system";
-    private static final DateTimeFormatter TIMESTAMP_FMT =
-            DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
+    private static final DateTimeFormatter TIMESTAMP_FMT = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
 
     private CloudinaryPathBuilder() {}
 
@@ -24,8 +23,7 @@ public final class CloudinaryPathBuilder {
      * travel-system/users/{userId}/trips/{tripId}/{memoryId}
      */
     public static String memoryFolder(UUID userId, UUID tripId, UUID memoryId) {
-        return String.format("%s/users/%s/trips/%s/%s",
-                ROOT, userId, tripId, memoryId);
+        return String.format("%s/users/%s/trips/%s/%s", ROOT, userId, tripId, memoryId);
     }
 
     /**

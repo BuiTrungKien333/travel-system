@@ -9,11 +9,10 @@ import com.travel.security.model.CustomUserDetails;
 import com.travel.user.dto.response.UserSummaryResponse;
 import com.travel.user.entity.User;
 import com.travel.user.repository.RolePermissionRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-
 import java.time.Instant;
 import java.util.Set;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
 
 /**
  * Called within the password/Google authentication transaction after user status checks.
@@ -27,25 +26,35 @@ public class AuthTokenIssuer {
     private final RefreshTokenRepository tokens;
 
     public AuthResponse issue(User user) {
-        var authorities = user.getRole() == null ? Set.<String>of() : permissions.findPermissionNamesByRole(user.getRole());
+        var authorities =
+            user.getRole() == null ? Set.<String>of() : permissions.findPermissionNamesByRole(user.getRole());
         var principal = new CustomUserDetails(user, authorities);
 
         String access = jwt.generateAccessToken(principal);
         String refresh = jwt.generateRefreshToken(principal);
 
-        tokens.save(new RefreshToken(user.getId(), ActionTokenCodec.hash(refresh), Instant.now().plusMillis(jwt.getJwtRefreshExpiration())));
+        tokens.save(
+            new RefreshToken(
+                user.getId(),
+                ActionTokenCodec.hash(refresh),
+                Instant.now().plusMillis(jwt.getJwtRefreshExpiration())
+            )
+        );
 
         return AuthResponse.builder()
-                .accessToken(access)
-                .refreshToken(refresh).tokenType("Bearer")
-                .expiresIn(jwt.getJwtExpiration())
-                .user(UserSummaryResponse.builder()
-                        .id(user.getId())
-                        .email(user.getEmail())
-                        .fullName(user.getFullName())
-                        .role(user.getRole())
-                        .avatarUrl(user.getAvatarUrl())
-                        .build())
-                .build();
+            .accessToken(access)
+            .refreshToken(refresh)
+            .tokenType("Bearer")
+            .expiresIn(jwt.getJwtExpiration())
+            .user(
+                UserSummaryResponse.builder()
+                    .id(user.getId())
+                    .email(user.getEmail())
+                    .fullName(user.getFullName())
+                    .role(user.getRole())
+                    .avatarUrl(user.getAvatarUrl())
+                    .build()
+            )
+            .build();
     }
 }

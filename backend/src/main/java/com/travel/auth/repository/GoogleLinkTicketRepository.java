@@ -1,13 +1,11 @@
 package com.travel.auth.repository;
 
 import com.travel.auth.entity.GoogleLinkTicket;
-import org.springframework.data.jpa.repository.*;
-
 import java.time.Instant;
 import java.util.*;
+import org.springframework.data.jpa.repository.*;
 
 public interface GoogleLinkTicketRepository extends JpaRepository<GoogleLinkTicket, UUID> {
-
     Optional<GoogleLinkTicket> findByTokenHash(String hash);
 
     Optional<GoogleLinkTicket> findByUserIdAndGoogleSubject(UUID userId, String subject);

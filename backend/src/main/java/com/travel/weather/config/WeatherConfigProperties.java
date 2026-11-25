@@ -24,6 +24,7 @@ public class WeatherConfigProperties {
     @Getter
     @Setter
     public static class OpenMeteoConfig {
+
         private String baseUrl = "https://api.open-meteo.com/v1";
         private int timeoutSeconds = 10;
         private String defaultTimezone = "Asia/Ho_Chi_Minh";

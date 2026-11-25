@@ -2,13 +2,12 @@ package com.travel.security.model;
 
 import com.travel.user.entity.User;
 import com.travel.user.enums.Role;
+import java.util.*;
+import java.util.stream.Collectors;
 import lombok.Getter;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
-
-import java.util.*;
-import java.util.stream.Collectors;
 
 @Getter
 public class CustomUserDetails implements UserDetails {
@@ -58,10 +57,14 @@ public class CustomUserDetails implements UserDetails {
         this.fullName = null;
         this.role = role;
         this.authorities = authorities != null ? List.copyOf(authorities) : List.of();
-        this.permissions = authorities != null ? authorities.stream()
-                .map(GrantedAuthority::getAuthority)
-                .filter(auth -> !auth.startsWith("ROLE_"))
-                .collect(Collectors.toUnmodifiableSet()) : Set.of();
+        this.permissions =
+            authorities != null
+                ? authorities
+                      .stream()
+                      .map(GrantedAuthority::getAuthority)
+                      .filter(auth -> !auth.startsWith("ROLE_"))
+                      .collect(Collectors.toUnmodifiableSet())
+                : Set.of();
         this.isDeleted = false;
         this.sessionVersion = 0;
     }

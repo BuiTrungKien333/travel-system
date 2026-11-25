@@ -4,7 +4,12 @@ import { backendRequest } from "@/server/backend";
 import { accessToken, assertSameOrigin, failure, json } from "@/server/http";
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
-const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
+const IMAGE_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+]);
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,6 +28,7 @@ export async function POST(request: NextRequest) {
       body: form,
       timeoutMillis: 60000,
     });
+
     return json(result, 201);
   } catch (error) {
     return failure(error);

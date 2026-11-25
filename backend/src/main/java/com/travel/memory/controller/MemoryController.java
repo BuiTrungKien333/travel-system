@@ -1,8 +1,8 @@
 package com.travel.memory.controller;
 
-import com.travel.common.response.ApiResponse;
 import com.travel.common.exception.AppException;
 import com.travel.common.exception.ErrorCode;
+import com.travel.common.response.ApiResponse;
 import com.travel.memory.dto.request.CreateMemoryRequest;
 import com.travel.memory.dto.request.UpdateMemoryRequest;
 import com.travel.memory.dto.response.MemoryResponse;
@@ -11,6 +11,8 @@ import com.travel.security.util.SecurityUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.time.LocalDate;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springdoc.core.annotations.ParameterObject;
@@ -18,12 +20,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
-import org.springframework.http.HttpStatus;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.UUID;
-import java.time.LocalDate;
 
 @RestController
 @RequestMapping("/api/v1/journal/memories")
@@ -35,8 +34,10 @@ public class MemoryController {
     private final MemoryService memoryService;
 
     @PatchMapping("/{id}")
-    public ApiResponse<MemoryResponse> updateNote(@PathVariable UUID id,
-            @Valid @RequestBody UpdateMemoryRequest request) {
+    public ApiResponse<MemoryResponse> updateNote(
+        @PathVariable UUID id,
+        @Valid @RequestBody UpdateMemoryRequest request
+    ) {
         return ApiResponse.success(memoryService.updateNote(id, SecurityUtils.getCurrentUserId(), request));
     }
 
@@ -46,10 +47,11 @@ public class MemoryController {
      */
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @Operation(summary = "Create new memory", description = "Creates memory metadata. Reuse clientRequestId for safe retries; attach validated files through the media endpoint.")
-    public ApiResponse<MemoryResponse> createMemory(
-            @Valid @RequestBody CreateMemoryRequest request
-    ) {
+    @Operation(
+        summary = "Create new memory",
+        description = "Creates memory metadata. Reuse clientRequestId for safe retries; attach validated files through the media endpoint."
+    )
+    public ApiResponse<MemoryResponse> createMemory(@Valid @RequestBody CreateMemoryRequest request) {
         UUID currentUserId = SecurityUtils.getCurrentUserId();
         log.info("User [{}] is creating memory for trip [{}]", currentUserId, request.getTripId());
 
@@ -62,10 +64,11 @@ public class MemoryController {
      * GET /api/v1/journal/memories/detail?id=...
      */
     @GetMapping("/detail")
-    @Operation(summary = "Get memory details", description = "Retrieves detailed information of a specific memory by its ID query parameter")
-    public ApiResponse<MemoryResponse> getMemoryById(
-            @RequestParam("memoryId") UUID id
-    ) {
+    @Operation(
+        summary = "Get memory details",
+        description = "Retrieves detailed information of a specific memory by its ID query parameter"
+    )
+    public ApiResponse<MemoryResponse> getMemoryById(@RequestParam("memoryId") UUID id) {
         UUID currentUserId = SecurityUtils.getCurrentUserId();
         MemoryResponse response = memoryService.getMemoryById(id, currentUserId);
         return ApiResponse.success(response);
@@ -76,11 +79,18 @@ public class MemoryController {
      * Optionally filter by trip: GET /api/v1/journal/memories?tripId=...
      */
     @GetMapping
-    @Operation(summary = "List memories", description = "Retrieves a paginated list of memories for the authenticated user, optionally filtered by tripId")
+    @Operation(
+        summary = "List memories",
+        description = "Retrieves a paginated list of memories for the authenticated user, optionally filtered by tripId"
+    )
     public ApiResponse<Page<MemoryResponse>> getMemories(
-            @RequestParam(value = "tripId", required = false) UUID tripId,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
-            @ParameterObject @PageableDefault(size = 20, sort = "experiencedAt", direction = Sort.Direction.DESC) Pageable pageable
+        @RequestParam(value = "tripId", required = false) UUID tripId,
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+        @ParameterObject @PageableDefault(
+            size = 20,
+            sort = "experiencedAt",
+            direction = Sort.Direction.DESC
+        ) Pageable pageable
     ) {
         UUID currentUserId = SecurityUtils.getCurrentUserId();
         if (date != null) {
@@ -95,16 +105,18 @@ public class MemoryController {
         }
         return ApiResponse.success(responses);
     }
+
     /**
      * Soft delete a memory (and all its associated media items).
      * DELETE /api/v1/journal/memories?id=... (alias: /delete-memory)
      */
-    @DeleteMapping(value = {"", "/delete-memory"})
+    @DeleteMapping(value = { "", "/delete-memory" })
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @Operation(summary = "Delete memory", description = "Archives an owned memory immediately. Its stored images are cleaned up asynchronously with retries.")
-    public void deleteMemory(
-            @RequestParam("id") UUID id
-    ) {
+    @Operation(
+        summary = "Delete memory",
+        description = "Archives an owned memory immediately. Its stored images are cleaned up asynchronously with retries."
+    )
+    public void deleteMemory(@RequestParam("id") UUID id) {
         UUID currentUserId = SecurityUtils.getCurrentUserId();
         log.info("User [{}] is deleting memory [{}]", currentUserId, id);
         memoryService.deleteMemory(id, currentUserId);

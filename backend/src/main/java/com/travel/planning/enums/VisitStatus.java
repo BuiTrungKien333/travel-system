@@ -14,5 +14,5 @@ public enum VisitStatus {
     COMPLETED,
 
     @Schema(description = "Đã bỏ qua (loại khỏi lộ trình hiện tại)")
-    SKIPPED
+    SKIPPED,
 }

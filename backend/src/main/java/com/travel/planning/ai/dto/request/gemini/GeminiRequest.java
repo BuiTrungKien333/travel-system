@@ -2,17 +2,13 @@ package com.travel.planning.ai.dto.request.gemini;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
-
 import java.util.List;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record GeminiRequest(
-        @JsonProperty("system_instruction")
-        GeminiContent systemInstruction,
+    @JsonProperty("system_instruction") GeminiContent systemInstruction,
 
-        List<GeminiContent> contents,
+    List<GeminiContent> contents,
 
-        @JsonProperty("generationConfig")
-        GeminiGenerationConfig generationConfig
-) {
-}
+    @JsonProperty("generationConfig") GeminiGenerationConfig generationConfig
+) {}

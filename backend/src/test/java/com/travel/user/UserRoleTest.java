@@ -1,17 +1,16 @@
 package com.travel.user;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.travel.security.model.CustomUserDetails;
 import com.travel.user.entity.User;
 import com.travel.user.enums.Role;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.springframework.security.core.GrantedAuthority;
-
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
-
-import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.security.core.GrantedAuthority;
 
 class UserRoleTest {
 
@@ -37,11 +36,11 @@ class UserRoleTest {
     @DisplayName("CustomUserDetails should correctly map User entity without permissions")
     void customUserDetails_shouldMapUserCorrectly() {
         User user = User.builder()
-                .fullName("Nguyen Van A")
-                .email("vana@gmail.com")
-                .passwordHash("hashed_password_123")
-                .role(Role.ADMIN)
-                .build();
+            .fullName("Nguyen Van A")
+            .email("vana@gmail.com")
+            .passwordHash("hashed_password_123")
+            .role(Role.ADMIN)
+            .build();
 
         CustomUserDetails userDetails = new CustomUserDetails(user);
 
@@ -61,34 +60,30 @@ class UserRoleTest {
     @DisplayName("CustomUserDetails should contain both Role authority and fine-grained Permission authorities")
     void customUserDetails_withPermissions_shouldContainAllAuthorities() {
         User user = User.builder()
-                .fullName("Tran Thi B")
-                .email("thib@gmail.com")
-                .passwordHash("hashed_password_456")
-                .role(Role.USER)
-                .build();
+            .fullName("Tran Thi B")
+            .email("thib@gmail.com")
+            .passwordHash("hashed_password_456")
+            .role(Role.USER)
+            .build();
 
         Set<String> permissions = Set.of("place:read", "trip:read", "trip:create", "memory:create");
 
         CustomUserDetails userDetails = new CustomUserDetails(user, permissions);
 
-        List<String> authorityStrings = userDetails.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority)
-                .toList();
+        List<String> authorityStrings = userDetails
+            .getAuthorities()
+            .stream()
+            .map(GrantedAuthority::getAuthority)
+            .toList();
 
         // Must contain ROLE_USER + 4 permissions = 5 authorities
         assertThat(authorityStrings).hasSize(5);
-        assertThat(authorityStrings).contains(
-                "ROLE_USER",
-                "place:read",
-                "trip:read",
-                "trip:create",
-                "memory:create"
-        );
+        assertThat(authorityStrings).contains("ROLE_USER", "place:read", "trip:read", "trip:create", "memory:create");
         assertThat(userDetails.getPermissions()).containsExactlyInAnyOrder(
-                "place:read",
-                "trip:read",
-                "trip:create",
-                "memory:create"
+            "place:read",
+            "trip:read",
+            "trip:create",
+            "memory:create"
         );
     }
 
@@ -96,11 +91,11 @@ class UserRoleTest {
     @DisplayName("CustomUserDetails with soft-deleted user should be disabled")
     void customUserDetails_withSoftDeletedUser_shouldBeDisabled() {
         User user = User.builder()
-                .fullName("Nguyen Van B")
-                .email("vanb@gmail.com")
-                .passwordHash("hashed_password_123")
-                .role(Role.USER)
-                .build();
+            .fullName("Nguyen Van B")
+            .email("vanb@gmail.com")
+            .passwordHash("hashed_password_123")
+            .role(Role.USER)
+            .build();
 
         user.softDelete();
 

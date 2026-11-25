@@ -4,7 +4,6 @@ import com.travel.user.dto.request.UpdateProfileRequest;
 import com.travel.user.dto.response.UserProfileResponse;
 
 public interface UserService {
-
     /**
      * Lấy thông tin profile của người dùng đang đăng nhập
      *

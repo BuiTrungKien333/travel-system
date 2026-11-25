@@ -3,6 +3,7 @@ import { backendRequest } from "@/server/backend";
 import { accessToken, failure, json } from "@/server/http";
 import { ApiError } from "@/lib/errors";
 export const dynamic = "force-dynamic";
+
 export async function GET(request: NextRequest) {
   try {
     const days = Number(request.nextUrl.searchParams.get("days") ?? 30);
@@ -14,6 +15,7 @@ export async function GET(request: NextRequest) {
       page > 1000000
     )
       throw new ApiError("COMMON_003", 400);
+
     return json(
       await backendRequest(
         `/api/v1/admin/ai/executions?days=${days}&page=${page}`,

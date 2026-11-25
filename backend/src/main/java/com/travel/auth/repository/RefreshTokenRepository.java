@@ -1,12 +1,11 @@
 package com.travel.auth.repository;
 
 import com.travel.auth.entity.RefreshToken;
+import java.time.Instant;
+import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
-
-import java.time.Instant;
-import java.util.UUID;
 
 public interface RefreshTokenRepository extends JpaRepository<RefreshToken, UUID> {
     // DELETE có điều kiện đảm bảo chỉ một request thắng khi refresh đồng thời.

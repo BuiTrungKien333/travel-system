@@ -1,11 +1,23 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { Users, MapPin, Route, Database, Clock, RefreshCw, CheckCircle2 } from "lucide-react";
+import {
+  Users,
+  MapPin,
+  Route,
+  Database,
+  Clock,
+  RefreshCw,
+  CheckCircle2,
+} from "lucide-react";
 import { Banner, Button } from "@/components/ui";
 import { useSession } from "@/features/auth/api";
 import { errorMessage } from "@/lib/errors";
-import { useIntegrationHealth, useOverview, useTriggerIntegrationHealthCheck } from "./hooks";
+import {
+  useIntegrationHealth,
+  useOverview,
+  useTriggerIntegrationHealthCheck,
+} from "./hooks";
 import { samples, type Point } from "./data";
 import { TelemetryPanel } from "./telemetry";
 import {
@@ -16,6 +28,7 @@ import {
   Donut,
   Trend,
 } from "./charts";
+
 export function Dashboard() {
   const session = useSession();
   const [days, setDays] = useState(30);
@@ -39,18 +52,22 @@ export function Dashboard() {
         name: p.name,
         value: Math.max(1, Math.round(anchor * (ratios[i] ?? 0.3))),
       }));
+
     return [...top, ...fillers];
   };
+
   const pick = (real: Point[], fallback: Point[]) => ({
     data: real.length ? real : fallback,
     sample: !real.length,
   });
+
   if (q.isPending)
     return (
       <div role="status" className="animate-pulse rounded-2xl bg-white p-12">
         Đang tổng hợp số liệu…
       </div>
     );
+
   if (q.isError)
     return (
       <div className="space-y-4">
@@ -109,6 +126,7 @@ export function Dashboard() {
       icon: MapPin,
     },
   ];
+
   return (
     <div className="space-y-7">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -198,7 +216,9 @@ export function Dashboard() {
           note={`Số chuyến mới chọn tỉnh/thành làm điểm đến trong ${days} ngày.`}
           sample={d.topProvinces.length < 5}
         >
-          <TopProvincesBars data={buildTopProvinces(d.topProvinces, samples.topProvinces)} />
+          <TopProvincesBars
+            data={buildTopProvinces(d.topProvinces, samples.topProvinces)}
+          />
         </ChartCard>
       </div>
       <div className="grid gap-5 xl:grid-cols-2">
@@ -219,7 +239,10 @@ export function Dashboard() {
       </div>
       <div className="grid gap-5 xl:grid-cols-2">
         <TelemetryPanel days={days} />
-        <IntegrationHealthPanel query={integrationHealth} trigger={triggerHealthCheck} />
+        <IntegrationHealthPanel
+          query={integrationHealth}
+          trigger={triggerHealthCheck}
+        />
       </div>
       <Banner>
         Biểu đồ không có bản ghi sẽ hiển thị ví dụ với nhãn “Dữ liệu mẫu”. Các
@@ -258,6 +281,7 @@ function IntegrationHealthPanel({
     MOCK: "Đang dùng mô phỏng",
     NOT_CHECKED: "Đang chờ lần kiểm tra đầu",
   };
+
   const detailLabels: Record<string, string> = {
     INVALID_RESPONSE: "Nhà cung cấp trả phản hồi không hợp lệ",
     TIMEOUT_OR_NETWORK: "Hết thời gian chờ hoặc lỗi mạng",
@@ -276,13 +300,16 @@ function IntegrationHealthPanel({
     HTTP_429: "Nhà cung cấp đang giới hạn yêu cầu",
     HTTP_500: "Nhà cung cấp đang gặp lỗi",
   };
+
   return (
     <section className="min-w-0 rounded-2xl border border-line bg-white p-6 shadow-panel">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="font-semibold">Trạng thái tích hợp</h2>
           <p className="mt-2 text-xs leading-5 text-muted">
-            Kiểm tra nền mỗi {Math.round((query.data?.intervalMillis ?? 1800000) / 60000)} phút; dashboard chỉ đọc kết quả đã lưu.
+            Kiểm tra nền mỗi{" "}
+            {Math.round((query.data?.intervalMillis ?? 1800000) / 60000)} phút;
+            dashboard chỉ đọc kết quả đã lưu.
           </p>
         </div>
         <Button
@@ -295,27 +322,52 @@ function IntegrationHealthPanel({
           Kiểm tra ngay
         </Button>
       </div>
-      {query.isError ? <Banner error>Chưa tải được trạng thái health check. Hãy thử tải lại.</Banner> : null}
-      {trigger.isError ? <Banner error>{errorMessage(trigger.error)}</Banner> : null}
-      {query.data?.checking ? <p role="status" className="mt-3 text-sm font-medium text-teal-700">Đang kiểm tra các dịch vụ tích hợp… Kết quả sẽ tự cập nhật.</p> : null}
-      {trigger.data && !trigger.data.started ? <p className="mt-3 text-xs text-muted">Một lần kiểm tra khác đang chạy; dashboard sẽ cập nhật khi hoàn tất.</p> : null}
-      {query.isPending ? <p role="status" className="py-8 text-sm text-muted">Đang tải kết quả kiểm tra…</p> : null}
+      {query.isError ? (
+        <Banner error>
+          Chưa tải được trạng thái health check. Hãy thử tải lại.
+        </Banner>
+      ) : null}
+      {trigger.isError ? (
+        <Banner error>{errorMessage(trigger.error)}</Banner>
+      ) : null}
+      {query.data?.checking ? (
+        <p role="status" className="mt-3 text-sm font-medium text-teal-700">
+          Đang kiểm tra các dịch vụ tích hợp… Kết quả sẽ tự cập nhật.
+        </p>
+      ) : null}
+      {trigger.data && !trigger.data.started ? (
+        <p className="mt-3 text-xs text-muted">
+          Một lần kiểm tra khác đang chạy; dashboard sẽ cập nhật khi hoàn tất.
+        </p>
+      ) : null}
+      {query.isPending ? (
+        <p role="status" className="py-8 text-sm text-muted">
+          Đang tải kết quả kiểm tra…
+        </p>
+      ) : null}
       {query.data ? (
         <ul className="mt-4 divide-y divide-line">
           {query.data.integrations.map((integration) => {
-            const tone = integration.stale && integration.status === "UP"
-              ? "bg-amber-50 text-amber-800 ring-amber-200"
-              : integration.status === "UP"
-              ? "bg-teal-50 text-teal-700 ring-teal-100"
-              : integration.status === "DOWN"
-                ? "bg-red-50 text-red-700 ring-red-100"
-                : integration.status === "MOCK"
-                  ? "bg-amber-50 text-amber-800 ring-amber-200"
-                  : "bg-slate-50 text-slate-600 ring-slate-200";
+            const tone =
+              integration.stale && integration.status === "UP"
+                ? "bg-amber-50 text-amber-800 ring-amber-200"
+                : integration.status === "UP"
+                  ? "bg-teal-50 text-teal-700 ring-teal-100"
+                  : integration.status === "DOWN"
+                    ? "bg-red-50 text-red-700 ring-red-100"
+                    : integration.status === "MOCK"
+                      ? "bg-amber-50 text-amber-800 ring-amber-200"
+                      : "bg-slate-50 text-slate-600 ring-slate-200";
+
             return (
-              <li key={integration.key} className="flex flex-wrap items-start justify-between gap-3 py-3">
+              <li
+                key={integration.key}
+                className="flex flex-wrap items-start justify-between gap-3 py-3"
+              >
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-ink">{integration.name}</p>
+                  <p className="text-sm font-medium text-ink">
+                    {integration.name}
+                  </p>
                   <p className="mt-1 text-xs text-muted">
                     {integration.checkedAt
                       ? `Kiểm tra lúc ${new Date(integration.checkedAt).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })} · ${integration.durationMillis} ms`
@@ -324,13 +376,17 @@ function IntegrationHealthPanel({
                   </p>
                   {integration.lastSuccessAt && integration.status !== "UP" ? (
                     <p className="mt-1 text-xs text-muted">
-                      Thành công gần nhất: {new Date(integration.lastSuccessAt).toLocaleString("vi-VN", { timeZone: "Asia/Ho_Chi_Minh" })}
+                      Thành công gần nhất:{" "}
+                      {new Date(integration.lastSuccessAt).toLocaleString(
+                        "vi-VN",
+                        { timeZone: "Asia/Ho_Chi_Minh" },
+                      )}
                     </p>
                   ) : null}
                   {integration.detailCode ? (
                     <p className="mt-1 text-xs text-muted">
-                      {detailLabels[integration.detailCode]
-                        ?? (integration.detailCode.startsWith("HTTP_")
+                      {detailLabels[integration.detailCode] ??
+                        (integration.detailCode.startsWith("HTTP_")
                           ? `Nhà cung cấp phản hồi HTTP ${integration.detailCode.slice(5)}`
                           : integration.detailCode.startsWith("UNEXPECTED_")
                             ? `Lỗi nội bộ khi kiểm tra (${integration.detailCode.slice(11)})`
@@ -341,7 +397,10 @@ function IntegrationHealthPanel({
                   ) : null}
                 </div>
                 <span className={`badge shrink-0 ${tone}`}>
-                  {integration.stale && integration.status !== "NOT_CHECKED" ? "Cũ · " : ""}{statusLabels[integration.status] ?? integration.status}
+                  {integration.stale && integration.status !== "NOT_CHECKED"
+                    ? "Cũ · "
+                    : ""}
+                  {statusLabels[integration.status] ?? integration.status}
                 </span>
               </li>
             );

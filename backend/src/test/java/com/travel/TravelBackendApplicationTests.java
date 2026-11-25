@@ -2,6 +2,7 @@ package com.travel;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.zaxxer.hikari.HikariDataSource;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.UUID;
@@ -242,8 +243,13 @@ class TravelBackendApplicationTests {
     }
 
     private Flyway migration(String schema, MigrationVersion target) {
-        return Flyway.configure()
-            .dataSource(dataSource)
+        var config = Flyway.configure();
+        if (dataSource instanceof HikariDataSource hikari) {
+            config.dataSource(hikari.getJdbcUrl(), hikari.getUsername(), hikari.getPassword());
+        } else {
+            config.dataSource(dataSource);
+        }
+        return config
             .schemas(schema)
             .defaultSchema(schema)
             .locations("classpath:db/migration")

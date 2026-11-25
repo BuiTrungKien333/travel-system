@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.travel.TestcontainersConfiguration;
+import com.zaxxer.hikari.HikariDataSource;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
@@ -42,8 +43,13 @@ class DemoDataIntegrationTest {
     @BeforeEach
     void createIsolatedSchema() throws SQLException {
         schema = "demo_seed_" + UUID.randomUUID().toString().replace("-", "");
-        flyway = Flyway.configure()
-            .dataSource(dataSource)
+        var flywayConfig = Flyway.configure();
+        if (dataSource instanceof HikariDataSource hikari) {
+            flywayConfig.dataSource(hikari.getJdbcUrl(), hikari.getUsername(), hikari.getPassword());
+        } else {
+            flywayConfig.dataSource(dataSource);
+        }
+        flyway = flywayConfig
             .schemas(schema)
             .defaultSchema(schema)
             .locations("classpath:db/migration")

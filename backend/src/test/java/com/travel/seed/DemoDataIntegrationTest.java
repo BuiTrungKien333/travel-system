@@ -318,6 +318,7 @@ class DemoDataIntegrationTest {
     private void seed() throws SQLException, IOException {
         String sql = new ClassPathResource("db/demo/seed_local_demo.sql").getContentAsString(StandardCharsets.UTF_8);
         try (Connection connection = dataSource.getConnection()) {
+            String previous = connection.getSchema();
             connection.setSchema(schema);
             connection.setAutoCommit(false);
             try (var statement = connection.createStatement()) {
@@ -326,12 +327,16 @@ class DemoDataIntegrationTest {
             } catch (SQLException failure) {
                 connection.rollback();
                 throw failure;
+            } finally {
+                connection.setAutoCommit(true);
+                connection.setSchema(previous != null ? previous : "public");
             }
         }
     }
 
     private void execute(String sql) throws SQLException {
         try (Connection connection = dataSource.getConnection()) {
+            String previous = connection.getSchema();
             connection.setSchema(schema);
             try (var statement = connection.createStatement()) {
                 try {
@@ -340,6 +345,8 @@ class DemoDataIntegrationTest {
                     statement.execute("ROLLBACK");
                     throw failure;
                 }
+            } finally {
+                connection.setSchema(previous != null ? previous : "public");
             }
         }
     }
@@ -350,10 +357,13 @@ class DemoDataIntegrationTest {
 
     private String scalar(String sql) throws SQLException {
         try (Connection connection = dataSource.getConnection()) {
+            String previous = connection.getSchema();
             connection.setSchema(schema);
             try (var statement = connection.createStatement(); var rows = statement.executeQuery(sql)) {
                 assertThat(rows.next()).isTrue();
                 return rows.getString(1);
+            } finally {
+                connection.setSchema(previous != null ? previous : "public");
             }
         }
     }

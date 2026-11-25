@@ -252,6 +252,11 @@ class TravelBackendApplicationTests {
             .load();
     }
 
+    private AutoCloseable resetSchema(java.sql.Connection connection) throws java.sql.SQLException {
+        String previous = connection.getSchema();
+        return () -> connection.setSchema(previous != null ? previous : "public");
+    }
+
     private String isolatedSchema() {
         return "migration_qa_" + UUID.randomUUID().toString().replace("-", "");
     }

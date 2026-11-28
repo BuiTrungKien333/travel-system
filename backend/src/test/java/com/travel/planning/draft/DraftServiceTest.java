@@ -76,8 +76,7 @@ class DraftServiceTest {
                 anyMap()
             )
         ).thenThrow(new AppException(ErrorCode.AI_SERVICE_UNAVAILABLE));
-        when(retrieval.catalog("48")).thenReturn(points);
-        when(retrieval.catalog()).thenReturn(points);
+        when(retrieval.candidates(anyCollection(), eq("48"))).thenReturn(points);
         when(repository.findAllByIdIn(anyCollection())).thenReturn(new ArrayList<>(entities(points).values()));
     }
 
@@ -176,7 +175,7 @@ class DraftServiceTest {
     @Test
     void staleRequiredPlaceIsRejectedBeforeAllocation() {
         intent(1, "17:00", List.of(points.getFirst()));
-        when(retrieval.catalog()).thenReturn(points.subList(1, 3));
+        when(retrieval.candidates(anyCollection(), eq("48"))).thenReturn(points.subList(1, 3));
         var result = service.generate(request());
         assertThat(result.status()).isEqualTo("NEEDS_INPUT");
         assertThat(result.days()).isEmpty();

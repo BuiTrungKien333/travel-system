@@ -217,7 +217,8 @@ class DraftRoadSchedulingTest {
             new DraftAllocation(groups, Map.of(), "AI", null),
             points,
             entities(points),
-            required
+            required,
+            scheduling.travelMatrix(request, points)
         );
     }
 }

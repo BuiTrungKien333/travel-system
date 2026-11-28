@@ -44,6 +44,11 @@ public class PlaceRetrievalService {
         return repository.catalog(provinceCode);
     }
 
+    public List<PlaceCandidate> candidates(Collection<UUID> ids, String provinceCode) {
+        if (ids.isEmpty() || provinceCode == null || provinceCode.isBlank()) return List.of();
+        return repository.candidates(ids, provinceCode);
+    }
+
     public List<ProvinceOption> provinces() {
         return repository.provinces();
     }

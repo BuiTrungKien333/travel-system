@@ -37,13 +37,13 @@ public class DraftSchedulingService {
         DraftAllocation allocation,
         List<PlaceCandidate> candidates,
         Map<UUID, Place> entities,
-        Set<UUID> required
+        Set<UUID> required,
+        DraftTravelMatrix travel
     ) {
         Map<UUID, PlaceCandidate> byId = candidates
             .stream()
             .collect(Collectors.toMap(PlaceCandidate::placeId, Function.identity()));
         List<List<UUID>> groups = copy(allocation.days());
-        DraftTravelMatrix travel = travelMatrix(request, candidates);
         // Request-local memoization: unchanged days need not run Held–Karp again during repair.
         Map<DayKey, Day> cache = new HashMap<>();
         List<Day> built = build(groups, request, intent, byId, entities, cache, travel);
@@ -146,7 +146,7 @@ public class DraftSchedulingService {
         return new Schedule(List.copyOf(built), unassigned, repairPasses, travel.source(), travel.fallbackReason());
     }
 
-    private DraftTravelMatrix travelMatrix(GenerateDraftRequest request, List<PlaceCandidate> candidates) {
+    public DraftTravelMatrix travelMatrix(GenerateDraftRequest request, List<PlaceCandidate> candidates) {
         var points = new ArrayList<RoutePoint>();
         points.add(new RoutePoint(request.origin().name(), request.origin().latitude(), request.origin().longitude()));
         candidates.forEach(p -> points.add(new RoutePoint(p.name(), p.latitude(), p.longitude())));

@@ -200,16 +200,20 @@ public class DraftService {
                 metadata
             );
         }
-        Map<UUID, PlaceCandidate> current = retrieval
-            .catalog()
-            .stream()
-            .collect(Collectors.toMap(PlaceCandidate::placeId, Function.identity()));
-        List<PlaceCandidate> candidates = search
+        List<UUID> rankedIds = search
             .candidates()
             .matches()
             .stream()
             .map(PlaceSearchResponse.Match::place)
-            .map(p -> current.get(p.placeId()))
+            .map(PlaceCandidate::placeId)
+            .toList();
+        Map<UUID, PlaceCandidate> current = retrieval
+            .candidates(rankedIds, search.analysis().provinceCode())
+            .stream()
+            .collect(Collectors.toMap(PlaceCandidate::placeId, Function.identity()));
+        List<PlaceCandidate> candidates = rankedIds
+            .stream()
+            .map(current::get)
             .filter(Objects::nonNull)
             .toList();
         Set<UUID> required = analysis
@@ -357,10 +361,18 @@ public class DraftService {
                 )
             );
 
-            var schedule = context.measure(OPTIMIZATION, () ->
-                scheduling.schedule(request, intent, allocation, candidates, entities, required)
+            var travel = context.measure(ROUTING, () -> scheduling.travelMatrix(request, candidates));
+            boolean road = DraftTravelMatrix.ROAD.equals(travel.source());
+            context.record(
+                ROUTING,
+                !road ? "ESTIMATED" : travel.fallbackReason() == null ? "EXTERNAL_API" : "UNAVAILABLE",
+                "MAPBOX_DRIVING_MATRIX",
+                travel.fallbackReason(),
+                null
             );
-            boolean road = DraftTravelMatrix.ROAD.equals(schedule.routeSource());
+            var schedule = context.measure(OPTIMIZATION, () ->
+                scheduling.schedule(request, intent, allocation, candidates, entities, required, travel)
+            );
             context.record(
                 OPTIMIZATION,
                 "DETERMINISTIC",

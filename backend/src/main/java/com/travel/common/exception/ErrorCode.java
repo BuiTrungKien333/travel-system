@@ -61,6 +61,7 @@ public enum ErrorCode {
     PLANNING_DRAFT_EXPIRED("DRAFT_002", "error.planning.draft-expired", HttpStatus.CONFLICT),
     PLANNING_DRAFT_PENDING("DRAFT_003", "error.planning.draft-pending", HttpStatus.CONFLICT),
     PLANNING_DRAFT_FAILED("DRAFT_005", "error.planning.draft-failed", HttpStatus.CONFLICT),
+    PLANNING_DRAFT_REPLACEMENT_REQUIRED("DRAFT_006", "error.planning.draft-replacement-required", HttpStatus.CONFLICT),
     PLANNING_UNSUPPORTED_TRIP("DRAFT_004", "error.planning.unsupported-trip", HttpStatus.UNPROCESSABLE_ENTITY),
 
     TRIP_NOT_FOUND("TRIP_001", "error.trip.not-found", HttpStatus.NOT_FOUND),

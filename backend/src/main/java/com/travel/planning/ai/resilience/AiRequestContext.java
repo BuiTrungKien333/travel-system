@@ -19,6 +19,7 @@ public class AiRequestContext {
         OPTIMIZATION,
         THEMES,
         WEATHER,
+        ROUTING,
     }
 
     public record StageResult(

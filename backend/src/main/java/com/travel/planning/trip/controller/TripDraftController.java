@@ -24,8 +24,8 @@ public class TripDraftController {
 
     @PostMapping
     @Operation(
-        summary = "Generate and retain an AI/fallback proposal for an empty planning trip",
-        description = "Owner only; requires a supported province, 1–3 days, and an empty itinerary. No itinerary changes. Reuse clientRequestId for retries."
+        summary = "Generate and retain an AI/fallback proposal for a planning trip",
+        description = "Owner only; requires a supported province and 1–3 days. No itinerary changes. Reuse clientRequestId for retries."
     )
     public ApiResponse<TripDraftResponse> create(
         @PathVariable UUID tripId,
@@ -47,8 +47,12 @@ public class TripDraftController {
     }
 
     @PostMapping("/{draftId}/apply")
-    @Operation(summary = "Atomically apply a stored proposal once, with ownership and revision checks")
-    public ApiResponse<ItineraryResponse> apply(@PathVariable UUID tripId, @PathVariable UUID draftId) {
-        return ApiResponse.success(service.apply(SecurityUtils.getCurrentUserId(), tripId, draftId));
+    @Operation(summary = "Atomically apply a stored proposal; replacing existing stops requires explicit confirmation")
+    public ApiResponse<ItineraryResponse> apply(
+        @PathVariable UUID tripId,
+        @PathVariable UUID draftId,
+        @RequestParam(defaultValue = "false") boolean replaceExisting
+    ) {
+        return ApiResponse.success(service.apply(SecurityUtils.getCurrentUserId(), tripId, draftId, replaceExisting));
     }
 }

@@ -117,7 +117,15 @@ public class TripDraftService {
                     var trip = owned(owner, tripId);
                     unchanged(trip, row);
                     eligible(trip);
-                    validateProposal(trip, proposal);
+                    String provinceCode = tripProvinceCode(trip);
+                    Set<UUID> proposedIds = proposal.days().stream()
+                        .flatMap(day -> day.stops().stream())
+                        .map(stop -> stop.place().placeId())
+                        .collect(Collectors.toSet());
+                    Set<UUID> allowedIds = retrieval.candidates(proposedIds, provinceCode).stream()
+                        .map(PlaceCandidate::placeId)
+                        .collect(Collectors.toSet());
+                    validateProposal(trip, proposal, provinceCode, allowedIds);
                     drafts.complete(row.id(), write(proposal));
                     return response(drafts.find(tripId, owner, row.id(), false).orElseThrow());
                 })
@@ -156,7 +164,7 @@ public class TripDraftService {
         });
     }
 
-    public ItineraryResponse apply(UUID owner, UUID tripId, UUID id) {
+    public ItineraryResponse apply(UUID owner, UUID tripId, UUID id, boolean replaceExisting) {
         return tx.execute(s -> {
             var trip = owned(owner, tripId);
             var row = find(owner, tripId, id);
@@ -165,27 +173,29 @@ public class TripDraftService {
             unchanged(trip, row);
             eligible(trip);
             if (!draft.canApply()) throw new AppException(ErrorCode.AI_VALIDATION_FAILED);
+            if (!replaceExisting && itineraries.findFirstByTripIdOrderByUpdatedAtDescIdAsc(tripId)
+                .map(itinerary -> !itinerary.getItems().isEmpty())
+                .orElse(false)) {
+                throw new AppException(ErrorCode.PLANNING_DRAFT_REPLACEMENT_REQUIRED);
+            }
             var proposal = draft.proposal();
             String provinceCode = tripProvinceCode(trip);
-            Map<UUID, PlaceCandidate> current = retrieval
-                .catalog(provinceCode)
-                .stream()
-                .collect(Collectors.toMap(PlaceCandidate::placeId, p -> p));
             var stops = proposal
                 .days()
                 .stream()
                 .flatMap(d -> d.stops().stream())
                 .toList();
+            var ids = stops.stream().map(stop -> stop.place().placeId()).collect(Collectors.toSet());
+            Map<UUID, PlaceCandidate> current = retrieval
+                .candidates(ids, provinceCode)
+                .stream()
+                .collect(Collectors.toMap(PlaceCandidate::placeId, p -> p));
             for (var stop : stops) {
                 if (!stop.place().equals(current.get(stop.place().placeId()))) throw new AppException(
                     ErrorCode.ITINERARY_CHANGED
                 );
             }
-            validateProposal(trip, proposal);
-            var ids = stops
-                .stream()
-                .map(stop -> stop.place().placeId())
-                .collect(Collectors.toSet());
+            validateProposal(trip, proposal, provinceCode, current.keySet());
             var entities = places
                 .findAllByIdIn(ids)
                 .stream()
@@ -221,6 +231,9 @@ public class TripDraftService {
             }
             itineraryService.save(owner, tripId, new SaveItineraryRequest(days));
             var itinerary = itineraries.findFirstByTripIdOrderByUpdatedAtDescIdAsc(tripId).orElseThrow();
+            Set<LocalDate> plannedDates = proposal.days().stream().map(DraftResponse.Day::date)
+                .collect(Collectors.toSet());
+            itinerary.getDaySettings().removeIf(settings -> !plannedDates.contains(settings.getDate()));
             for (var day : proposal.days()) {
                 var settings = itinerary
                     .getDaySettings()
@@ -294,12 +307,6 @@ public class TripDraftService {
             numberOfDays(trip) < 1 ||
             numberOfDays(trip) > DraftLimits.MAX_DAYS
         ) throw new AppException(ErrorCode.PLANNING_UNSUPPORTED_TRIP);
-        if (
-            itineraries
-                .findFirstByTripIdOrderByUpdatedAtDescIdAsc(trip.getId())
-                .stream()
-                .anyMatch(i -> !i.getItems().isEmpty())
-        ) throw new AppException(ErrorCode.ITINERARY_CHANGED);
     }
 
     private long numberOfDays(Trip trip) {
@@ -322,18 +329,12 @@ public class TripDraftService {
         ) throw new AppException(ErrorCode.INVALID_ITINERARY);
     }
 
-    private void validateProposal(Trip trip, DraftResponse proposal) {
-        String expectedProvince = tripProvinceCode(trip);
+    private void validateProposal(Trip trip, DraftResponse proposal, String expectedProvince, Set<UUID> allowedPlaceIds) {
         if (
             expectedProvince == null ||
             proposal.analysis() == null ||
             !Objects.equals(expectedProvince, proposal.analysis().provinceCode())
         ) throw new AppException(ErrorCode.INVALID_ITINERARY);
-        Set<UUID> allowedPlaceIds = retrieval
-            .catalog(expectedProvince)
-            .stream()
-            .map(PlaceCandidate::placeId)
-            .collect(Collectors.toSet());
         if (
             proposal.analysis() != null &&
             proposal.analysis().intent() != null &&

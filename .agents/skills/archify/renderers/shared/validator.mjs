@@ -35,13 +35,17 @@ function formatErrors(errors, data) {
   }).join('\n');
 }
 
-export function validateSchema(diagramType, data) {
+export function validateSchema(diagramType, data, { sourceReferencesOnly = false } = {}) {
   const validate = validators[diagramType];
   if (!validate) {
     throw new Error(`validateSchema: unknown diagram type "${diagramType}"`);
   }
   if (!validate(data)) {
-    const diagnostics = validate.errors.map((error) => {
+    // Headless code-analysis accepts a partial architecture IR for mapping.
+    // Reuse the same generated source schema without requiring layout fields.
+    const errors = sourceReferencesOnly ? validate.errors.filter(error => /^\/components\/\d+\/sources(?:\/|$)/.test(error.instancePath)) : validate.errors;
+    if (!errors.length) return;
+    const diagnostics = errors.map((error) => {
       const annotated = annotatedPath(error.instancePath, data);
       const subject = {
         diagramType,
@@ -55,9 +59,10 @@ export function validateSchema(diagramType, data) {
       };
       const supportedFixes = {
         additionalProperties: [`remove unsupported property ${JSON.stringify(error.params?.additionalProperty)}`],
+        'false schema': [`remove unsupported value at ${annotated.path}`],
         required: [`add required property ${JSON.stringify(error.params?.missingProperty)}`],
         type: [`use ${JSON.stringify(error.params?.type)} at ${annotated.path}`],
-        enum: [`choose one of ${JSON.stringify(error.params?.allowedValues || [])}`],
+        enum: [`choose one of the allowed values`],
         pattern: [`match the required pattern ${JSON.stringify(error.params?.pattern)}`],
         minimum: [`use a value ${error.params?.comparison || '>='} ${error.params?.limit}`],
         maximum: [`use a value ${error.params?.comparison || '<='} ${error.params?.limit}`],
@@ -66,20 +71,17 @@ export function validateSchema(diagramType, data) {
         minLength: [`provide at least ${error.params?.limit} character(s)`],
         maxLength: [`provide at most ${error.params?.limit} character(s)`],
       }[error.keyword] || [];
-      const detail = error.params && Object.keys(error.params).length
-        ? ` ${JSON.stringify(error.params)}`
-        : '';
       return {
         code: `schema/${error.keyword}`,
         severity: 'error',
-        message: `${annotatePath(error.instancePath, data)} ${error.message}${detail}`,
+        message: `${annotatePath(error.instancePath, data)} ${error.message}`,
         subject,
         evidence,
         supportedFixes,
       };
     });
     throwDiagnosticError(
-      `${diagramType} schema validation failed:\n${formatErrors(validate.errors, data)}`,
+      `${diagramType} schema validation failed:\n${formatErrors(errors, data)}`,
       diagnostics,
     );
   }

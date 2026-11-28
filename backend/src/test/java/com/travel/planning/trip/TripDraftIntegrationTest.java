@@ -362,12 +362,23 @@ class TripDraftIntegrationTest {
     }
 
     @Test
-    void existingScheduleIsNeverReplacedByInitialGeneration() throws Exception {
+    void existingScheduleIsReplacedOnlyAfterExplicitConfirmation() throws Exception {
         var draft = create(body(UUID.randomUUID()));
         send(post(path() + "/" + draft.path("id").asText() + "/apply")).andExpect(status().isOk());
-        send(post(path()).contentType(MediaType.APPLICATION_JSON).content(body(UUID.randomUUID()))).andExpect(
-            status().isConflict()
-        );
+        String itineraryPath = "/api/v1/trips/" + trip.getId() + "/itinerary";
+        var before = data(send(get(itineraryPath)).andExpect(status().isOk()));
+        var replacement = create(body(UUID.randomUUID()).replace("\"name\":\"Origin\"", "\"name\":\"New origin\""));
+        assertThat(replacement.path("canApply").asBoolean()).isTrue();
+        assertThat(data(send(get(itineraryPath)).andExpect(status().isOk()))).isEqualTo(before);
+
+        String apply = path() + "/" + replacement.path("id").asText() + "/apply";
+        send(post(apply)).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("DRAFT_006"));
+        assertThat(data(send(get(itineraryPath)).andExpect(status().isOk()))).isEqualTo(before);
+
+        var saved = data(send(post(apply).param("replaceExisting", "true")).andExpect(status().isOk()));
+        assertThat(saved.path("id")).isEqualTo(before.path("id"));
+        assertThat(saved.at("/days/0/settings/origin/name").asText()).isEqualTo("New origin");
+        assertThat(saved.at("/days/0/stops").size()).isEqualTo(replacement.at("/proposal/days/0/stops").size());
     }
 
     @Test
